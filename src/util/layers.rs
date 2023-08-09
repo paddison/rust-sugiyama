@@ -1,6 +1,9 @@
-use std::{ops::Index, collections::HashMap};
+use std::{
+    ops::Index, 
+    collections::HashMap
+};
 
-use petgraph::stable_graph::NodeIndex;
+use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
 use crate::graphs::calculate_coordinates::{VDir, HDir};
 
@@ -9,11 +12,16 @@ use crate::graphs::calculate_coordinates::{VDir, HDir};
 pub(crate) struct Layers {
     _inner: Vec<Vec<NodeIndex>>,
     positions: HashMap<NodeIndex, (usize, usize)>, // level, position
+    upper_neighbours: HashMap<NodeIndex, Vec<NodeIndex>>,
+    lower_neighbours: HashMap<NodeIndex, Vec<NodeIndex>>,
 }
 
 impl Layers {
-    pub fn new_from_layers(layers_raw: Vec<Vec<NodeIndex>>) -> Self {
+    
+    pub fn new<T>(layers_raw: Vec<Vec<NodeIndex>>, g: &StableDiGraph<Option<T>, usize>) -> Self {
         let mut positions = HashMap::new();
+        let mut upper_neighbours = HashMap::new();
+        let mut lower_neighbours = HashMap::new();
 
         for (level_index, level) in layers_raw.iter().enumerate() {
             for (pos, vertex) in level.iter().enumerate() {
@@ -21,7 +29,25 @@ impl Layers {
             }
         }
 
-        let _inner = Self { _inner: layers_raw, positions };
+        for l in &layers_raw {
+            for v in l {
+                let v_level = positions.get(v).unwrap().0;
+                let upper: Vec<_> = g.neighbors_directed(*v, petgraph::Direction::Incoming)
+                                            .filter(|n| positions.get(n).unwrap().0 == v_level - 1)
+                                            .collect();
+                let lower: Vec<_> = g.neighbors_directed(*v, petgraph::Direction::Outgoing)
+                                            .filter(|n| positions.get(n).unwrap().0 == v_level + 1)
+                                            .collect();
+                
+                upper_neighbours.insert(*v, upper);
+                lower_neighbours.insert(*v, lower);
+            }
+        }
+
+
+
+
+        let _inner = Self { _inner: layers_raw, positions, upper_neighbours, lower_neighbours };
         assert!(_inner.is_valid());
         _inner
     }
@@ -38,12 +64,32 @@ impl Layers {
         self.positions.get(&id).unwrap().0
     }
 
-    pub fn get_previous(&self, id: NodeIndex) -> Option<NodeIndex> {
+    pub fn get_adjacent(&self, id: NodeIndex, dir: HDir) -> Option<NodeIndex> {
+        match dir {
+            HDir::Left => self.get_next(id),
+            HDir::Right => self.get_previous(id),
+        }
+    }
+
+    pub(crate) fn get_upper_neighbours(&self, dest: NodeIndex) -> &[NodeIndex]  {
+        self.upper_neighbours.get(&dest).unwrap()
+    }
+
+    pub(crate) fn get_lower_neighbours(&self, source: NodeIndex) -> &[NodeIndex] {
+        self.lower_neighbours.get(&source).unwrap()
+    }
+
+    fn get_previous(&self, id: NodeIndex) -> Option<NodeIndex> {
         let pos = self.get_position(id);
         match pos {
             0 => None,
             pos => self._inner[self.get_level(id)].get(pos - 1).cloned()
         }
+    }
+
+    fn get_next(&self, id: NodeIndex) -> Option<NodeIndex> {
+        let pos = self.get_position(id);
+        self._inner[self.get_level(id)].get(pos + 1).cloned()
     }
 
     pub(crate) fn levels(&self) -> &[Vec<NodeIndex>] {
@@ -62,10 +108,10 @@ impl Layers {
         return true
     }
 
-    pub(super) fn traverse(dir: VDir, length: usize) -> impl Iterator<Item = usize> {
+    fn iterate(dir: IterDir, length: usize) -> impl Iterator<Item = usize> {
         let (mut start, step) = match dir {
-            VDir::Down => (usize::MAX, 1), // up corresponds to left to right
-            VDir::Up => (length, usize::MAX),
+            IterDir::Forward => (usize::MAX, 1), // up corresponds to left to right
+            IterDir::Backward => (length, usize::MAX),
         };
         std::iter::repeat_with(move || {
                 start = start.wrapping_add(step);
@@ -73,15 +119,12 @@ impl Layers {
             }).take(length)
     }
     
-    pub(crate) fn traverse_vertically(&self, dir: VDir) -> impl Iterator<Item = usize> {
-        Self::traverse(dir, self.height())
+    pub(crate) fn iterate_vertically(&self, dir: VDir) -> impl Iterator<Item = usize> {
+        Self::iterate(dir.into(), self.height())
     }
 
-    pub(crate) fn traverse_horizontally(&self, dir: HDir, layer: usize) -> impl Iterator<Item = usize> {
-        Self::traverse(match dir {
-            HDir::Left => VDir::Up,
-            HDir::Right => VDir::Down,
-        }, self._inner[layer].len())
+    pub(crate) fn iterate_horizontally(&self, dir: HDir, level: usize) -> impl Iterator<Item = usize> {
+        Self::iterate(dir.into(), self._inner[level].len())
     }
 }
 
@@ -93,9 +136,34 @@ impl Index<usize> for Layers {
     }
 }
 
+enum IterDir {
+    Forward,
+    Backward,
+}
+
+impl From<VDir> for IterDir {
+    fn from(val: VDir) -> Self {
+        match val {
+            VDir::Up => Self::Backward,
+            VDir::Down => Self::Forward,
+        }
+    }
+}
+
+impl From<HDir> for IterDir {
+    fn from(val: HDir) -> Self {
+        match val {
+            HDir::Left => Self::Backward,
+            HDir::Right => Self::Forward,
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use crate::graphs::calculate_coordinates::{VDir, HDir};
+    use petgraph::stable_graph::StableDiGraph;
+
+    use crate::{graphs::calculate_coordinates::{VDir, HDir}, util::layers::IterDir};
 
     use super::Layers;
 
@@ -105,12 +173,13 @@ mod test {
             vec![2.into(), 3.into()],
             vec![3.into(), 4.into(), 5.into()],
         ];
-        Layers::new_from_layers(layers)
+        let g = StableDiGraph::new();
+        Layers::new::<usize>(layers, &g)
     }
 
     #[test]
-    fn test_traverse_down() {
-        let mut l = Layers::traverse(VDir::Down, 4);
+    fn test_traverse_forward() {
+        let mut l = Layers::iterate(IterDir::Forward, 4);
 
         assert_eq!(l.next(), Some(0));
         assert_eq!(l.next(), Some(1));
@@ -120,8 +189,8 @@ mod test {
     }
 
     #[test]
-    fn test_traverse_up() {
-        let mut l = Layers::traverse(VDir::Up, 4);
+    fn test_traverse_backward() {
+        let mut l = Layers::iterate(IterDir::Backward, 4);
 
         assert_eq!(l.next(), Some(3));
         assert_eq!(l.next(), Some(2));
@@ -133,7 +202,7 @@ mod test {
     #[test]
     fn test_traverse_vertically_down() {
         let layers = create_test_layers();
-        let mut iter = layers.traverse_vertically(VDir::Down);
+        let mut iter = layers.iterate_vertically(VDir::Down);
 
         assert_eq!(iter.next(), Some(0));
         assert_eq!(iter.next(), Some(1));
@@ -144,7 +213,7 @@ mod test {
     #[test]
     fn test_traverse_vertically_up() {
         let layers = create_test_layers();
-        let mut iter = layers.traverse_vertically(VDir::Up);
+        let mut iter = layers.iterate_vertically(VDir::Up);
 
         assert_eq!(iter.next(), Some(2));
         assert_eq!(iter.next(), Some(1));
@@ -155,7 +224,7 @@ mod test {
     #[test]
     fn test_traverse_horizontally_right() {
         let layers = create_test_layers();
-        let mut iter = layers.traverse_horizontally(HDir::Right, 2);
+        let mut iter = layers.iterate_horizontally(HDir::Right, 2);
 
         assert_eq!(iter.next(), Some(0));
         assert_eq!(iter.next(), Some(1));
@@ -166,7 +235,7 @@ mod test {
     #[test]
     fn test_traverse_horizontally_left() {
         let layers = create_test_layers();
-        let mut iter = layers.traverse_horizontally(HDir::Left, 1);
+        let mut iter = layers.iterate_horizontally(HDir::Left, 1);
 
         assert_eq!(iter.next(), Some(1));
         assert_eq!(iter.next(), Some(0));

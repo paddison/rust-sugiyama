@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 petgraph = "0.6.3"
+graph_generator = { git = "https://github.com/paddison/graph_generator.git" }

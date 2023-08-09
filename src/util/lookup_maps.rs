@@ -1,7 +1,10 @@
-use std::{collections::HashMap, ops::{Index, IndexMut}, marker::PhantomData};
+use std::{
+    collections::{HashMap, hash_map::Iter}, 
+    ops::{Index, IndexMut}
+};
 
-use petgraph::graph::{NodeIndex};
-use petgraph::stable_graph::NodeIndices;
+use petgraph::graph::NodeIndex;
+
 
 /// Wrapper around a hashmap that provides unsafe access to nodes
 /// Also supports access via index
@@ -59,5 +62,15 @@ impl<V> Index<&NodeIndex> for NodeLookupMap<V> {
 impl<V> IndexMut<&NodeIndex> for NodeLookupMap<V> {
     fn index_mut(&mut self, index: &NodeIndex) -> &mut Self::Output {
         self._inner.get_mut(index).unwrap()
+    }
+}
+
+impl<'a, V> IntoIterator for &'a NodeLookupMap<V> {
+    type Item = (&'a NodeIndex, &'a V);
+
+    type IntoIter = Iter<'a, NodeIndex, V>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self._inner.iter() 
     }
 }
