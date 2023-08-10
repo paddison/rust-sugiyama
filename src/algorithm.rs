@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use petgraph::stable_graph::NodeIndex;
 
-use crate::graphs::calculate_coordinates::{MinimalCrossings, VDir, HDir};
+use crate::graphs::p3_calculate_coordinates::{MinimalCrossings, VDir, HDir};
 
 /// Calculates the final x-coordinates for each vertex, after the graph was layered and crossings where minimized.
 pub fn calculate_coordinates<T: Default + Clone>(graph: MinimalCrossings<T>, vertex_spacing: usize) -> Vec<(NodeIndex, isize)>{
@@ -80,7 +80,7 @@ pub fn calculate_coordinates<T: Default + Clone>(graph: MinimalCrossings<T>, ver
 mod test {
     use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-    use crate::{graphs::calculate_coordinates::MinimalCrossings, util::layers::Layers, algorithm::calculate_coordinates};
+    use crate::{graphs::p3_calculate_coordinates::MinimalCrossings, util::layers::Layers, algorithm::calculate_coordinates};
 
     pub fn g_levels(levels: usize) -> MinimalCrossings<usize>{
         let mut edges = Vec::new();
@@ -158,11 +158,11 @@ mod test {
 
     #[test]
     fn benchmark() {
-        let STACK_SIZE = 128 * 1024 * 1024;
+        let stack_size = 128 * 1024 * 1024;
         let child = std::thread::Builder::new()
-            .stack_size(STACK_SIZE)
+            .stack_size(stack_size)
             .spawn(|| {
-                let g = g_levels(14);
+                let g = g_levels(17);
                 let start = std::time::Instant::now();
                 let _ = calculate_coordinates(g, 10);
                 println!("{}ms", start.elapsed().as_millis());
@@ -170,5 +170,35 @@ mod test {
 
         // Wait for thread to join
         child.join().unwrap();
+    }
+
+    #[test]
+    fn cmp_with_temanejo() {
+        let mut g = StableDiGraph::from_edges(&[
+            (0, 1), 
+            (1, 2), 
+            (2, 3), (2, 4), 
+            (3, 5), (3, 6), (3, 7), (3, 8), (4, 5), (4, 6), (4, 7), (4, 8),
+            (5, 9), (6, 9), (7, 9), (8, 9)]);
+        
+        for n in 0..10 {
+            let w: &mut Option<usize> = g.node_weight_mut(n.into()).unwrap();
+            w.replace(1_usize);
+        }
+        
+        let layers_raw = vec![
+            vec![0.into()],
+            vec![1.into()],
+            vec![2.into()],
+            vec![3.into(), 4.into()],
+            vec![5.into(), 6.into(), 7.into(), 8.into()],
+            vec![9.into()],
+        ];
+        let layers = Layers::new(layers_raw, &g);
+
+        let mc = MinimalCrossings::<usize>::new(layers, g);
+        let mut coords = calculate_coordinates(mc, 20);
+        coords.sort_by(|a, b| a.0.cmp(&b.0));
+        println!("{coords:?}");
     }
 }

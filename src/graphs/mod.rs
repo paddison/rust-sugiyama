@@ -1,3 +1,3 @@
-pub(crate) mod layered_graph;
-pub(crate) mod proper_layered_graph;
-pub(crate) mod calculate_coordinates;
+pub(crate) mod p1_create_layers;
+pub(crate) mod p2_reduce_crossings;
+pub(crate) mod p3_calculate_coordinates;

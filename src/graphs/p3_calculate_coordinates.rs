@@ -300,7 +300,7 @@ pub(crate) mod tests {
 
     use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-    use crate::{util::{layers::Layers, traits::LayerGraph}, graphs::calculate_coordinates::{HDir, VDir}};
+    use crate::{util::{layers::Layers, traits::LayerGraph}, graphs::p3_calculate_coordinates::{HDir, VDir}};
 
     use super::MinimalCrossings;
 

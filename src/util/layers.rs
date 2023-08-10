@@ -5,7 +5,7 @@ use std::{
 
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-use crate::graphs::calculate_coordinates::{VDir, HDir};
+use crate::graphs::p3_calculate_coordinates::{VDir, HDir};
 
 #[derive(Clone)]
 /// Has to guarantee that each identifier in levels has an entry in position
@@ -32,12 +32,19 @@ impl Layers {
         for l in &layers_raw {
             for v in l {
                 let v_level = positions.get(v).unwrap().0;
-                let upper: Vec<_> = g.neighbors_directed(*v, petgraph::Direction::Incoming)
+                let mut upper: Vec<_> = g.neighbors_directed(*v, petgraph::Direction::Incoming)
                                             .filter(|n| positions.get(n).unwrap().0 == v_level - 1)
                                             .collect();
-                let lower: Vec<_> = g.neighbors_directed(*v, petgraph::Direction::Outgoing)
+                let mut lower: Vec<_> = g.neighbors_directed(*v, petgraph::Direction::Outgoing)
                                             .filter(|n| positions.get(n).unwrap().0 == v_level + 1)
                                             .collect();
+                
+                // IMPORTANT: This might increase the time complexity of the algorithm
+                // it needs to be tested with large number of vertices coming or going from one vertex.
+                println!("{upper:?}");
+                println!("{lower:?}");
+                upper.sort();
+                lower.sort();
                 
                 upper_neighbours.insert(*v, upper);
                 lower_neighbours.insert(*v, lower);
@@ -163,7 +170,7 @@ impl From<HDir> for IterDir {
 mod test {
     use petgraph::stable_graph::StableDiGraph;
 
-    use crate::{graphs::calculate_coordinates::{VDir, HDir}, util::layers::IterDir};
+    use crate::{graphs::p3_calculate_coordinates::{VDir, HDir}, util::layers::IterDir};
 
     use super::Layers;
 
