@@ -1,104 +1,113 @@
 use std::collections::HashMap;
 
-use petgraph::stable_graph::{NodeIndex, StableDiGraph};
+use petgraph::stable_graph::NodeIndex;
 
-use crate::{graphs::calculate_coordinates::{MinimalCrossings, VDir, HDir}, util::layers::Layers};
+use crate::graphs::calculate_coordinates::{MinimalCrossings, VDir, HDir};
 
-pub fn g_levels(levels: usize) -> MinimalCrossings<usize>{
-    let mut layers = Vec::new();
-    let mut id = 0;
-    for l in 0..levels {
-        let mut level = Vec::new();
-        for _ in 0..2_usize.pow(l as u32) {
-            level.push(NodeIndex::from(id as u32));
-            id += 1;
-        }
-        layers.push(level);
-    } 
-
-    let mut edges = Vec::new();
-    for level in &layers[0..layers.len() - 1] {
-        for n in level {
-            edges.push((n.index() as u32, n.index() as u32 * 2 + 1));
-            edges.push((n.index() as u32, n.index() as u32 * 2 + 2));
-        }
-    }
-
-    let g = StableDiGraph::from_edges(&edges);
-    let layers = Layers::new(layers, &g);
-    MinimalCrossings::new(layers, g)
-}
-
-pub fn calculate_coordinates<T: Default + Clone>(graph: MinimalCrossings<T>) {
-    let start = std::time::Instant::now();
+/// Calculates the final x-coordinates for each vertex, after the graph was layered and crossings where minimized.
+pub fn calculate_coordinates<T: Default + Clone>(graph: MinimalCrossings<T>, vertex_spacing: usize) -> Vec<(NodeIndex, isize)>{
+    let mut layouts = Vec::new();
     let marked = graph.mark_type_1_conflicts();
-    println!("mark: {}", start.elapsed().as_millis());
-    let mut all_coords = Vec::new();
+    
+    // calculate the coordinates for each direction
     for vertical_direction in &[VDir::Up, VDir::Down] {
         for horizontal_direction in &[HDir::Left, HDir::Right] {
-            let clone = marked.clone();
-            let start = std::time::Instant::now();
-            println!("clone: {}", start.elapsed().as_millis());
-            let start = std::time::Instant::now();
-            let coords = clone
-                            .create_vertical_alignments(*vertical_direction, *horizontal_direction)
-                            .do_horizontal_compaction(*vertical_direction, *horizontal_direction);
-            println!("algo: {}", start.elapsed().as_millis());
-            all_coords.push(coords);
+            let layout = marked.clone()
+                               .create_vertical_alignments(*vertical_direction, *horizontal_direction)
+                               .do_horizontal_compaction(*vertical_direction, *horizontal_direction, vertex_spacing);
+            layouts.push(layout);
         }
     }
+
     // min max width
-    let min_max: Vec<(isize, isize, isize)> = all_coords.iter()
+    // determine minimum and maximum coordinate of each layout, plus the width
+    let min_max: Vec<(isize, isize, isize)> = layouts.iter()
                                                  .map(|c| {
                                                     let min = *c.values().min().unwrap();
                                                     let max = *c.values().max().unwrap();
                                                     (min, max, max - min)
                                                  }).collect();
 
+    // determine the layout with the minimum width
     let min_width = min_max.iter().enumerate().min_by(|a, b| a.1.2.cmp(&b.1.2)).unwrap().0;
 
-    for (i, coords) in all_coords.iter_mut().enumerate() {
-        let shift = if i % 2 == 0 { min_max[i].0 as isize - min_max[min_width].0 as isize} else { min_max[min_width].1  as isize - min_max[i].1 as isize };
-        for v in coords.values_mut() {
+    // align all other layouts to the lowest/highest coordinate of the layout with the minimum width, 
+    // depending on the horizontal direction which was chosen to create them
+    for (i, layout) in layouts.iter_mut().enumerate() {
+        // if i % 2 == 0, then horizontal direction was right
+        let shift = if i % 2 == 0 { 
+            min_max[i].0 as isize - min_max[min_width].0 as isize
+        } else { 
+            min_max[min_width].1  as isize - min_max[i].1 as isize 
+        };
+        for v in layout.values_mut() {
             let new = *v as isize + shift;
             *v = new as isize;
         }
     }
 
-    let mut c = HashMap::new();
-    for k in all_coords.get(0).unwrap().keys() {
-        c.insert(k, [
-            *all_coords.get(0).unwrap().get(k).unwrap(),
-            *all_coords.get(1).unwrap().get(k).unwrap(),
-            *all_coords.get(2).unwrap().get(k).unwrap(),
-            *all_coords.get(3).unwrap().get(k).unwrap(),
-        ]);
+    // sort all 4 coordinates per vertex in ascending order
+    let mut sorted_layouts = HashMap::new();
+    for k in layouts.get(0).unwrap().keys() {
+        let mut vertex_coordinates = [
+            *layouts.get(0).unwrap().get(k).unwrap(),
+            *layouts.get(1).unwrap().get(k).unwrap(),
+            *layouts.get(2).unwrap().get(k).unwrap(),
+            *layouts.get(3).unwrap().get(k).unwrap(),
+        ];
+        vertex_coordinates.sort();
+        sorted_layouts.insert(k, vertex_coordinates);
     }
 
-    for v in c.values_mut() {
-        v.sort();
-    }
+    // create final layout, by averaging the two median values
+    let mut final_layout = sorted_layouts.into_iter()
+                                         .map(|(k, v)| (*k, (v[1] + v[2]) / 2))
+                                         .collect::<Vec<_>>();
+    // determine the smallest x-coordinate
+    let min = final_layout.iter().min_by(|a, b| a.1.cmp(&b.1)).unwrap().1;
 
-    let mut final_coords = c.into_iter().map(|(k, v)| (k, (v[1] + v[2]) / 2)).collect::<Vec<_>>();
-    let min = final_coords.iter().min_by(|a, b| a.1.cmp(&b.1)).unwrap().1;
-    for (_, c) in &mut final_coords {
+    // shift all coordinates so the minimum coordinate is 0
+    for (_, c) in &mut final_layout {
         *c -= min;
     }
-    let end = start.elapsed();
-    println!("total: {}", end.as_millis());
-    final_coords.sort_by(|(l, _), (r, _)| l.cmp(r));
 
-    
-    // println!("{:?}", final_coords);
-    // dbg!(final_coords);
+    final_layout
 }
+
+// creates a graph for testing purposes
 
 #[cfg(test)]
 mod test {
     use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-    use crate::{graphs::calculate_coordinates::MinimalCrossings, util::layers::Layers};
+    use crate::{graphs::calculate_coordinates::MinimalCrossings, util::layers::Layers, algorithm::calculate_coordinates};
 
+    pub fn g_levels(levels: usize) -> MinimalCrossings<usize>{
+        let mut edges = Vec::new();
+        let mut layers = Vec::new();
+        let mut id = 0;
+        for l in 0..levels {
+
+            let mut level = Vec::new();
+            for _ in 0..2_usize.pow(l as u32) {
+                level.push(NodeIndex::from(id as u32));
+                id += 1;
+            }
+            layers.push(level);
+        } 
+
+        for level in &layers[0..layers.len() - 1] {
+            for n in level {
+                edges.push((n.index() as u32, n.index() as u32 * 2 + 1));
+                edges.push((n.index() as u32, n.index() as u32 * 2 + 2));
+            }
+        }
+
+        let g = StableDiGraph::from_edges(&edges);
+        let layers = Layers::new(layers, &g);
+
+        MinimalCrossings::new(layers, g)
+    }
     
     fn _test() -> MinimalCrossings<usize> {
         let edges: [(usize, usize); 29] = [(0, 2), (0, 6), (1, 16), (1, 17), 
@@ -147,4 +156,19 @@ mod test {
         MinimalCrossings::new(layers, g)
     }
 
+    #[test]
+    fn benchmark() {
+        let STACK_SIZE = 128 * 1024 * 1024;
+        let child = std::thread::Builder::new()
+            .stack_size(STACK_SIZE)
+            .spawn(|| {
+                let g = g_levels(14);
+                let start = std::time::Instant::now();
+                let _ = calculate_coordinates(g, 10);
+                println!("{}ms", start.elapsed().as_millis());
+            }).unwrap();
+
+        // Wait for thread to join
+        child.join().unwrap();
+    }
 }

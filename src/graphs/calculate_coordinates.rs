@@ -1,3 +1,4 @@
+// TODO: maybe just rotate the whole graph?
 use std::collections::{HashMap, HashSet};
 
 use petgraph::stable_graph::{StableDiGraph, NodeIndex};
@@ -9,217 +10,11 @@ use crate::util::{
     traits::LayerGraph
 };
 
-// TODO: maybe just rotate the whole graph?
-pub(crate) struct Blocks<T: Default> {
-    layers: Layers,
-    graph: StableDiGraph<Option<T>, usize>,
-    root: NodeLookupMap<NodeIndex>,
-    align: NodeLookupMap<NodeIndex>,
-}
-
-impl_layer_graph!(Blocks<T>);
-
-impl<T: Default> Blocks<T> {
-    pub(crate) fn do_horizontal_compaction(&self, v_dir: VDir, h_dir: HDir) -> HashMap<NodeIndex, isize> {
-        let mut x_coordinates = HashMap::new();
-        let indices = self.graph.node_indices().collect::<Vec<_>>();
-        let mut sink = NodeLookupMap::new_with_indices(&indices);
-        let mut shift = NodeLookupMap::new_with_value(&indices, if h_dir == HDir::Right { isize::MAX } else { isize::MIN });
-
-        for id in self.graph.node_indices() {
-            if self.root[id] == id {
-                self.place_block(id, &mut x_coordinates, &mut sink, &mut shift, h_dir);
-            }
-        }
-
-        for i in self.layers.iterate_vertically(v_dir) {
-            let v_idx = match h_dir {
-                HDir::Left => self.layers[i].len() - 1,
-                HDir::Right => 0,
-            };
-            let mut v = self.layers[i][v_idx];
-            if sink[v] == v {
-                match h_dir {
-                    HDir::Left => if shift[sink[v]] == isize::MIN { shift[sink[v]] = 0 },
-                    HDir::Right => if shift[sink[v]] == isize::MAX { shift[sink[v]] = 0 },
-                }
-                if shift[sink[v]] == isize::MAX { shift[sink[v]] = 0 }
-                let mut j = i;
-                let mut k = v_idx;
-                loop {
-                    v = self.layers[j][k];
-                    while self.align[v] != self.root[v] {
-                        v = self.align[v];
-                        match v_dir {
-                            VDir::Up => j -= 1,
-                            VDir::Down => j += 1,
-                        }
-                        if let Some(u) = self.layers.get_adjacent(v, h_dir) {
-                            shift[sink[u]] = match h_dir {
-                                HDir::Left => std::cmp::max(
-                                    shift[sink[u]], 
-                                    shift[sink[v]] + -(*x_coordinates.get(&v).unwrap() - (*x_coordinates.get(&u).unwrap() + 20))
-                                ),
-                                HDir::Right => std::cmp::min(
-                                    shift[sink[u]], 
-                                    shift[sink[v]] + *x_coordinates.get(&v).unwrap() - (*x_coordinates.get(&u).unwrap() + 20)
-                                ),
-                            };
-                        }
-                    }
-                    let limit = match h_dir {
-                        HDir::Left => {
-                            k = self.get_position(v).wrapping_sub(1);
-                            usize::MAX
-                        },
-                        HDir::Right => {
-                            k = self.get_position(v) + 1;
-                            self.layers[j].len()
-                        },
-                    };
-                    if k == limit || sink[v] != sink[self.layers[j][k]] {
-                        break;
-                    }
-                }
-            }   
-        }
-
-        for v in self.graph.node_indices() {
-            match h_dir {
-                HDir::Left => x_coordinates.insert(v, *x_coordinates.get(&v).unwrap() - shift[sink[v]]),
-                HDir::Right => x_coordinates.insert(v, *x_coordinates.get(&v).unwrap() + shift[sink[v]]),
-            };
-            // x_coordinates.insert(v, *x_coordinates.get(&v).unwrap() + shift[sink[v]]);
-        }
-
-        x_coordinates
-    }
-
-    // TODO: when going from right to left, x_coordinates need to be multiplied by -1
-    // since the resulting blockgraph is mirrored
-    fn place_block(
-        &self,
-        root: NodeIndex, 
-        x_coordinates: &mut HashMap<NodeIndex, isize>, 
-        sink: &mut NodeLookupMap<NodeIndex>, 
-        shift: &mut NodeLookupMap<isize>, 
-        h_dir: HDir,
-    ) {
-        if x_coordinates.get(&root).is_some() {
-            return;
-        }
-        x_coordinates.insert(root, 0);
-        let mut w = root;
-        loop {
-            if let Some(neighbour) = self.layers.get_adjacent(w, h_dir) {
-                let u = self.root[neighbour];
-                self.place_block(u, x_coordinates, sink, shift, h_dir);
-                if sink[root] == root { 
-                    sink[root] = sink[u]; 
-                }
-                if sink[root] == sink[u] {
-                    match h_dir {
-                        HDir::Left => x_coordinates.insert(root, std::cmp::min(*x_coordinates.get(&root).unwrap(), *x_coordinates.get(&u).unwrap() - 20)),
-                        HDir::Right => x_coordinates.insert(root, std::cmp::max(*x_coordinates.get(&root).unwrap(), *x_coordinates.get(&u).unwrap() + 20)),
-                    };
-                    // x_coordinates.insert(root, std::cmp::max(*x_coordinates.get(&root).unwrap(), *x_coordinates.get(&u).unwrap() + 20));
-                }
-            }
-            w = self.align[w];
-            if w == root {
-                break
-            }
-        }
-        while self.align[w] != root {
-            w = self.align[w];
-            x_coordinates.insert(w, *x_coordinates.get(&root).unwrap());
-            sink[w] = sink[root]
-        }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub(crate) enum HDir {
-    Left,
-    Right,
-}
-
-#[derive(Clone, Copy, PartialEq)]
-pub(crate) enum VDir {
-    Up,
-    Down,
-}
-
-#[derive(Clone)]
-pub(crate) struct MarkedInnerSegments<T: Default> {
-    layers: Layers,
-    graph: StableDiGraph<Option<T>, usize>,
-    marked_segments: HashSet<(NodeIndex, NodeIndex)>,
-}
-
-impl_layer_graph!(MarkedInnerSegments<T>);
-
-impl<T: Default> MarkedInnerSegments<T> {
-    pub(crate) fn create_vertical_alignments(self, vertical_direction: VDir, horizontal_direction: HDir) -> Blocks<T> {
-        let indices = self.graph.node_indices().collect::<Vec<_>>();
-        let mut root = NodeLookupMap::new_with_indices(&indices);
-        let mut align = NodeLookupMap::new_with_indices(&indices);
-
-        for i in self.layers.iterate_vertically(vertical_direction) {
-            let mut r = None;
-
-            for k in self.layers.iterate_horizontally(horizontal_direction, i) {
-                let v = self.layers[i][k];
-                let neighbours = match vertical_direction {
-                    VDir::Down => self.get_upper_neighbours(v),
-                    VDir::Up => self.get_lower_neighbours(v),
-                };
-                if neighbours.len() == 0 {
-                    continue;
-                }
-                let neighbours: Vec<&NodeIndex> = match horizontal_direction {
-                    HDir::Left => neighbours.iter().rev().collect(),
-                    HDir::Right => neighbours.iter().collect(),
-                };
-                let d = (neighbours.len() as f64 + 1.) / 2. - 1.; // need to subtract one because indices are zero based
-                let lower_upper_median = d.floor() as usize..(d.ceil() as usize) + 1; 
-
-                for m in lower_upper_median  {
-                    if align[v] == v {
-                        let median_neighbour = neighbours[m];
-                        if !self.is_marked(&(*median_neighbour, v)) && self.has_no_type_0_conflict(self.get_position(*median_neighbour), r, horizontal_direction) {
-                            align[median_neighbour] = v;
-                            root[v] = root[median_neighbour];
-                            align[v] = root[v];
-                            r = Some(self.get_position(*median_neighbour));
-                        }
-                    }
-                }
-            }
-        }
-
-        Blocks{ layers: self.layers, graph: self.graph, root, align }
-    }
-
-    #[inline(always)]
-    fn is_marked(&self, edge: &(NodeIndex, NodeIndex)) -> bool {
-        self.marked_segments.contains(edge)
-    }
-
-    #[inline(always)]
-    fn has_no_type_0_conflict(&self, neighbour_pos: usize, r: Option<usize>, direction: HDir) -> bool {
-        match r {
-            None => true,
-            Some(r) => {
-                match direction {
-                    HDir::Left => r > neighbour_pos,
-                    HDir::Right => r < neighbour_pos,
-                }
-            }
-        }
-    }
-}
-
+/// Reprents a Layered Graph, in which the number of crossings of edges between
+/// Vertices has been minimized. This implies that the order of vertices will not change
+/// in the following steps of the algorithm.
+/// 
+/// It's then used to mark all type 1 conflicts (a crossing between an inner segment and a non-inner segment)
 pub struct MinimalCrossings<T: Default> {
     layers: Layers,
     graph: StableDiGraph<Option<T>, usize>
@@ -250,8 +45,8 @@ impl<T: Default> MinimalCrossings<T> {
         }
     }
 
-    pub(crate) fn mark_type_1_conflicts(self) -> MarkedInnerSegments<T>{
-        let mut marked_segments = HashSet::new();
+    pub(crate) fn mark_type_1_conflicts(self) -> MarkedTypeOneConflicts<T>{
+        let mut type_1_conflicts = HashSet::new();
 
         for (level, next_level) in self.layers
                                        .levels()[..self.layers.height() - 1]
@@ -270,7 +65,7 @@ impl<T: Default> MinimalCrossings<T> {
                     for upper_neighbor in self.get_upper_neighbours(vertex) {
                         let vertex_index = self.layers.get_position(*upper_neighbor);
                         if vertex_index < left_dummy_index || vertex_index > right_dummy_index {
-                            marked_segments.insert((*upper_neighbor, vertex));
+                            type_1_conflicts.insert((*upper_neighbor, vertex));
                         }
                     }
                     l = l + 1;
@@ -279,8 +74,224 @@ impl<T: Default> MinimalCrossings<T> {
             }
         }
 
-        MarkedInnerSegments { layers: self.layers, graph: self.graph, marked_segments }
+        MarkedTypeOneConflicts { layers: self.layers, graph: self.graph, type_1_conflicts }
     }
+}
+
+/// Represents a Layered Graph, in which all type-1 conflicts have been marked.
+/// 
+/// It is used to align the graph in so called blocks, which are used in the next step 
+/// to determine the x-coordinate of a vertex.
+#[derive(Clone)]
+pub(crate) struct MarkedTypeOneConflicts<T: Default> {
+    layers: Layers,
+    graph: StableDiGraph<Option<T>, usize>,
+    type_1_conflicts: HashSet<(NodeIndex, NodeIndex)>,
+}
+
+impl_layer_graph!(MarkedTypeOneConflicts<T>);
+
+impl<T: Default> MarkedTypeOneConflicts<T> {
+    pub(crate) fn create_vertical_alignments(self, vertical_direction: VDir, horizontal_direction: HDir) -> Blocks<T> {
+        let indices = self.graph.node_indices().collect::<Vec<_>>();
+        let mut root = NodeLookupMap::new_with_indices(&indices);
+        let mut align = NodeLookupMap::new_with_indices(&indices);
+
+        for i in self.layers.iterate_vertically(vertical_direction) {
+            let mut r = None;
+
+            for k in self.layers.iterate_horizontally(horizontal_direction, i) {
+                let v = self.layers[i][k];
+                let neighbours = match vertical_direction {
+                    VDir::Down => self.get_upper_neighbours(v),
+                    VDir::Up => self.get_lower_neighbours(v),
+                };
+                if neighbours.len() == 0 {
+                    continue;
+                }
+
+                let d = (neighbours.len() as f64 + 1.) / 2. - 1.; // need to subtract one because indices are zero based
+                let lower_upper_median = match horizontal_direction {
+                    HDir::Left => [d.ceil() as usize, d.floor() as usize],
+                    HDir::Right => [d.floor() as usize, d.ceil() as usize],
+                };
+
+                for m in lower_upper_median  {
+                    if align[v] == v {
+                        let median_neighbour = neighbours[m];
+                        if !self.is_marked(&(median_neighbour, v)) && self.has_no_type_0_conflict(self.get_position(median_neighbour), r, horizontal_direction) {
+                            align[median_neighbour] = v;
+                            root[v] = root[median_neighbour];
+                            align[v] = root[v];
+                            r = Some(self.get_position(median_neighbour));
+                        }
+                    }
+                }
+            }
+        }
+
+        Blocks{ layers: self.layers, graph: self.graph, root, align }
+    }
+
+    #[inline(always)]
+    fn is_marked(&self, edge: &(NodeIndex, NodeIndex)) -> bool {
+        self.type_1_conflicts.contains(edge)
+    }
+
+    #[inline(always)]
+    fn has_no_type_0_conflict(&self, neighbour_pos: usize, r: Option<usize>, direction: HDir) -> bool {
+        match r {
+            None => true,
+            Some(r) => {
+                match direction {
+                    HDir::Left => r > neighbour_pos,
+                    HDir::Right => r < neighbour_pos,
+                }
+            }
+        }
+    }
+}
+
+/// Represents a layered graph whose vertices have been aligned in blocks.
+/// A root is the highest node in a block, depending on the direction.
+/// 
+/// It is used to determine classes of a block, calculate the x-coordinates of a block
+/// in regard to its class and shift classes together as close as possible.
+pub(crate) struct Blocks<T: Default> {
+    layers: Layers,
+    graph: StableDiGraph<Option<T>, usize>,
+    root: NodeLookupMap<NodeIndex>,
+    align: NodeLookupMap<NodeIndex>,
+}
+
+impl_layer_graph!(Blocks<T>);
+
+impl<T: Default> Blocks<T> {
+    pub(crate) fn do_horizontal_compaction(&self, v_dir: VDir, h_dir: HDir, vertex_spacing: usize) -> HashMap<NodeIndex, isize> {
+        let mut x_coordinates = HashMap::new();
+        let indices = self.graph.node_indices().collect::<Vec<_>>();
+        let mut sink = NodeLookupMap::new_with_indices(&indices);
+        let initial_shift = match h_dir {
+            HDir::Left => isize::MIN,
+            HDir::Right => isize::MAX,
+        };
+        let mut shift = NodeLookupMap::new_with_value(&indices, initial_shift);
+
+        // place blocks
+        for id in self.graph.node_indices() {
+            if self.root[id] == id {
+                self.place_block(id, &mut x_coordinates, &mut sink, &mut shift, h_dir, vertex_spacing as isize);
+            }
+        }
+
+        // calculate class shifts 
+        for i in self.layers.iterate_vertically(v_dir) {
+            let v_idx = match h_dir {
+                HDir::Left => self.layers[i].len() - 1,
+                HDir::Right => 0,
+            };
+            let mut v = self.layers[i][v_idx];
+            if sink[v] == v {
+                if shift[sink[v]] == initial_shift { 
+                    shift[sink[v]] = 0 
+                }
+                let mut j = i; // level index
+                let mut k = v_idx; // vertex in level index
+                loop {
+                    v = self.layers[j][k];
+
+                    // traverse one block
+                    while self.align[v] != self.root[v] {
+                        v = self.align[v];
+                        j = if v_dir == VDir::Up { j - 1 } else { j + 1 };
+
+                        if let Some(u) = self.layers.get_adjacent(v, h_dir) {
+                            let distance_v_u = *x_coordinates.get(&v).unwrap() - (*x_coordinates.get(&u).unwrap() + vertex_spacing as isize);
+                            shift[sink[u]] = match h_dir {
+                                HDir::Left => shift[sink[u]].max(shift[sink[v]] - distance_v_u),
+                                HDir::Right => shift[sink[u]].min(shift[sink[v]] + distance_v_u),
+                            };
+                        }
+                    }
+                    let limit;
+                    (k, limit) = match h_dir {
+                        HDir::Left => (self.get_position(v).wrapping_sub(1), usize::MAX) ,
+                        HDir::Right => (self.get_position(v) + 1, self.layers[j].len()) ,
+                    };
+
+                    if k == limit || sink[v] != sink[self.layers[j][k]] {
+                        break;
+                    }
+                }
+            }   
+        }
+
+        // calculate absolute x-coordinates
+        for v in self.graph.node_indices() {
+            match h_dir {
+                HDir::Left => x_coordinates.insert(v, *x_coordinates.get(&v).unwrap() - shift[sink[v]]),
+                HDir::Right => x_coordinates.insert(v, *x_coordinates.get(&v).unwrap() + shift[sink[v]]),
+            };
+        }
+
+        x_coordinates
+    }
+
+    fn place_block(
+        &self,
+        root: NodeIndex, 
+        x_coordinates: &mut HashMap<NodeIndex, isize>, 
+        sink: &mut NodeLookupMap<NodeIndex>, 
+        shift: &mut NodeLookupMap<isize>, 
+        h_dir: HDir,
+        vertex_spacing: isize
+    ) {
+        if x_coordinates.get(&root).is_some() {
+            return;
+        }
+        x_coordinates.insert(root, 0);
+        let mut w = root;
+        loop {
+            if let Some(neighbour) = self.layers.get_adjacent(w, h_dir) {
+                let u = self.root[neighbour];
+                self.place_block(u, x_coordinates, sink, shift, h_dir, vertex_spacing);
+                // initialize sink of current node to have the same sink as the root
+                if sink[root] == root { 
+                    sink[root] = sink[u]; 
+                }
+                if sink[root] == sink[u] {
+                    match h_dir {
+                        HDir::Left => x_coordinates.insert(root, *x_coordinates.get(&root).unwrap().min(&(*x_coordinates.get(&u).unwrap() - vertex_spacing))),
+                        HDir::Right => x_coordinates.insert(root, *x_coordinates.get(&root).unwrap().max(&(x_coordinates.get(&u).unwrap() + vertex_spacing))),
+                    };
+                }
+            }
+            w = self.align[w];
+            if w == root {
+                break
+            }
+        }
+        // align all other vertices in this block to the x-coordinate of the root
+        while self.align[w] != root {
+            w = self.align[w];
+            x_coordinates.insert(w, *x_coordinates.get(&root).unwrap());
+            sink[w] = sink[root]
+        }
+    }
+}
+
+/// Represents the horizontal direction in which the algorithm is run
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum HDir {
+    Left,
+    Right,
+}
+
+/// Represents the vertical direction in which the algorithm is run
+#[derive(Clone, Copy, PartialEq)]
+pub(crate) enum VDir {
+    Up,
+    Down,
 }
 
 #[cfg(test)]
@@ -365,8 +376,8 @@ pub(crate) mod tests {
     fn test_mark_type_1_conflicts() {
         let g = create_test_layout();
         let marked_segments = g.mark_type_1_conflicts();
-        println!("{:?}", marked_segments.marked_segments);
-        assert_eq!(marked_segments.marked_segments.len(), 4);
+        println!("{:?}", marked_segments.type_1_conflicts);
+        assert_eq!(marked_segments.type_1_conflicts.len(), 4);
     }
 
     #[test]
@@ -522,7 +533,7 @@ pub(crate) mod tests {
         let g = create_test_layout();
         let coords = g.mark_type_1_conflicts()
                       .create_vertical_alignments(VDir::Up, HDir::Left)
-                      .do_horizontal_compaction(VDir::Up, HDir::Left);
+                      .do_horizontal_compaction(VDir::Up, HDir::Left, 20);
 
         println!("{:?}", coords);
     }
