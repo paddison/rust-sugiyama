@@ -19,47 +19,38 @@ pub(crate) struct Layers {
 impl Layers {
     
     #[allow(dead_code)]
-    pub fn new<T>(layers_raw: Vec<Vec<NodeIndex>>, g: &StableDiGraph<Option<T>, usize>) -> Self {
+    pub fn new<T>(inner: Vec<Vec<NodeIndex>>, g: &StableDiGraph<Option<T>, usize>) -> Self {
 
         let mut positions = HashMap::new();
         let mut upper_neighbours = HashMap::new();
         let mut lower_neighbours = HashMap::new();
 
-        for (level_index, level) in layers_raw.iter().enumerate() {
+        for (level_index, level) in inner.iter().enumerate() {
             for (pos, vertex) in level.iter().enumerate() {
                 positions.insert(*vertex, (level_index, pos));
             }
         }
 
-        for l in &layers_raw {
+        for l in &inner {
             for v in l {
                 let v_level = positions.get(v).unwrap().0;
-                let v_all_upper_neighbors = g.neighbors_directed(*v, petgraph::Direction::Incoming).collect::<HashSet<_>>();
-                let v_all_lower_neighbors = g.neighbors_directed(*v, petgraph::Direction::Outgoing).collect::<HashSet<_>>();
+                let v_upper_neighbors = g.neighbors_directed(*v, petgraph::Direction::Incoming).collect::<HashSet<_>>();
+                let v_lower_neighbors = g.neighbors_directed(*v, petgraph::Direction::Outgoing).collect::<HashSet<_>>();
+                let v_direct_upper_neighbors = Self::initialize_neighbors(&inner, v_level.wrapping_sub(1), v_upper_neighbors);
+                let v_direct_lower_neighbors = Self::initialize_neighbors(&inner, v_level + 1, v_lower_neighbors);
                 
-                let v_upper_neighbors = if v_level > 0 {
-                    layers_raw[v_level - 1].iter().filter(|n| v_all_upper_neighbors.contains(n)).cloned().collect()
-                } else {
-                    Vec::new()
-                };
-                let v_lower_neighbors = if v_level < layers_raw.len() - 1{
-                    layers_raw[v_level + 1].iter().filter(|n| v_all_lower_neighbors.contains(n)).cloned().collect()
-                } else {
-                    Vec::new()
-                };
-                
-                
-                upper_neighbours.insert(*v, v_upper_neighbors);
-                lower_neighbours.insert(*v, v_lower_neighbors);
+                upper_neighbours.insert(*v, v_direct_upper_neighbors);
+                lower_neighbours.insert(*v, v_direct_lower_neighbors);
             }
         }
 
+        let layers = Self { _inner: inner, positions, upper_neighbours, lower_neighbours };
+        assert!(layers.is_valid());
+        layers
+    }
 
-
-
-        let _inner = Self { _inner: layers_raw, positions, upper_neighbours, lower_neighbours };
-        assert!(_inner.is_valid());
-        _inner
+    fn initialize_neighbors(layers_raw: &Vec<Vec<NodeIndex>>, level_index: usize, neighbors: HashSet<NodeIndex>) -> Vec<NodeIndex> {
+        layers_raw.get(level_index).unwrap_or(&Vec::new()).iter().filter(|n| neighbors.contains(n)).cloned().collect()
     }
 
     pub fn height(&self) -> usize {
