@@ -23,6 +23,8 @@ pub struct MinimalCrossings<T: Default> {
 impl_layer_graph!(MinimalCrossings<T>);
 
 impl<T: Default> MinimalCrossings<T> {
+
+    #[allow(dead_code)]
     pub(crate) fn new(layers: Layers, graph: StableDiGraph<Option<T>, usize>) -> Self {
         Self { layers, graph }
     }

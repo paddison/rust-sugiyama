@@ -162,7 +162,7 @@ mod test {
         let child = std::thread::Builder::new()
             .stack_size(stack_size)
             .spawn(|| {
-                let g = g_levels(17);
+                let g = g_levels(13);
                 let start = std::time::Instant::now();
                 let _ = calculate_coordinates(g, 10);
                 println!("{}ms", start.elapsed().as_millis());

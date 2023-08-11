@@ -1,6 +1,6 @@
 use std::{
     ops::Index, 
-    collections::HashMap
+    collections::{HashMap, HashSet}
 };
 
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
@@ -18,7 +18,9 @@ pub(crate) struct Layers {
 
 impl Layers {
     
+    #[allow(dead_code)]
     pub fn new<T>(layers_raw: Vec<Vec<NodeIndex>>, g: &StableDiGraph<Option<T>, usize>) -> Self {
+
         let mut positions = HashMap::new();
         let mut upper_neighbours = HashMap::new();
         let mut lower_neighbours = HashMap::new();
@@ -32,22 +34,23 @@ impl Layers {
         for l in &layers_raw {
             for v in l {
                 let v_level = positions.get(v).unwrap().0;
-                let mut upper: Vec<_> = g.neighbors_directed(*v, petgraph::Direction::Incoming)
-                                            .filter(|n| positions.get(n).unwrap().0 == v_level - 1)
-                                            .collect();
-                let mut lower: Vec<_> = g.neighbors_directed(*v, petgraph::Direction::Outgoing)
-                                            .filter(|n| positions.get(n).unwrap().0 == v_level + 1)
-                                            .collect();
+                let v_all_upper_neighbors = g.neighbors_directed(*v, petgraph::Direction::Incoming).collect::<HashSet<_>>();
+                let v_all_lower_neighbors = g.neighbors_directed(*v, petgraph::Direction::Outgoing).collect::<HashSet<_>>();
                 
-                // IMPORTANT: This might increase the time complexity of the algorithm
-                // it needs to be tested with large number of vertices coming or going from one vertex.
-                println!("{upper:?}");
-                println!("{lower:?}");
-                upper.sort();
-                lower.sort();
+                let v_upper_neighbors = if v_level > 0 {
+                    layers_raw[v_level - 1].iter().filter(|n| v_all_upper_neighbors.contains(n)).cloned().collect()
+                } else {
+                    Vec::new()
+                };
+                let v_lower_neighbors = if v_level < layers_raw.len() - 1{
+                    layers_raw[v_level + 1].iter().filter(|n| v_all_lower_neighbors.contains(n)).cloned().collect()
+                } else {
+                    Vec::new()
+                };
                 
-                upper_neighbours.insert(*v, upper);
-                lower_neighbours.insert(*v, lower);
+                
+                upper_neighbours.insert(*v, v_upper_neighbors);
+                lower_neighbours.insert(*v, v_lower_neighbors);
             }
         }
 
