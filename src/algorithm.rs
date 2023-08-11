@@ -34,7 +34,7 @@ pub fn calculate_coordinates<T: Default + Clone>(graph: MinimalCrossings<T>, ver
     // align all other layouts to the lowest/highest coordinate of the layout with the minimum width, 
     // depending on the horizontal direction which was chosen to create them
     for (i, layout) in layouts.iter_mut().enumerate() {
-        // if i % 2 == 0, then horizontal direction was right
+        // if i % 2 == 0, then horizontal direction was left
         let shift = if i % 2 == 0 { 
             min_max[i].0 as isize - min_max[min_width].0 as isize
         } else { 
@@ -73,8 +73,6 @@ pub fn calculate_coordinates<T: Default + Clone>(graph: MinimalCrossings<T>, ver
 
     final_layout
 }
-
-// creates a graph for testing purposes
 
 #[cfg(test)]
 mod test {
