@@ -4,7 +4,7 @@ use crate::{util::layers::Layers, impl_layer_graph};
 use crate::util::traits::LayerGraph;
 
 // create from LayeredGraph
-struct ProperLayeredGraph<T: Default> {
+pub struct ProperLayeredGraph<T: Default> {
     layers: Layers,
     graph: StableDiGraph<Option<T>, usize>
 }
