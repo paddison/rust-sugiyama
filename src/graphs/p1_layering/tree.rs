@@ -27,12 +27,12 @@ impl Tree {
 
         // update tail
         let mut v_tail = self.vertices.take(&tail.into()).unwrap();
-        v_tail.neighbors.insert(head);
+        v_tail.outgoing.insert(head);
         self.vertices.insert(v_tail);
 
         // update head
         let mut v_head = self.vertices.take(&head.into()).unwrap();
-        v_head.neighbors.insert(tail);
+        v_head.incoming.insert(tail);
         self.vertices.insert(v_head);
 
         self.edges.insert((tail, head));
@@ -66,12 +66,25 @@ impl Tree {
     pub(super) fn leaves(&self) -> impl Iterator<Item = NodeIndex> + '_ {
         self.vertices.iter().filter(|v| v.is_leave()).map(|v| v.id()) 
     }
+
+    // TODO write functions for neighbors
+    
+    fn from_edges(edges: &[(usize, usize)]) -> Self {
+        let mut tree = Self::new();
+        for (tail, head) in edges {
+            tree.add_vertex(NodeIndex::new(*tail));
+            tree.add_vertex(NodeIndex::new(*head));
+            tree.add_edge(NodeIndex::new(*tail), NodeIndex::new(*head));
+        }
+        tree
+    }
 }
 
 #[derive(Eq, Debug)]
 pub(crate) struct Vertex {
     id: NodeIndex,
-    neighbors: HashSet<NodeIndex>, 
+    incoming: HashSet<NodeIndex>,
+    outgoing: HashSet<NodeIndex>, 
 }
 
 impl PartialEq for Vertex {
@@ -84,7 +97,8 @@ impl Vertex {
     fn new(id: NodeIndex) -> Self {
         Self {
             id,
-            neighbors: HashSet::new(),
+            incoming: HashSet::new(),
+            outgoing: HashSet::new(),
         }
     }
 
@@ -93,7 +107,7 @@ impl Vertex {
     }
 
     fn is_leave(&self) -> bool {
-        self.neighbors.len() < 2
+        self.incoming.len() + self.outgoing.len() < 2
     }
 }
 
@@ -111,6 +125,20 @@ impl From<NodeIndex> for Vertex {
 
 #[cfg(test)]
 mod tests {
+    mod tree {
+        use petgraph::adj::NodeIndex;
+
+        use crate::graphs::p1_layering::tree::Tree;
+
+        #[test]
+        fn test_leaves() {
+            let tree = Tree::from_edges(&[(0, 1), (0, 5), (5, 6), (4, 6), (1, 2), (2, 3), (3, 7)]);
+            let leaves = tree.leaves().collect::<Vec<_>>();
+            assert_eq!(leaves.len(), 2);
+            assert!(leaves.contains(&NodeIndex::from(4)));
+            assert!(leaves.contains(&NodeIndex::from(7)));
+        }
+    }
     mod vertex {
         use std::collections::HashSet;
 
@@ -129,7 +157,7 @@ mod tests {
         fn test_vertex_id_equal_not_same_neighbors() {
             let v1 = Vertex::new(0.into());
             let mut v2 = Vertex::new(0.into());
-            v2.neighbors.insert(1.into());
+            v2.incoming.insert(1.into());
             assert_eq!(v1, v2);
         }
 
@@ -137,11 +165,11 @@ mod tests {
         fn test_vertex_store_hashset_with_neighbor() {
             let mut set = HashSet::new();
             let mut v = Vertex::new(0.into());
-            v.neighbors.insert(1.into());
+            v.outgoing.insert(1.into());
             set.insert(v);
             let v = set.take(&NodeIndex::new(0).into());
             assert!(v.is_some());
-            assert!(v.unwrap().neighbors.contains(&1.into()));
+            assert!(v.unwrap().outgoing.contains(&1.into()));
         }
 
         #[test]
