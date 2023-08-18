@@ -2,6 +2,7 @@ use std::collections::{ HashSet, hash_set::Iter };
 
 use petgraph::stable_graph::NodeIndex;
 
+#[derive(Debug)]
 pub(super) struct Tree {
     vertices: HashSet<Vertex>,
     edges: HashSet<(NodeIndex, NodeIndex)>,
@@ -38,8 +39,8 @@ impl Tree {
         self.edges.insert((tail, head));
     }
 
-    pub(super) fn contains_vertex(&self, node: &NodeIndex) -> bool {
-        self.vertices.contains(&(*node).into())
+    pub(super) fn contains_vertex(&self, vertex: &NodeIndex) -> bool {
+        self.vertices.contains(&(*vertex).into())
     }
 
     pub(super) fn contains_edge(&self, tail: NodeIndex, head: NodeIndex) -> bool {
@@ -49,6 +50,10 @@ impl Tree {
     /// Returns true if exactly one vertex is a member of the tree.
     pub(super) fn is_incident_edge(&self, tail: &NodeIndex, head: &NodeIndex) -> bool {
         self.contains_vertex(tail) ^ self.contains_vertex(head)
+    }
+
+    pub(super) fn is_leave(&self, vertex: &NodeIndex) -> bool {
+        self.vertices.get(&(*vertex).into()).unwrap().is_leave()
     }
 
     pub(super) fn vertices(&self) -> Iter<'_, Vertex> {
@@ -63,13 +68,36 @@ impl Tree {
         self.vertices.len()
     }
 
+    pub(super) fn neighbor_count(&self, vertex: NodeIndex) -> usize {
+        self.vertices.get(&vertex.into()).unwrap().neighbor_count()
+    }
+
     pub(super) fn leaves(&self) -> impl Iterator<Item = NodeIndex> + '_ {
         self.vertices.iter().filter(|v| v.is_leave()).map(|v| v.id()) 
     }
 
-    // TODO write functions for neighbors
-    
-    fn from_edges(edges: &[(usize, usize)]) -> Self {
+    pub(super) fn incoming(&self, vertex: NodeIndex) -> Neighbors<'_> {
+        match self.vertices.get(&vertex.into()) {
+            Some(v) => Neighbors { items: Some(v.incoming.iter()) },
+            None => Neighbors { items: None },
+        }
+    }
+
+    pub(super) fn outgoing(&self, vertex: NodeIndex) -> Neighbors<'_> {
+        match self.vertices.get(&vertex.into()) {
+            Some(v) => Neighbors { items: Some(v.outgoing.iter()) },
+            None => Neighbors { items: None },
+        }
+    }
+
+    pub(super) fn connected_edges(&self, vertex: NodeIndex) -> ConnectedEdges<'_> {
+        match self.vertices.get(&vertex.into()) {
+            Some(v) => ConnectedEdges { vertex, incoming: Some(v.incoming.iter()), outgoing: Some(v.outgoing.iter()) },
+            None => ConnectedEdges { vertex, incoming: None, outgoing: None },
+        }
+    }
+
+    pub(crate) fn from_edges(edges: &[(usize, usize)]) -> Self {
         let mut tree = Self::new();
         for (tail, head) in edges {
             tree.add_vertex(NodeIndex::new(*tail));
@@ -79,6 +107,46 @@ impl Tree {
         tree
     }
 }
+
+pub(super) struct Neighbors<'tree> {
+    items: Option<Iter<'tree, NodeIndex>>
+}
+
+impl<'tree> Iterator for Neighbors<'tree> {
+    type Item = NodeIndex;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match &mut self.items {
+            Some(i) => i.next().copied(),
+            None => None,
+        }
+    }
+}
+
+pub(super) struct ConnectedEdges<'tree> {
+    vertex: NodeIndex,
+    incoming: Option<Iter<'tree, NodeIndex>>,
+    outgoing: Option<Iter<'tree, NodeIndex>>,
+}
+
+impl<'tree> Iterator for ConnectedEdges<'tree> {
+    type Item = (NodeIndex, NodeIndex);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match &mut self.incoming {
+            Some(iter) => iter.next()
+                              .map(|inc| (*inc, self.vertex))
+                              .or_else(|| self.outgoing.as_mut() // if incoming is some, outgoing will also be some
+                                                       .unwrap()
+                                                       .next()
+                                                       .map(|out| (self.vertex, *out))
+            ),
+            None => None
+        }
+    }
+}
+
+
 
 #[derive(Eq, Debug)]
 pub(crate) struct Vertex {
@@ -106,8 +174,13 @@ impl Vertex {
         self.id
     }
 
+    #[inline(always)]
+    pub(super) fn neighbor_count(&self) -> usize {
+        self.incoming.len() + self.outgoing.len()
+    }
+
     fn is_leave(&self) -> bool {
-        self.incoming.len() + self.outgoing.len() < 2
+        self.neighbor_count() < 2
     }
 }
 
