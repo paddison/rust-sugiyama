@@ -2,7 +2,7 @@ use std::{collections::HashMap, ops::Index};
 
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-use super::tree::Tree;
+use super::tree::{TreeSubgraph, TighTreeDFS};
 
 /// Ranks of the vertices of a graph.
 /// Needs to contain all the vertices of a graph
@@ -41,9 +41,9 @@ impl Ranks {
         self._inner.entry(vertex).and_modify(|rank| *rank += delta);
     }
 
-    pub(super) fn tighten_edge(&mut self, tree: &Tree, delta: isize) {
+    pub(super) fn tighten_edge(&mut self, tree: &TighTreeDFS, delta: isize) {
         for v in tree.vertices() {
-            self.update(v.id(), delta);
+            self.update(*v, delta);
         }
     }
 }

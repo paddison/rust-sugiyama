@@ -10,7 +10,7 @@ use petgraph::stable_graph::{StableDiGraph, NodeIndex};
 use petgraph::visit::{EdgeRef, IntoNeighborsDirected};
 
 use self::rank::Ranks;
-use self::tree::Tree;
+use self::tree::{TreeSubgraph, TighTreeDFS};
 
 pub(crate) fn start_layering<T: Default>(graph: StableDiGraph<Option<T>, usize>) -> UnlayeredGraph<T> {
     UnlayeredGraph { graph }
@@ -71,60 +71,34 @@ impl<T: Default> TightTreeBuilder<T> {
         // each time we add an edge to the tree, we remove it from the graph
         let num_nodes = self.graph.node_count();
         let mut nodes = self.graph.node_indices().into_iter();
-        let mut tree = Tree::new();
+        let mut dfs = TighTreeDFS::new();
         
         // TODO: Do this starting from the node in the topmost layer
-        while self.tight_tree_dfs(&mut tree, nodes.next().unwrap(), &mut HashSet::new()) < num_nodes {
-            let (tail, head) = self.find_non_tight_edge(&tree);
+        while dfs.build_tight_tree(&self.graph, &self.ranks, nodes.next().unwrap(), &mut HashSet::new()) < num_nodes {
+            let (tail, head) = self.find_non_tight_edge(&dfs);
             let mut delta = self.ranks.slack(tail, head);
 
-            if tree.contains_vertex(&head) {
+            if dfs.contains_vertex(&head) {
                 delta = -delta;
             }
 
-            self.ranks.tighten_edge(&tree, delta)
+            self.ranks.tighten_edge(&dfs, delta)
         }
 
         // remove all edges which are contained in tree from graph
         self.graph.retain_edges(|graph, edge| {
             let (tail, head) = graph.edge_endpoints(edge).unwrap();
-            !tree.contains_edge(tail, head)
+            !dfs.contains_edge(tail, head)
         });
 
-        FeasibleTreeBuilder { graph: self.graph, ranks: self.ranks, tree }
+        FeasibleTreeBuilder { graph: self.graph, ranks: self.ranks, tree: TreeSubgraph::new() }
     }
     
-    fn find_non_tight_edge(&self, tree: &Tree) -> (NodeIndex, NodeIndex) {
+    fn find_non_tight_edge(&self, tree: &TighTreeDFS) -> (NodeIndex, NodeIndex) {
         self.graph.edge_indices()
             .filter_map(|e| self.graph.edge_endpoints(e))
             .filter(|(tail, head)| !tree.contains_edge(*tail, *head) && tree.is_incident_edge(tail, head))
             .min_by(|a, b| self.ranks.slack(a.0, a.1).cmp(&self.ranks.slack(b.0, b.1))).unwrap()
-    }
-
-    fn tight_tree_dfs(&self, tree: &mut Tree, vertex: NodeIndex, visited: &mut HashSet<(NodeIndex, NodeIndex)>) -> usize {
-        // start from topmost nodes.
-        // then for each topmost node add nodes to tree until done. Then continue with next node until no more nodes are found.
-        let mut node_count = 1;
-        if !tree.contains_vertex(&vertex) {
-            tree.add_vertex(vertex);
-        }
-        for connected_edge in self.graph.edges_directed(vertex, Incoming).chain(self.graph.edges_directed(vertex, Outgoing)) {
-            let (tail, head) = (connected_edge.source(), connected_edge.target());
-            // find out if the other vertex of the edge is the head or the tail
-            let other = if connected_edge.source() == vertex { head } else { tail };
-
-            if !visited.contains(&(tail, head)) {
-                visited.insert((tail, head));
-                if tree.contains_edge(tail, head) {
-                    node_count += self.tight_tree_dfs(tree, other, visited);
-                } else if !tree.contains_vertex(&other) && self.ranks.slack(tail, head) == 0 {
-                    tree.add_vertex(other);
-                    tree.add_edge(tail, head);
-                    node_count += self.tight_tree_dfs(tree, other, visited);
-                }
-            }
-        }
-        node_count
     }
 }
 
@@ -132,7 +106,7 @@ impl<T: Default> TightTreeBuilder<T> {
 pub(crate) struct FeasibleTreeBuilder<T: Default> {
     graph: StableDiGraph<Option<T>, usize>,
     ranks: Ranks,
-    tree: Tree,
+    tree: TreeSubgraph,
 }
 
 impl<T: Default> FeasibleTreeBuilder<T> {
@@ -202,7 +176,7 @@ impl<T: Default> FeasibleTreeBuilder<T> {
 
 pub(crate) struct FeasibleTree<T: Default> {
     graph: StableDiGraph<Option<T>, usize>,
-    tree: Tree,
+    tree: TreeSubgraph,
     ranks: Ranks,
     pub cut_values: HashMap<(NodeIndex, NodeIndex), isize>,
 }
