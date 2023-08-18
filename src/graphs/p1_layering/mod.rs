@@ -5,7 +5,7 @@ mod tests;
 
 use std::collections::{HashSet, HashMap, VecDeque};
 
-use petgraph::Direction::*;
+use petgraph::Direction::{*, self};
 use petgraph::stable_graph::{StableDiGraph, NodeIndex};
 use petgraph::visit::{EdgeRef, IntoNeighborsDirected};
 
@@ -73,7 +73,6 @@ impl<T: Default> TightTreeBuilder<T> {
         let mut nodes = self.graph.node_indices().into_iter();
         let mut dfs = TighTreeDFS::new();
         
-        // TODO: Do this starting from the node in the topmost layer
         while dfs.build_tight_tree(&self.graph, &self.ranks, nodes.next().unwrap(), &mut HashSet::new()) < num_nodes {
             let (tail, head) = self.find_non_tight_edge(&dfs);
             let mut delta = self.ranks.slack(tail, head);
@@ -86,12 +85,9 @@ impl<T: Default> TightTreeBuilder<T> {
         }
 
         // remove all edges which are contained in tree from graph
-        self.graph.retain_edges(|graph, edge| {
-            let (tail, head) = graph.edge_endpoints(edge).unwrap();
-            !dfs.contains_edge(tail, head)
-        });
+        dfs.make_edges_disjoint(&mut self.graph);
 
-        FeasibleTreeBuilder { graph: self.graph, ranks: self.ranks, tree: TreeSubgraph::new() }
+        FeasibleTreeBuilder { graph: self.graph, ranks: self.ranks, tree: dfs.into_tree_subgraph() }
     }
     
     fn find_non_tight_edge(&self, tree: &TighTreeDFS) -> (NodeIndex, NodeIndex) {
@@ -106,77 +102,76 @@ impl<T: Default> TightTreeBuilder<T> {
 pub(crate) struct FeasibleTreeBuilder<T: Default> {
     graph: StableDiGraph<Option<T>, usize>,
     ranks: Ranks,
-    tree: TreeSubgraph,
+    tree: StableDiGraph<Option<T>, usize>,
 }
 
 impl<T: Default> FeasibleTreeBuilder<T> {
     pub(crate) fn init_cutvalues(self) -> FeasibleTree<T> {
-        let mut queue = VecDeque::new();
-        let mut cut_values = HashMap::<(NodeIndex, NodeIndex), isize>::new();
         // assumes all edges have a weight of one
-        // start calculating cutvalues from leaves inward:
-        for leave in self.tree.leaves() {
-            // get the connecting edge:
-            let (tail, head) = self.tree.connected_edges(leave).next().unwrap();
-            let is_tail = leave == tail;
-            if is_tail {
-                let opposite = head;
-                let cut_value = (1 + self.graph.neighbors_directed(leave, Outgoing).count()) as isize - self.graph.neighbors_directed(leave, Incoming).count() as isize;
-                cut_values.insert((tail, head), cut_value);
-                queue.push_back(opposite);
-            } else {
-                let opposite = tail;
-                let cut_value = (1 + self.graph.neighbors_directed(leave, Incoming).count()) as isize - self.graph.neighbors_directed(leave, Outgoing).count() as isize;
-                cut_values.insert((tail, head), cut_value);
-                queue.push_back(opposite);
-            }
-        }
+        let mut cut_values = HashMap::<(NodeIndex, NodeIndex), isize>::new();
+        let mut queue = self.leaves();
 
+        // traverse tree inward via breadth first starting from leaves
         while let Some(vertex) = queue.pop_front() {
-            let (inc_cut_values, inc_missing) = self.get_neighborhood_info(vertex, &mut cut_values, true); 
-            let (out_cut_values, out_missing) = self.get_neighborhood_info(vertex, &mut cut_values, false); 
-            if inc_missing.len() == 1 && out_missing.len() == 0  {
-                // calculate remaining cut values and continue traversing tree
-                let cut_value = 1 + self.graph.neighbors_directed(vertex, Incoming).count() as isize - inc_cut_values.iter().sum::<isize>() + inc_cut_values.len() as isize - 
-                                self.graph.neighbors_directed(vertex, Outgoing).count() as isize + out_cut_values.iter().sum::<isize>() - out_cut_values.len() as isize;
-                cut_values.insert((inc_missing[0], vertex), cut_value);
-                queue.push_back(inc_missing[0]);
-            } else if inc_missing.len() == 0 && out_missing.len() == 1 {
-                // vertex is tail
-                let cut_value = 1 + self.graph.neighbors_directed(vertex, Outgoing).count() as isize + inc_cut_values.iter().sum::<isize>() - inc_cut_values.len() as isize - 
-                                self.graph.neighbors_directed(vertex, Incoming).count() as isize - out_cut_values.iter().sum::<isize>() + out_cut_values.len() as isize;
-                cut_values.insert((vertex, out_missing[0]), cut_value);
-                queue.push_back(out_missing[0]);
-            } else if inc_missing.len() == 0 && out_missing.len() == 0 {
+            // terminate early if all cutvalues are known
+            if cut_values.len() == self.tree.edge_count() {
+                println!("done early");
+                break;
+            }
+            let (mut inc_cut_values, mut inc_missing) = self.get_neighborhood_info(vertex, &mut cut_values, Incoming); 
+            let (mut out_cut_values, mut out_missing) = self.get_neighborhood_info(vertex, &mut cut_values, Outgoing); 
+            let (mut incoming, mut outgoing) = (Direction::Incoming, Direction::Outgoing);
+
+            // if we can't calculate cut value yet, or the value is already known
+            if inc_missing.len() > 1 || out_missing.len() > 1 || inc_missing.len() == 0 && out_missing.len() == 0 {
                 continue;
-            } else {
-                println!("push back on queue");
-                queue.push_back(vertex);
             } 
+
+            let edge = if out_missing.len() == 1 {
+                // switch direction
+                std::mem::swap(&mut inc_cut_values, &mut out_cut_values);
+                std::mem::swap(&mut inc_missing, &mut out_missing);
+                std::mem::swap(&mut incoming, &mut outgoing);
+                (vertex, inc_missing[0])
+            } else {
+                (inc_missing[0], vertex)
+            };
+
+            let cut_value = 1 + self.graph.neighbors_directed(vertex, incoming).count() as isize - 
+                inc_cut_values.iter().sum::<isize>() + inc_cut_values.len() as isize - 
+                self.graph.neighbors_directed(vertex, outgoing).count() as isize + 
+                out_cut_values.iter().sum::<isize>() - out_cut_values.len() as isize;
+            
+            cut_values.insert(edge, cut_value);
+            // continue traversing tree in direction of edge whose vertex was missing before
+            queue.push_back(inc_missing[0]);
         }
 
         FeasibleTree { graph: self.graph, tree: self.tree, ranks: self.ranks, cut_values }
     }
 
-    fn get_neighborhood_info(&self, vertex: NodeIndex, cut_values: &mut HashMap<(NodeIndex, NodeIndex), isize>, is_incoming: bool) -> (Vec<isize>, Vec<NodeIndex>) {
+    fn get_neighborhood_info(&self, vertex: NodeIndex, cut_values: &mut HashMap<(NodeIndex, NodeIndex), isize>, direction: Direction) -> (Vec<isize>, Vec<NodeIndex>) {
         let mut cuts = Vec::new(); 
         let mut missing = Vec::new();
-        let neighbors = if is_incoming { self.tree.incoming(vertex) } else { self.tree.outgoing(vertex) };
-        for n in neighbors {
-            let (tail, head) = if is_incoming { (n, vertex) } else { (vertex, n) };
+        for edge in self.tree.edges_directed(vertex, direction) {
+            let (tail, head) = (edge.source(), edge.target());
             if let Some(cut_value) = cut_values.get(&(tail, head)) {
                 cuts.push(*cut_value);
             } else {
-                missing.push(n);
+                missing.push(if tail == vertex { head } else { tail });
             }
         }
         (cuts, missing)
+    }
+
+    fn leaves(&self) -> VecDeque<NodeIndex> {
+        self.tree.node_indices().filter(|v| self.tree.neighbors_undirected(*v).count() < 2).collect::<VecDeque<_>>()
     }
 }
 
 pub(crate) struct FeasibleTree<T: Default> {
     graph: StableDiGraph<Option<T>, usize>,
-    tree: TreeSubgraph,
+    tree: StableDiGraph<Option<T>, usize>,
     ranks: Ranks,
     pub cut_values: HashMap<(NodeIndex, NodeIndex), isize>,
 }

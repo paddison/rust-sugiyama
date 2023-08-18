@@ -14,29 +14,20 @@ pub(crate) fn create_tight_tree_builder_non_tight_ranking<T: Default>() -> Tight
     TightTreeBuilder::new(graph, ranks)
 }
 
-mod tight_tree_builder {
-    use std::collections::HashSet;
-
-    use crate::graphs::p1_layering::{tree::TighTreeDFS, start_layering, tests::{create_test_graph, create_tight_tree_builder_non_tight_ranking}};
-
-}
-
 mod feasible_tree_builder {
-    use crate::graphs::p1_layering::{start_layering, FeasibleTreeBuilder, tree::TreeSubgraph, rank::tests::create_test_ranking_not_tight};
+    use crate::graphs::p1_layering::{start_layering, FeasibleTreeBuilder, tree::{TreeSubgraph, TighTreeDFS}, rank::tests::create_test_ranking_not_tight};
 
     use super::create_test_graph;
 
     fn create_test_builder() -> FeasibleTreeBuilder<isize> {
-        let tree = TreeSubgraph::from_edges(&[(0, 1), (1, 2), (2, 3), (3, 7), (4, 6), (5, 6), (6, 7)]);
+        let dfs = TighTreeDFS::from_edges(&[(0, 1), (1, 2), (2, 3), (3, 7), (4, 6), (5, 6), (6, 7)]);
         let mut graph = create_test_graph();
-        graph.retain_edges(|graph, edge| {
-            let (tail, head) = graph.edge_endpoints(edge).unwrap();
-            !tree.contains_edge(tail, head)
-        });
+        dfs.make_edges_disjoint(&mut graph);
 
         let ranks = create_test_ranking_not_tight();
-        FeasibleTreeBuilder { graph, ranks, tree }
+        FeasibleTreeBuilder { graph, ranks, tree: dfs.into_tree_subgraph() }
     }
+
     #[test]
     fn print_cutvalues() {
         start_layering::<usize>(create_test_graph()).initial_ranking(1).make_tight().init_cutvalues();
