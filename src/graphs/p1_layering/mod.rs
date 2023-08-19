@@ -9,8 +9,12 @@ use petgraph::Direction::{*, self};
 use petgraph::stable_graph::{StableDiGraph, NodeIndex};
 use petgraph::visit::{EdgeRef, IntoNeighborsDirected};
 
+use crate::util::layers::Layers;
+
 use self::rank::Ranks;
 use self::tree::{TreeSubgraph, TighTreeDFS};
+
+use super::p2_reduce_crossings::ProperLayeredGraph;
 
 pub(crate) fn start_layering<T: Default>(graph: StableDiGraph<Option<T>, usize>) -> UnlayeredGraph<T> {
     UnlayeredGraph { graph }
@@ -118,39 +122,47 @@ impl<T: Default> FeasibleTreeBuilder<T> {
                 println!("done early");
                 break;
             }
-            let (mut inc_cut_values, mut inc_missing) = self.get_neighborhood_info(vertex, &mut cut_values, Incoming); 
-            let (mut out_cut_values, mut out_missing) = self.get_neighborhood_info(vertex, &mut cut_values, Outgoing); 
+            let (mut cut_values_incoming, mut missing_cut_values_incoming) = 
+                self.get_neighborhood_info(vertex, &mut cut_values, Incoming); 
+            let (mut cut_values_outgoing, mut missing_cut_values_outgoing) = 
+                self.get_neighborhood_info(vertex, &mut cut_values, Outgoing); 
             let (mut incoming, mut outgoing) = (Direction::Incoming, Direction::Outgoing);
 
             // if we can't calculate cut value yet, or the value is already known
-            if inc_missing.len() > 1 || out_missing.len() > 1 || inc_missing.len() == 0 && out_missing.len() == 0 {
+            if missing_cut_values_incoming.len() > 1 || missing_cut_values_outgoing.len() > 1 || 
+                missing_cut_values_incoming.len() == 0 && missing_cut_values_outgoing.len() == 0 {
                 continue;
             } 
 
-            let edge = if out_missing.len() == 1 {
-                // switch direction
-                std::mem::swap(&mut inc_cut_values, &mut out_cut_values);
-                std::mem::swap(&mut inc_missing, &mut out_missing);
+            // switch direction, if vertex is tail component of edge
+            let edge = if missing_cut_values_outgoing.len() == 1 {
+                std::mem::swap(&mut cut_values_incoming, &mut cut_values_outgoing);
+                std::mem::swap(&mut missing_cut_values_incoming, &mut missing_cut_values_outgoing);
                 std::mem::swap(&mut incoming, &mut outgoing);
-                (vertex, inc_missing[0])
+                (vertex, missing_cut_values_incoming[0])
             } else {
-                (inc_missing[0], vertex)
+                (missing_cut_values_incoming[0], vertex)
             };
 
             let cut_value = 1 + self.graph.neighbors_directed(vertex, incoming).count() as isize - 
-                inc_cut_values.iter().sum::<isize>() + inc_cut_values.len() as isize - 
+                cut_values_incoming.iter().sum::<isize>() + cut_values_incoming.len() as isize - 
                 self.graph.neighbors_directed(vertex, outgoing).count() as isize + 
-                out_cut_values.iter().sum::<isize>() - out_cut_values.len() as isize;
+                cut_values_outgoing.iter().sum::<isize>() - cut_values_outgoing.len() as isize;
             
             cut_values.insert(edge, cut_value);
             // continue traversing tree in direction of edge whose vertex was missing before
-            queue.push_back(inc_missing[0]);
+            queue.push_back(missing_cut_values_incoming[0]);
         }
 
         FeasibleTree { graph: self.graph, tree: self.tree, ranks: self.ranks, cut_values }
     }
 
-    fn get_neighborhood_info(&self, vertex: NodeIndex, cut_values: &mut HashMap<(NodeIndex, NodeIndex), isize>, direction: Direction) -> (Vec<isize>, Vec<NodeIndex>) {
+    fn get_neighborhood_info(
+        &self, 
+        vertex: NodeIndex, 
+        cut_values: &mut HashMap<(NodeIndex, NodeIndex), isize>, 
+        direction: Direction
+    ) -> (Vec<isize>, Vec<NodeIndex>) {
         let mut cuts = Vec::new(); 
         let mut missing = Vec::new();
         for edge in self.tree.edges_directed(vertex, direction) {
@@ -174,4 +186,27 @@ pub(crate) struct FeasibleTree<T: Default> {
     tree: StableDiGraph<Option<T>, usize>,
     ranks: Ranks,
     pub cut_values: HashMap<(NodeIndex, NodeIndex), isize>,
+}
+
+impl<T: Default> FeasibleTree<T> {
+    fn rank(mut self) -> ProperLayeredGraph<T> {
+        while let Some(edge) = self.leave_edge() {
+            // swap edges and calculate cut value
+        }
+
+        // TODO maybe destcructure this or turn it into Layers.
+        self.ranks.normalize();
+        // don't balance ranks since we want maximum width to 
+        // give indication about number of parallel processes running
+        ProperLayeredGraph::new(Layers::new_empty(), self.graph)
+    }
+
+    fn leave_edge(&self) -> Option<(NodeIndex, NodeIndex)> {
+        for (edge, cut_value) in self.cut_values.iter() {
+            if cut_value < &0 {
+                return Some(*edge);
+            }
+        }
+        None
+    }
 }

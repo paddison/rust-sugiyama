@@ -17,7 +17,15 @@ pub(crate) struct Layers {
 }
 
 impl Layers {
-    
+    #[allow(dead_code)] 
+    pub(crate) fn new_empty() -> Self {
+        Self {
+            _inner: vec![],
+            positions: HashMap::new(),
+            upper_neighbours: HashMap::new(),
+            lower_neighbours: HashMap::new(),
+        }
+    }
     #[allow(dead_code)]
     pub fn new<T>(inner: Vec<Vec<NodeIndex>>, g: &StableDiGraph<Option<T>, usize>) -> Self {
 

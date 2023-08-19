@@ -10,3 +10,9 @@ pub struct ProperLayeredGraph<T: Default> {
 }
 
 impl_layer_graph!(ProperLayeredGraph<T>);
+
+impl<T: Default> ProperLayeredGraph<T> {
+    pub(crate) fn new(layers: Layers, graph: StableDiGraph<Option<T>, usize>) -> Self {
+        Self { layers, graph }
+    }
+}

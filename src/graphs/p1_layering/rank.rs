@@ -46,6 +46,14 @@ impl Ranks {
             self.update(*v, delta);
         }
     }
+
+    /// Normalize ranking so the least rank is 0
+    pub(super) fn normalize(&mut self) {
+        let minimum_rank = *self._inner.iter().min_by(|(_, rank_a), (_, rank_b)| rank_a.cmp(&rank_b)).unwrap().1;
+        for (_, rank) in self._inner.iter_mut() {
+            *rank -= minimum_rank;
+        }
+    }
 }
 
 impl Index<NodeIndex> for Ranks {
