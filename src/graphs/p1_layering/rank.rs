@@ -2,7 +2,7 @@ use std::{collections::HashMap, ops::Index};
 
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-use super::tree::{TreeSubgraph, TighTreeDFS};
+use super::tree::{TighTreeDFS};
 
 /// Ranks of the vertices of a graph.
 /// Needs to contain all the vertices of a graph
@@ -15,6 +15,11 @@ minimum_length: usize
 impl Ranks {
     pub fn new<T>(ranks: HashMap<NodeIndex, isize>, graph: &StableDiGraph<Option<T>, usize>, minimum_length: usize) -> Self {
         assert!(Self::is_valid(&ranks, graph));
+        Ranks { _inner: ranks, minimum_length }
+    }
+
+    #[cfg(test)]
+    pub fn new_unchecked(ranks: HashMap<NodeIndex, isize>, minimum_length: usize) -> Self {
         Ranks { _inner: ranks, minimum_length }
     }
     

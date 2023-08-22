@@ -1,4 +1,4 @@
-use std::collections::{ HashSet, hash_set::Iter, VecDeque };
+use std::collections::{ HashSet, hash_set::Iter, VecDeque, HashMap };
 
 use petgraph::{stable_graph::{NodeIndex, StableDiGraph, Neighbors, NodeIndices}, Direction::{Incoming, Outgoing}, visit::EdgeRef};
 
@@ -84,42 +84,6 @@ impl TighTreeDFS {
     }
 }
 
-#[derive(Debug)]
-pub(super) struct TreeSubgraph<T> {
-    pub(crate) graph: StableDiGraph<Option<T>, usize>,
-}
-
-impl<T> TreeSubgraph<T> {
-    /// Adds an edge to the tree.
-    /// Will panic if it doesn't contain the tail and head vertices.
-    pub(super) fn node_indices(&self) -> NodeIndices<Option<T>> {
-        self.graph.node_indices()
-    }
-
-    pub(super) fn edge_count(&self) -> usize {
-        self.graph.edge_count()
-    }
-
-    pub(super) fn vertice_count(&self) -> usize {
-        self.graph.node_count()
-    }
-
-    pub(super) fn leaves(&self) -> VecDeque<NodeIndex> {
-        self.graph.node_indices().filter(|v| self.graph.neighbors_undirected(*v).count() < 2).collect::<VecDeque<_>>()
-    }
-
-    pub(super) fn incoming(&self, vertex: NodeIndex) -> Neighbors<usize> {
-        self.graph.neighbors_directed(vertex, Incoming)
-    }
-
-    pub(super) fn outgoing(&self, vertex: NodeIndex) -> Neighbors<usize> {
-        self.graph.neighbors_directed(vertex, Outgoing)
-    }
-
-    pub(super) fn neighbors(&self, vertex: NodeIndex) -> Neighbors<usize> {
-        self.graph.neighbors_undirected(vertex)
-    }
-}
 
 
 #[cfg(test)]
