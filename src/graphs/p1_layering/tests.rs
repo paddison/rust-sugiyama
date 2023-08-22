@@ -57,11 +57,11 @@ mod feasible_tree {
 
     use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-    use crate::graphs::p1_layering::{FeasibleTree, TreeData, tests::{LOW_LIM_GRAPH, FEASIBLE_TREE_POS_CUT_VALUE}, rank::{tests::create_test_ranking_not_tight, Ranks}};
+    use crate::graphs::p1_layering::{FeasibleTree, TreeData, tests::{LOW_LIM_GRAPH, FEASIBLE_TREE_POS_CUT_VALUE}, rank::{tests::create_test_ranking_not_tight, Ranks}, UpdateRanks, UpdateLowLim, InitializeLowLim};
 
     use super::{create_test_builder, EXAMPLE_GRAPH_1, FEASIBLE_TREE_NEG_CUT_VALUE};
 
-    fn create_feasible_tree() -> FeasibleTree<isize>{
+    fn create_initialize_low_lim() -> InitializeLowLim<isize>{
         create_test_builder(&EXAMPLE_GRAPH_1).init_cutvalues()
     }
 
@@ -81,11 +81,10 @@ mod feasible_tree {
 
     #[test]
     fn test_dfs_low_lim() {
-        let ft = create_feasible_tree();
-        let mut low_lim = HashMap::new();
+        let ft = create_initialize_low_lim();
         let root = ft.graph.node_indices().next().unwrap();
-        ft.dfs_low_lim(&mut low_lim, root, 1, None);
-        println!("{low_lim:?}");
+        let ft = create_initialize_low_lim().initialize_low_lim();
+        println!("{:?}", ft.low_lim);
     }
 
     #[test]
@@ -93,9 +92,9 @@ mod feasible_tree {
         let tree = StableDiGraph::from_edges(&LOW_LIM_GRAPH);
         let graph = StableDiGraph::from_edges(&[(6, 8)]);
         let ranks = create_test_ranking_not_tight();
-        let ft: FeasibleTree<isize> = FeasibleTree{ graph, tree, ranks, cut_values: HashMap::new() };
         let least_common_ancestor = 4;
-        let mut low_lim = HashMap::from([
+        let low_lim = HashMap::from([
+            (1.into(), TreeData::new(9, 1, None)),
             (4.into(), TreeData::new(8, 4, Some(1.into()))),
             // initialize with wrong values
             (5.into(), TreeData::new(0, 0, Some(0.into()))),
@@ -104,50 +103,51 @@ mod feasible_tree {
             (8.into(), TreeData::new(0, 0, Some(0.into()))),
         
         ]);
-        ft.update_low_lim(&mut low_lim, least_common_ancestor.into());
+        let ur: UpdateRanks<isize> = UpdateLowLim{ graph, tree, ranks, cut_values: HashMap::new() }.update_low_lim(low_lim, least_common_ancestor.into());
         // these tests may fail since i don't know the exact order that petgraph returns neighbors
-        assert_eq!(low_lim.get(&4.into()), Some(&TreeData::new(8, 4, Some(1.into()))));
-        assert_eq!(low_lim.get(&5.into()), Some(&TreeData::new(5, 4, Some(4.into()))));
-        assert_eq!(low_lim.get(&6.into()), Some(&TreeData::new(4, 4, Some(5.into()))));
-        assert_eq!(low_lim.get(&7.into()), Some(&TreeData::new(6, 6, Some(4.into()))));
-        assert_eq!(low_lim.get(&8.into()), Some(&TreeData::new(7, 7, Some(4.into()))));
+        assert_eq!(ur.low_lim.get(&1.into()), Some(&TreeData::new(9, 1, None)));
+        assert_eq!(ur.low_lim.get(&4.into()), Some(&TreeData::new(8, 4, Some(1.into()))));
+        assert_eq!(ur.low_lim.get(&5.into()), Some(&TreeData::new(5, 4, Some(4.into()))));
+        assert_eq!(ur.low_lim.get(&6.into()), Some(&TreeData::new(4, 4, Some(5.into()))));
+        assert_eq!(ur.low_lim.get(&7.into()), Some(&TreeData::new(6, 6, Some(4.into()))));
+        assert_eq!(ur.low_lim.get(&8.into()), Some(&TreeData::new(7, 7, Some(4.into()))));
     }
 
     #[test]
     fn test_is_head_to_tail_true_root_in_tail() {
         // u is always considered to be the tail of the edge to be swapped
-        let low_lim = get_low_lim();
+        let ft = FeasibleTree::<isize>{ graph: StableDiGraph::new(), tree: StableDiGraph::new(), ranks: Ranks::new_unchecked(HashMap::new(), 1), cut_values: HashMap::new(), low_lim: get_low_lim() };
         let u = 5;
         let tail = 6;
         let head = 7;
-        assert!(FeasibleTree::<isize>::is_head_to_tail(&low_lim, tail.into(), head.into(), *low_lim.get(&u.into()).unwrap(), false));
+        assert!(ft.is_head_to_tail(tail.into(), head.into(), *ft.low_lim.get(&u.into()).unwrap(), false));
     }
 
     #[test]
     fn test_is_head_to_tail_true_root_in_head() {
-        let low_lim = get_low_lim();
+        let ft = FeasibleTree::<isize>{ graph: StableDiGraph::new(), tree: StableDiGraph::new(), ranks: Ranks::new_unchecked(HashMap::new(), 1), cut_values: HashMap::new(), low_lim: get_low_lim() };
         let u = 4;
         let tail = 3;
         let head = 5;
-        assert!(FeasibleTree::<isize>::is_head_to_tail(&low_lim, tail.into(), head.into(), *low_lim.get(&u.into()).unwrap(), true));
+        assert!(ft.is_head_to_tail(tail.into(), head.into(), *ft.low_lim.get(&u.into()).unwrap(), true));
     }
 
     #[test]
     fn test_is_head_to_tail_false_root_in_tail() {
-        let low_lim = get_low_lim();
+        let ft = FeasibleTree::<isize>{ graph: StableDiGraph::new(), tree: StableDiGraph::new(), ranks: Ranks::new_unchecked(HashMap::new(), 1), cut_values: HashMap::new(), low_lim: get_low_lim() };
         let u = 3;
         let tail = 4;
         let head = 3;
-        assert!(!FeasibleTree::<isize>::is_head_to_tail(&low_lim, tail.into(), head.into(), *low_lim.get(&u.into()).unwrap(), false));
+        assert!(!ft.is_head_to_tail(tail.into(), head.into(), *ft.low_lim.get(&u.into()).unwrap(), false));
     }
 
     #[test]
     fn test_is_head_to_tail_false_root_in_head() {
-        let low_lim = get_low_lim();
+        let ft = FeasibleTree::<isize>{ graph: StableDiGraph::new(), tree: StableDiGraph::new(), ranks: Ranks::new_unchecked(HashMap::new(), 1), cut_values: HashMap::new(), low_lim: get_low_lim() };
         let u = 2;
         let tail = 2;
         let head = 0;
-        assert!(!FeasibleTree::<isize>::is_head_to_tail(&low_lim, tail.into(), head.into(), *low_lim.get(&u.into()).unwrap(), true));
+        assert!(!ft.is_head_to_tail(tail.into(), head.into(), *ft.low_lim.get(&u.into()).unwrap(), true));
     }
 
     #[test]
@@ -155,8 +155,7 @@ mod feasible_tree {
         let tree = StableDiGraph::from_edges(FEASIBLE_TREE_NEG_CUT_VALUE);
         let graph = StableDiGraph::new();
         let ranks = Ranks::new_unchecked(HashMap::new(), 1);
-        let mut ft: FeasibleTree<isize> = FeasibleTree{ graph, tree, ranks, cut_values: HashMap::new() };
-        ft.update_ranks();
+        let mut ft: FeasibleTree<isize> = UpdateRanks{ graph, tree, ranks, cut_values: HashMap::new(), low_lim: HashMap::new() }.update_ranks();
         ft.ranks.normalize();
         assert_eq!(ft.ranks[0.into()], 0);
         assert_eq!(ft.ranks[1.into()], 1);
@@ -173,8 +172,7 @@ mod feasible_tree {
         let tree = StableDiGraph::from_edges(FEASIBLE_TREE_POS_CUT_VALUE);
         let graph = StableDiGraph::new();
         let ranks = Ranks::new_unchecked(HashMap::new(), 1);
-        let mut ft: FeasibleTree<isize> = FeasibleTree{ graph, tree, ranks, cut_values: HashMap::new() };
-        ft.update_ranks();
+        let mut ft: FeasibleTree<isize> = UpdateRanks{ graph, tree, ranks, cut_values: HashMap::new(), low_lim: HashMap::new() }.update_ranks();
         ft.ranks.normalize();
         assert_eq!(ft.ranks[0.into()], 0);
         assert_eq!(ft.ranks[1.into()], 1);

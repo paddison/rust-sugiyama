@@ -1,4 +1,4 @@
-mod rank;
+pub(crate) mod rank;
 mod tree;
 #[cfg(test)]
 mod tests;
@@ -151,13 +151,13 @@ impl<T: Default> FeasibleTreeBuilder<T> {
         }
     }
 
-    fn update_cutvalues(self, mut cut_values: HashMap<(NodeIndex, NodeIndex), isize>, starting_vertex: NodeIndex) -> FeasibleTree<T> {
+    fn update_cutvalues(self, mut cut_values: HashMap<(NodeIndex, NodeIndex), isize>, starting_vertex: NodeIndex) -> UpdateLowLim<T> {
         let queue = VecDeque::from([starting_vertex]);
         self.calculate_cutvalues(queue, &mut cut_values);
-        FeasibleTree { graph: self.graph, tree: self.tree, ranks: self.ranks, cut_values }
+        UpdateLowLim { graph: self.graph, tree: self.tree, cut_values, ranks: self.ranks }
     }
 
-    pub(crate) fn init_cutvalues(self) -> FeasibleTree<T> {
+    pub(crate) fn init_cutvalues(self) -> InitializeLowLim<T> {
         // assumes all edges have a weight of one
         let mut cut_values = HashMap::<(NodeIndex, NodeIndex), isize>::new();
         let queue = self.leaves();
@@ -165,7 +165,7 @@ impl<T: Default> FeasibleTreeBuilder<T> {
         // traverse tree inward via breadth first starting from leaves
         self.calculate_cutvalues(queue, &mut cut_values);
 
-        FeasibleTree { graph: self.graph, tree: self.tree, ranks: self.ranks, cut_values }
+        InitializeLowLim { graph: self.graph, tree: self.tree, ranks: self.ranks, cut_values }
     }
 
     fn get_neighborhood_info(
@@ -193,170 +193,85 @@ impl<T: Default> FeasibleTreeBuilder<T> {
 }
 
 // TODO: make an add an extra type which is used to init low lim values.
-pub(crate) struct FeasibleTree<T: Default> {
+// add extra type for after updating cutvalues
+// add extra type for initializing low_lim_values
+// add extra types for udpating
+
+pub(crate) struct InitializeLowLim<T> {
     graph: StableDiGraph<Option<T>, usize>,
     tree: StableDiGraph<Option<T>, usize>,
     ranks: Ranks,
     pub cut_values: HashMap<(NodeIndex, NodeIndex), isize>,
 }
 
-impl<T: Default> FeasibleTree<T> {
-    fn rank(mut self) -> ProperLayeredGraph<T> {
-        let mut low_lim = self.initialize_low_lim();
-
-        while let Some(edge) = self.leave_edge() {
-            // swap edges and calculate cut value
-            let swap_edge = self.enter_edge(edge, &low_lim);
-            self = self.exchange(&mut low_lim, edge, swap_edge);
-            self.update_ranks();
-        }
-
-        // TODO maybe destcructure this or turn it into Layers.
-        self.ranks.normalize();
-        // don't balance ranks since we want maximum width to 
-        // give indication about number of parallel processes running
-        ProperLayeredGraph::new(Layers::new_empty(), self.graph)
-    }
-
-    fn leave_edge(&self) -> Option<(NodeIndex, NodeIndex)> {
-        for (edge, cut_value) in self.cut_values.iter() {
-            if cut_value < &0 {
-                return Some(*edge);
-            }
-        }
-        None
-    }
-
-    fn enter_edge(&mut self, edge: (NodeIndex, NodeIndex), low_lim: &HashMap<NodeIndex, TreeData>) -> (NodeIndex, NodeIndex) {
-        // find a non-tree edge to replace e.
-        // remove e from tree
-        // consider all edges going from head to tail component.
-        // choose edge with minimum slack.
-        let (u, v) = edge;
-        let mut u = *low_lim.get(&u).unwrap();
-        let mut v = *low_lim.get(&v).unwrap();
-        if !(u.lim < v.lim) {
-            std::mem::swap(&mut u, &mut v); 
-        }
-
-        self.graph.edge_indices()
-            .filter_map(|e| self.graph.edge_endpoints(e))
-            .filter(|(tail, head)| { 
-                Self::is_head_to_tail(low_lim, *tail, *head, u, u.lim < v.lim)
-            })
-            .min_by(|(tail_a, head_a), (tail_b, head_b)| self.ranks.slack(*tail_a, *head_a).cmp(&self.ranks.slack(*tail_b, *head_b)))
-            .unwrap()
-    }
-
-    fn exchange(mut self, low_lim: &mut HashMap<NodeIndex, TreeData>, edge: (NodeIndex, NodeIndex), swap_edge: (NodeIndex, NodeIndex)) -> Self {
-        // get path connecting the head and tail of swap_edge in the tree
-        let (connecting_path, least_common_ancestor) = Self::get_path_in_tree(low_lim, swap_edge);
-
-        // swap edges 
-        self.tree.remove_edge(self.tree.find_edge(edge.0, edge.1).unwrap());
-        self.tree.add_edge(swap_edge.0, swap_edge.1, usize::default());
-        self.graph.remove_edge(self.graph.find_edge(swap_edge.0, swap_edge.1).unwrap());
-        // is it a good idea to add the edge that was removed back to the graph or should we keep a separate list of removed edges?
-        self.graph.add_edge(edge.0, edge.1, usize::default()); 
-
-        // update cut values
-        // the only cut values that need to be updated are those in the path connecting the swap edge in the tree
-        // find the first cut value in the path which can be updated,
-        // then update all cut values that are missing along the way.
-        // the first value which can be updated is alway one of the vertices of the edge that was removed.
-        self.remove_outdated_cutvalues(connecting_path, edge);
-        // destructure self, since we need to build the tree anew:
-
-        let Self { graph, tree, ranks, cut_values } = self;
-        self = FeasibleTreeBuilder { graph, ranks, tree }.update_cutvalues(cut_values, edge.0);
-
-        self.update_low_lim(low_lim, least_common_ancestor);
-
-        self
-    }
-
-    fn initialize_low_lim(&self) -> HashMap<NodeIndex, TreeData> {
+impl<T: Default> InitializeLowLim<T> {
+    fn initialize_low_lim(self) -> FeasibleTree<T> {
         // start at arbitrary root node
         let root = self.tree.node_indices().next().unwrap();
+        let mut max_lim = self.tree.node_count();
         let mut low_lim = HashMap::new();
-        self.dfs_low_lim(&mut low_lim, root, 1, None);
+        self.dfs_low_lim(&mut low_lim, root, None, &mut max_lim, &mut HashSet::new());
 
-        low_lim
+        FeasibleTree { graph: self.graph, tree: self.tree, ranks: self.ranks, cut_values: self.cut_values, low_lim }
     }
+}
 
-    fn dfs_low_lim(&self, low_lim: &mut HashMap<NodeIndex, TreeData>, next: NodeIndex, mut least_lim: usize, parent: Option<NodeIndex>) -> usize {
-        low_lim.insert(next, TreeData::default()); // dummy values
-        let mut low = least_lim;
-        for n in self.tree.neighbors_undirected(next) {
-            if low_lim.contains_key(&n) {
+impl<T> LowLimDFS<T> for InitializeLowLim<T> {
+    fn tree(&self) -> &StableDiGraph<Option<T>, usize> {
+        &self.tree
+    }
+}
+trait LowLimDFS<T> {
+    fn dfs_low_lim(&self, low_lim: &mut HashMap<NodeIndex, TreeData>, next: NodeIndex, parent: Option<NodeIndex>, max_lim: &mut usize, visited: &mut HashSet<NodeIndex>) {
+        visited.insert(next);
+        low_lim.entry(next).and_modify(|e| { e.lim = *max_lim; e.parent = parent; });
+        for n in self.tree().neighbors_undirected(next) {
+            if visited.contains(&n) {
                 continue;
             }
-            least_lim = self.dfs_low_lim(low_lim, n, least_lim, Some(next)) + 1;
-            low = low.min(low_lim.get(&n).unwrap().low);
+            *max_lim -= 1;
+            self.dfs_low_lim(low_lim, n, Some(next), max_lim, visited);
+            low_lim.entry(n).and_modify(|e| e.low = *max_lim);
         }
-        low_lim.insert(next, TreeData { low, lim: least_lim, parent });
-
-        least_lim
     }
+    fn tree(&self) -> &StableDiGraph<Option<T>, usize>;
+}
+struct UpdateLowLim<T> {
+    graph: StableDiGraph<Option<T>, usize>,
+    tree: StableDiGraph<Option<T>, usize>,
+    cut_values: HashMap<(NodeIndex, NodeIndex), isize>,
+    ranks: Ranks,
+}
 
-    fn get_path_in_tree(low_lim: &HashMap<NodeIndex, TreeData>, edge: (NodeIndex, NodeIndex)) -> (Vec<NodeIndex>, NodeIndex) {
-        let (w, x) = edge;
-        let w_data = low_lim.get(&w).unwrap();
-        let x_data = low_lim.get(&x).unwrap();
-        let mut path_w_l = VecDeque::new();
-        let mut path_l_x = VecDeque::new();
-        // follow path back until least common ancestor is found
-        // record path from w to l
-        let least_common_ancestor = loop {
-            let l = w_data.parent.unwrap();
-            path_w_l.push_back(l);
-            let l_data = low_lim.get(&l).unwrap();
-            if l_data.low <= w_data.lim && x_data.lim <= l_data.lim {
-                break l;
-            }
+impl<T: Default> UpdateLowLim<T> {
+    fn update_low_lim(self, mut low_lim: HashMap<NodeIndex, TreeData>, least_common_ancestor: NodeIndex) -> UpdateRanks<T> {
+        let lca_data = *low_lim.get(&least_common_ancestor).unwrap();
+        let mut visited = match lca_data.parent {
+            Some(parent) => HashSet::from([parent]),
+            None => HashSet::new()
         };
-
-        // record path from x to l
-        loop {
-            let l = x_data.parent.unwrap();
-            let l_data = low_lim.get(&l).unwrap();
-            if l_data.low <= w_data.lim && x_data.lim <= l_data.lim {
-                assert_eq!(l, least_common_ancestor); // for debugging check that roots are identical
-                break
-            }
-
-            path_l_x.push_front(l);
-        }
-
-        path_w_l.append(&mut path_l_x);
-
-        (path_w_l.into_iter().collect::<Vec<_>>(), least_common_ancestor)
+        let mut max_lim = lca_data.lim;
+        self.dfs_low_lim(&mut low_lim, least_common_ancestor, lca_data.parent, &mut max_lim, &mut visited);
+        UpdateRanks { graph: self.graph, tree: self.tree, cut_values: self.cut_values, low_lim, ranks: self.ranks }
     }
+}
 
-    fn is_head_to_tail(low_lim: &HashMap<NodeIndex, TreeData>, tail: NodeIndex, head: NodeIndex, u: TreeData, root_is_in_head: bool) -> bool {
-        // edge needs to go from head to tail. e.g. tail neads to be in head component, and head in tail component
-        let tail = low_lim.get(&tail).unwrap();
-        let head = low_lim.get(&head).unwrap();
-        // check if head is in tail component
-        root_is_in_head == (u.low <= head.lim && head.lim <= u.lim) &&
-        // check if tail is in head component
-        root_is_in_head != (u.low <= tail.lim && tail.lim <= u.lim)
+impl<T> LowLimDFS<T> for UpdateLowLim<T> {
+    fn tree(&self) -> &StableDiGraph<Option<T>, usize> {
+        &self.tree
     }
+}
 
-    fn remove_outdated_cutvalues(&mut self, connecting_path: Vec<NodeIndex>, removed_edge: (NodeIndex, NodeIndex)) {
-        // starting from the first node, we know all adjacent cutvalues except for one.
-        // thus we should be able to update every cut value efficiently by going through the path.
-        // the last thing we need to do is calculate the cut value for the edge that was added.
-        // remove all the cutvalues on the path:
-        self.cut_values.remove(&removed_edge);
-        for (tail, head) in connecting_path[..connecting_path.len() - 1].iter().copied().zip(connecting_path[1..].iter().copied()) {
-            if self.cut_values.remove(&(tail, head)).is_none() {
-                self.cut_values.remove(&(head, tail));
-            }
-        }
-    }
+struct UpdateRanks<T> {
+    graph: StableDiGraph<Option<T>, usize>,
+    tree: StableDiGraph<Option<T>, usize>,
+    cut_values: HashMap<(NodeIndex, NodeIndex), isize>,
+    low_lim: HashMap<NodeIndex, TreeData>,
+    ranks: Ranks
+}
 
-    fn update_ranks(&mut self) {
+impl<T: Default> UpdateRanks<T> {
+    fn update_ranks(self) -> FeasibleTree<T> {
         let node = self.tree.node_identifiers().next().unwrap();
         let mut new_ranks = HashMap::from([(node, 0)]);
         // start at arbitrary node and traverse the tree
@@ -380,32 +295,153 @@ impl<T: Default> FeasibleTree<T> {
                 queue.push_back(n);
             }
         }
-        self.ranks = Ranks::new(new_ranks, &self.tree, self.ranks.get_minimum_length())
+        let updated_ranks = Ranks::new(new_ranks, &self.tree, self.ranks.get_minimum_length());
+        FeasibleTree { graph: self.graph, tree: self.tree, ranks: updated_ranks, cut_values: self.cut_values, low_lim: self.low_lim }
+    }
+}
+
+pub(crate) struct FeasibleTree<T: Default> {
+    graph: StableDiGraph<Option<T>, usize>,
+    tree: StableDiGraph<Option<T>, usize>,
+    ranks: Ranks,
+    pub cut_values: HashMap<(NodeIndex, NodeIndex), isize>,
+    low_lim: HashMap<NodeIndex, TreeData>,
+}
+
+impl<T: Default> FeasibleTree<T> {
+    fn rank(mut self) -> ProperLayeredGraph<T> {
+
+        while let Some(edge) = self.leave_edge() {
+            // swap edges and calculate cut value
+            let swap_edge = self.enter_edge(edge);
+            self = self.exchange(edge, swap_edge);
+        }
+
+        // don't balance ranks since we want maximum width to 
+        // give indication about number of parallel processes running
+        let Self {mut graph, tree, ranks, ..} = self;
+
+        // merge tree and graph back together
+        for edge in tree.edge_indices() {
+            let (tail, head) = tree.edge_endpoints(edge).unwrap();
+            graph.add_edge(tail, head, usize::default());
+        }
+        drop(tree);
+        // build layers (this also normalizes ranks)
+        let layers: Layers = ranks.into_layers(&graph);
+
+        ProperLayeredGraph::new(layers, graph)
     }
 
-    fn update_low_lim(&self, low_lim: &mut HashMap<NodeIndex, TreeData>, least_common_ancestor: NodeIndex) {
-        let lca_data = low_lim.get(&least_common_ancestor).unwrap();
-        let mut visited = match lca_data.parent {
-            Some(parent) => HashSet::from([parent]),
-            None => HashSet::new()
-        };
-        let mut max_lim = lca_data.lim;
-        self.reverse_dfs_low_lim(low_lim, least_common_ancestor, lca_data.parent, &mut max_lim, &mut visited)
-    }
-
-    /// Used to update low, lim and parent values, by traversing the subtree under parent.
-    /// The difference to initialzing the low lim values is that we will decrement lim instead of incrementing it.
-    fn reverse_dfs_low_lim(&self, low_lim: &mut HashMap<NodeIndex, TreeData>, next: NodeIndex, parent: Option<NodeIndex>, max_lim: &mut usize, visited: &mut HashSet<NodeIndex>) {
-        visited.insert(next);
-        low_lim.entry(next).and_modify(|e| { e.lim = *max_lim; e.parent = parent; });
-
-        for n in self.tree.neighbors_undirected(next) {
-            if visited.contains(&n) {
-                continue;
+    fn leave_edge(&self) -> Option<(NodeIndex, NodeIndex)> {
+        for (edge, cut_value) in self.cut_values.iter() {
+            if cut_value < &0 {
+                return Some(*edge);
             }
-            *max_lim -= 1;
-            self.reverse_dfs_low_lim(low_lim, n, Some(next), max_lim, visited);
-            low_lim.entry(n).and_modify(|e| e.low = *max_lim);
+        }
+        None
+    }
+
+    fn enter_edge(&mut self, edge: (NodeIndex, NodeIndex)) -> (NodeIndex, NodeIndex) {
+        // find a non-tree edge to replace e.
+        // remove e from tree
+        // consider all edges going from head to tail component.
+        // choose edge with minimum slack.
+        let (u, v) = edge;
+        let mut u = *self.low_lim.get(&u).unwrap();
+        let mut v = *self.low_lim.get(&v).unwrap();
+        if !(u.lim < v.lim) {
+            std::mem::swap(&mut u, &mut v); 
+        }
+
+        self.graph.edge_indices()
+            .filter_map(|e| self.graph.edge_endpoints(e))
+            .filter(|(tail, head)| { 
+                self.is_head_to_tail(*tail, *head, u, u.lim < v.lim)
+            })
+            .min_by(|(tail_a, head_a), (tail_b, head_b)| self.ranks.slack(*tail_a, *head_a).cmp(&self.ranks.slack(*tail_b, *head_b)))
+            .unwrap()
+    }
+
+    fn exchange(mut self, edge: (NodeIndex, NodeIndex), swap_edge: (NodeIndex, NodeIndex)) -> Self {
+        // get path connecting the head and tail of swap_edge in the tree
+        let (connecting_path, least_common_ancestor) = self.get_path_in_tree(swap_edge);
+
+        // swap edges 
+        self.tree.remove_edge(self.tree.find_edge(edge.0, edge.1).unwrap());
+        self.tree.add_edge(swap_edge.0, swap_edge.1, usize::default());
+        self.graph.remove_edge(self.graph.find_edge(swap_edge.0, swap_edge.1).unwrap());
+        // is it a good idea to add the edge that was removed back to the graph or should we keep a separate list of removed edges?
+        self.graph.add_edge(edge.0, edge.1, usize::default()); 
+
+        // update cut values
+        // the only cut values that need to be updated are those in the path connecting the swap edge in the tree
+        // find the first cut value in the path which can be updated,
+        // then update all cut values that are missing along the way.
+        // the first value which can be updated is alway one of the vertices of the edge that was removed.
+        self.remove_outdated_cutvalues(connecting_path, edge);
+
+        // destructure self, since we need to build the tree anew:
+        let Self { graph, tree, ranks, cut_values, low_lim } = self;
+        FeasibleTreeBuilder { graph, ranks, tree }.update_cutvalues(cut_values, edge.0)
+            .update_low_lim(low_lim, least_common_ancestor)
+            .update_ranks()
+    }
+
+    fn get_path_in_tree(&self, edge: (NodeIndex, NodeIndex)) -> (Vec<NodeIndex>, NodeIndex) {
+        let (w, x) = edge;
+        let w_data = self.low_lim.get(&w).unwrap();
+        let x_data = self.low_lim.get(&x).unwrap();
+        let mut path_w_l = VecDeque::new();
+        let mut path_l_x = VecDeque::new();
+        // follow path back until least common ancestor is found
+        // record path from w to l
+        let least_common_ancestor = loop {
+            let l = w_data.parent.unwrap();
+            path_w_l.push_back(l);
+            let l_data = self.low_lim.get(&l).unwrap();
+            if l_data.low <= w_data.lim && x_data.lim <= l_data.lim {
+                break l;
+            }
+        };
+
+        // record path from x to l
+        loop {
+            let l = x_data.parent.unwrap();
+            let l_data = self.low_lim.get(&l).unwrap();
+            if l_data.low <= w_data.lim && x_data.lim <= l_data.lim {
+                assert_eq!(l, least_common_ancestor); // for debugging check that roots are identical
+                break
+            }
+
+            path_l_x.push_front(l);
+        }
+
+        path_w_l.append(&mut path_l_x);
+
+        (path_w_l.into_iter().collect::<Vec<_>>(), least_common_ancestor)
+    }
+
+    fn is_head_to_tail(&self, tail: NodeIndex, head: NodeIndex, u: TreeData, root_is_in_head: bool) -> bool {
+        // edge needs to go from head to tail. e.g. tail neads to be in head component, and head in tail component
+        let tail = self.low_lim.get(&tail).unwrap();
+        let head = self.low_lim.get(&head).unwrap();
+        // check if head is in tail component
+        root_is_in_head == (u.low <= head.lim && head.lim <= u.lim) &&
+        // check if tail is in head component
+        root_is_in_head != (u.low <= tail.lim && tail.lim <= u.lim)
+    }
+
+    fn remove_outdated_cutvalues(&mut self, connecting_path: Vec<NodeIndex>, removed_edge: (NodeIndex, NodeIndex)) {
+        // starting from the first node, we know all adjacent cutvalues except for one.
+        // thus we should be able to update every cut value efficiently by going through the path.
+        // the last thing we need to do is calculate the cut value for the edge that was added.
+        // remove all the cutvalues on the path:
+        self.cut_values.remove(&removed_edge);
+        for (tail, head) in connecting_path[..connecting_path.len() - 1].iter().copied().zip(connecting_path[1..].iter().copied()) {
+            if self.cut_values.remove(&(tail, head)).is_none() {
+                self.cut_values.remove(&(head, tail));
+            }
         }
     }
 }

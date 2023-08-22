@@ -2,6 +2,8 @@ use std::{collections::HashMap, ops::Index};
 
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
+use crate::util::layers::Layers;
+
 use super::tree::{TighTreeDFS};
 
 /// Ranks of the vertices of a graph.
@@ -53,11 +55,25 @@ impl Ranks {
     }
 
     /// Normalize ranking so the least rank is 0
-    pub(super) fn normalize(&mut self) {
+    pub fn normalize(&mut self) {
         let minimum_rank = *self._inner.iter().min_by(|(_, rank_a), (_, rank_b)| rank_a.cmp(&rank_b)).unwrap().1;
         for (_, rank) in self._inner.iter_mut() {
             *rank -= minimum_rank;
         }
+    }
+
+    /// Note: Ranks have to be normalized, or this will fail.
+    pub(super) fn into_layers<T>(mut self, graph: &StableDiGraph<Option<T>, usize>) -> Layers {
+        self.normalize();
+        let mut layers = vec![];
+        for (vertex, layer) in self._inner {
+            while layers.len() <= layer as usize {
+                layers.push(vec![]);
+            }
+            layers[layer as usize].push(vertex);
+        
+        }
+        Layers::new(layers, graph)
     }
 }
 
