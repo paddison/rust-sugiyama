@@ -4,7 +4,7 @@ use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
 use crate::util::layers::Layers;
 
-use super::tree::{TighTreeDFS};
+use super::tree::{TightTreeDFSs};
 
 /// Ranks of the vertices of a graph.
 /// Needs to contain all the vertices of a graph
@@ -48,7 +48,7 @@ impl Ranks {
         self._inner.entry(vertex).and_modify(|rank| *rank += delta);
     }
 
-    pub(super) fn tighten_edge(&mut self, tree: &TighTreeDFS, delta: isize) {
+    pub(super) fn tighten_edge(&mut self, tree: &TightTreeDFSs, delta: isize) {
         for v in tree.vertices() {
             self.update(*v, delta);
         }

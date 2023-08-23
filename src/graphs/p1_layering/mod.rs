@@ -5,15 +5,16 @@ mod tests;
 
 use std::collections::{HashSet, HashMap, VecDeque};
 
+use petgraph::{Directed, Undirected};
 use petgraph::Direction::{*, self};
 use petgraph::graph::Node;
-use petgraph::stable_graph::{StableDiGraph, NodeIndex};
-use petgraph::visit::{EdgeRef, IntoNeighborsDirected, IntoNodeIdentifiers};
+use petgraph::stable_graph::{StableDiGraph, NodeIndex, StableUnGraph, StableGraph, EdgeIndex};
+use petgraph::visit::{EdgeRef, IntoNeighborsDirected, IntoNodeIdentifiers, IntoEdgeReferences};
 
 use crate::util::layers::Layers;
 
 use self::rank::Ranks;
-use self::tree::{TighTreeDFS};
+use self::tree::{TightTreeDFSs, TightTreeDFS};
 
 use super::p2_reduce_crossings::ProperLayeredGraph;
 
@@ -24,14 +25,367 @@ struct Vertex {
     parent: Option<NodeIndex>,
 }
 
+impl Default for Vertex {
+    fn default() -> Self {
+        Self {
+            rank: 0,
+            low: 0,
+            lim: 0,
+            parent: None,
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
 struct Edge {
     weight: i32,
-    cut_value: i32,
+    cut_value: Option<i32>,
+    is_tree_edge: bool,
+}
+
+impl Default for Edge {
+    fn default() -> Self {
+        Self {
+            weight: 1,
+            cut_value: None,   
+            is_tree_edge: false,
+        }
+    }
+}
+
+struct NeighborhoodInfo {
+    cut_value_sum: i32,
+    tree_edge_weight_sum: i32,
+    non_tree_edge_weight_sum: i32,
+    missing: Option<NodeIndex>,
 }
 
 pub(crate) fn start_layering<T: Default>(graph: StableDiGraph<Option<T>, usize>) -> UnlayeredGraph<T> {
     UnlayeredGraph { graph }
 }
+
+fn start(edges: &[(u32, u32)], minimum_length: u32) -> Unlayered {
+    let graph = StableDiGraph::<Vertex, Edge>::from_edges(edges);
+    Unlayered { graph, minimum_length: minimum_length as i32 }
+}
+
+trait Slack {
+    fn slack(&self, graph: &StableDiGraph<Vertex, Edge>, minimum_length: i32) -> i32; 
+}
+
+impl Slack for EdgeIndex {
+    fn slack(&self, graph: &StableDiGraph<Vertex, Edge>, minimum_length: i32) -> i32 {
+        let (tail, head) = graph.edge_endpoints(*self).unwrap();
+        graph[head].rank - graph[tail].rank - minimum_length
+    }
+}
+
+struct Unlayered {
+    graph: StableDiGraph<Vertex, Edge>,
+    minimum_length: i32
+}
+
+impl Unlayered {
+    fn initial_ranking(self) -> Ranked {
+        let Self { mut graph, minimum_length } = self;
+
+        // Sort nodes topologically so we don't need to verify that we've assigned
+        // a rank to all incoming neighbors
+        // assume graphs contain no circles for now
+        for v in petgraph::algo::toposort(&graph, None).unwrap() {
+            let rank = graph.neighbors_directed(v, Incoming)
+                                 .map(|n| graph[n].rank + 1)
+                                 .max();
+
+            if let Some(rank) = rank {
+                graph[v].rank = rank;
+            }
+        }
+
+        Ranked { graph, minimum_length }
+    }
+}
+
+struct Ranked {
+    graph: StableDiGraph<Vertex, Edge>,
+    minimum_length: i32
+}
+
+impl Ranked {
+    fn make_tight(mut self) -> Tight {
+        // let Self { mut graph, minimum_length } = self;
+
+        // take a random edge to start the tree from
+        // split edges into sets consisting of tree and non tree edges.
+        // in the beginning, all edges are non tree edges, and they are added
+        // with each call to dfs.
+
+        // build a new graph which is a tree. 
+        // Remember only edges which where part of the original graph
+        // each time we add an edge to the tree, we remove it from the graph
+        let num_nodes = self.graph.node_count();
+        let mut nodes = self.graph.node_indices().collect::<Vec<_>>().into_iter();
+        let mut dfs = TightTreeDFS::new();
+        
+        while dfs.tight_tree(&self, nodes.next().unwrap(), &mut HashSet::new()) < num_nodes {
+            let edge = self.find_non_tight_edge(&dfs);
+            let (_, head) = self.graph.edge_endpoints(edge).unwrap();
+            let mut delta = edge.slack(&self.graph, self.minimum_length);
+
+            if dfs.contains_vertex(&head) {
+                delta = -delta;
+            }
+
+            self.tighten_edge(&dfs, delta)
+        }
+
+        self.mark_tree_edges(dfs);
+
+        Tight { graph: self.graph, minimum_length: self.minimum_length }
+    }
+
+    fn find_non_tight_edge(&self, dfs: &TightTreeDFS) -> EdgeIndex {
+        self.graph.edge_indices()
+            .filter(|e| !dfs.contains_edge(*e) && dfs.is_incident_edge(e, &self.graph))
+            .min_by(|a, b| a.slack(&self.graph, self.minimum_length).cmp(&b.slack(&self.graph, self.minimum_length))).unwrap()
+    }
+
+    fn tighten_edge(&mut self, dfs: &TightTreeDFS, delta: i32) {
+        for e in &dfs.edges {
+            let (tail, head) = self.graph.edge_endpoints(*e).unwrap();
+            self.graph[tail].rank += delta;
+            self.graph[head].rank += delta;
+        }
+    }
+
+    fn mark_tree_edges(&mut self, dfs: TightTreeDFS) {
+        for e in dfs.edges {
+            self.graph[e].is_tree_edge = true;
+        }
+    }
+
+}
+
+struct Tight {
+    graph: StableDiGraph<Vertex, Edge>,
+    minimum_length: i32,
+}
+
+impl Tight {
+    pub(crate) fn init_cutvalues(mut self) -> InitLowLim {
+        // TODO: check if it is faster to collect tree edges or to do unecessary iterations
+        // let tree_edges = self.graph.edge_indices().filter(|e| self.graph[*e].is_tree_edge).collect::<HashSet<_>>();
+        let queue = self.leaves();
+        // traverse tree inward via breadth first starting from leaves
+        self.calculate_cut_values(queue);
+        InitLowLim { graph: self.graph, minimum_length: self.minimum_length }
+    }
+
+    fn update_cutvalues(mut self, connecting_path: Vec<NodeIndex>, removed_edge: (NodeIndex, NodeIndex)) -> InitLowLim {
+        self.remove_outdated_cutvalues(connecting_path, removed_edge);
+        let queue = VecDeque::from([removed_edge.0]);
+        self.calculate_cut_values(queue);
+        InitLowLim { graph: self.graph, minimum_length: self.minimum_length }
+    }
+
+    fn leaves(&self) -> VecDeque<NodeIndex> {
+        self.graph.node_identifiers()
+                  .filter(|v| 
+                    1 == self.graph.edges_directed(*v, Incoming)
+                              .chain(self.graph.edges_directed(*v, Outgoing))
+                              .filter(|e| e.weight().is_tree_edge)
+                              .count())
+                  .collect::<VecDeque<_>>()
+    }
+
+    fn remove_outdated_cutvalues(&mut self, connecting_path: Vec<NodeIndex>, removed_edge: (NodeIndex, NodeIndex)) {
+        // starting from the first node, we know all adjacent cutvalues except for one.
+        // thus we should be able to update every cut value efficiently by going through the path.
+        // the last thing we need to do is calculate the cut value for the edge that was added.
+        // remove all the cutvalues on the path:
+        let removed_edge = self.graph.find_edge_undirected(removed_edge.0, removed_edge.1).unwrap().0;
+        self.graph[removed_edge].cut_value = None;
+        for (tail, head) in connecting_path[..connecting_path.len() - 1].iter().copied().zip(connecting_path[1..].iter().copied()) {
+            let edge = self.graph.find_edge_undirected(tail, head).unwrap().0;
+            self.graph[edge].cut_value = None;
+        }
+
+    }
+
+    fn calculate_cut_values(&mut self, mut queue: VecDeque<NodeIndex>) {
+        while let Some(vertex) = queue.pop_front() {
+            let incoming = self.get_neighborhood_info(vertex, Incoming); 
+            let outgoing = self.get_neighborhood_info(vertex, Outgoing); 
+
+            // if we can't calculate cut value yet, or the value is already known
+            let (mut incoming, mut outgoing) = match (incoming, outgoing) {
+                (Some(inc), Some(out)) => (inc, out),
+                _ => continue,
+            };
+
+            let missing = match (incoming.missing, outgoing.missing) {
+                (Some(u), None) => u,
+                (None, Some(v)) => v,
+                _ => continue,
+            };
+
+            let edge = match self.graph.find_edge(vertex, missing) {
+                Some(e) => {
+                    // switch direction, if vertex is tail component of edge
+                    std::mem::swap(&mut incoming, &mut outgoing);
+                    e
+                },
+                None => self.graph.find_edge(missing, vertex).unwrap()
+
+            };
+
+            self.graph[edge].cut_value = Some(self.calculate_cut_value(edge, incoming, outgoing));
+            // continue traversing tree in direction of edge whose vertex was missing before
+            queue.push_back(missing);
+        }
+    }
+
+    fn calculate_cut_value(&self, edge: EdgeIndex, incoming: NeighborhoodInfo, outgoing: NeighborhoodInfo) -> i32 {
+        self.graph[edge].weight 
+        + incoming.non_tree_edge_weight_sum - incoming.cut_value_sum + incoming.tree_edge_weight_sum
+        - outgoing.non_tree_edge_weight_sum + outgoing.cut_value_sum - outgoing.tree_edge_weight_sum
+    }
+
+    fn get_neighborhood_info(&self, vertex: NodeIndex, direction: Direction) -> Option<NeighborhoodInfo> {
+        // return the sum of all cut values,
+        // sum of weights of cut value edges
+        // missing cut value (only if there is one)
+        // sum of weights of edges who are not tree edges
+        let mut cut_value_sum = 0;
+        let mut tree_edge_weight_sum = 0;
+        let mut non_tree_edge_weight_sum = 0;
+        let mut missing = None;
+
+        for edge in self.graph.edges_directed(vertex, direction) {
+            let (tail, head) = (edge.source(), edge.target());
+            let edge = *edge.weight();
+            if !edge.is_tree_edge {
+                non_tree_edge_weight_sum += edge.weight;
+            } else if let Some(cut_value) = edge.cut_value {
+                cut_value_sum += cut_value;
+                tree_edge_weight_sum += edge.weight;
+            } else if missing.is_none() {
+                missing = Some(if tail == vertex { head } else { tail });
+            } else {
+                return None;
+            }
+        }
+        Some(
+            NeighborhoodInfo {
+                cut_value_sum,
+                tree_edge_weight_sum,
+                non_tree_edge_weight_sum,
+                missing,
+            }
+        )
+    }
+
+}
+
+
+struct InitLowLim {
+    graph: StableDiGraph<Vertex, Edge>,
+    minimum_length: i32,
+}
+
+impl LowLimDFS for InitLowLim {
+    fn graph(&mut self) -> &mut StableDiGraph<Vertex, Edge> {
+        &mut self.graph
+    }
+} 
+
+impl InitLowLim {
+    fn initialize_low_lim(mut self) {
+        // start at arbitrary root node
+        let root = self.graph.node_indices().next().unwrap();
+        let mut max_lim = self.graph.node_count() as u32;
+        self.dfs_low_lim(root, None, &mut max_lim, &mut HashSet::new());
+    }
+}
+
+struct UpdLowLim {
+    least_common_ancestor: NodeIndex,
+    graph: StableDiGraph<Vertex, Edge>,
+    minimum_length: i32,
+}
+
+impl LowLimDFS for UpdLowLim {
+    fn graph(&mut self) -> &mut StableDiGraph<Vertex, Edge> {
+        &mut self.graph
+    }
+}
+
+impl UpdLowLim {
+    fn update_low_lim(mut self) {
+        let parent = self.graph[self.least_common_ancestor].parent;
+        let mut visited = match &parent {
+            Some(parent) => HashSet::from([*parent]),
+            None => HashSet::new()
+        };
+        let mut max_lim = self.graph[self.least_common_ancestor].lim;
+        self.dfs_low_lim(self.least_common_ancestor, parent, &mut max_lim, &mut visited);
+    }
+}
+
+trait LowLimDFS {
+    fn dfs_low_lim(&mut self, next: NodeIndex, parent: Option<NodeIndex>, max_lim: &mut u32, visited: &mut HashSet<NodeIndex>) {
+        visited.insert(next);
+        self.graph()[next].lim = *max_lim;
+        self.graph()[next].parent = parent;
+        while let Some(n) = self.graph().neighbors_undirected(next).detach().next_node(self.graph()) {
+            if visited.contains(&n) {
+                continue;
+            }
+            *max_lim -= 1;
+            self.dfs_low_lim(n, Some(next), max_lim, visited);
+            self.graph()[next].low = *max_lim;
+        }
+    }
+    fn graph(&mut self) -> &mut StableDiGraph<Vertex, Edge>;
+}
+
+struct UpdateRank {
+    graph: StableDiGraph<Vertex, Edge>,
+    minimum_length: i32,
+}
+
+impl UpdateRank {
+    // fn update_ranks(mut self) {
+    //     let node = self.graph.node_identifiers().next().unwrap();
+    //     let mut visited = HashSet::from([node]);
+    //     self.graph[node].rank = 0;
+    //     let mut new_ranks = HashMap::from([(node, 0)]);
+    //     // start at arbitrary node and traverse the tree
+    //     let mut queue = VecDeque::from([node]);
+
+    //     while let Some(parent) = queue.pop_front() {
+    //         for n in self.graph.neighbors_directed(parent, Incoming) {
+    //             if new_ranks.contains_key(&n) {
+    //                 continue;
+    //             }
+    //             new_ranks.insert(n, new_ranks.get(&parent).unwrap() - self.minimum_length);
+    //             queue.push_back(n);
+    //         }
+
+    //         for n in self.graph.neighbors_directed(parent, Outgoing) {
+    //             if new_ranks.contains_key(&n) {
+    //                 continue;
+    //             }
+    //             new_ranks.insert(n, new_ranks.get(&parent).unwrap() + self.minimum_length);
+    //             queue.push_back(n);
+    //         }
+    //     }
+    //     let updated_ranks = Ranks::new(new_ranks, &self.tree, self.ranks.get_minimum_length());
+    // }
+}
+// ---------------------------------
+// ------- OLD IMPLEMENTATION ------
+// ---------------------------------
 
 // create from input graph
 pub(crate) struct UnlayeredGraph<T: Default> {
@@ -88,7 +442,7 @@ impl<T: Default> TightTreeBuilder<T> {
         // each time we add an edge to the tree, we remove it from the graph
         let num_nodes = self.graph.node_count();
         let mut nodes = self.graph.node_indices().into_iter();
-        let mut dfs = TighTreeDFS::new();
+        let mut dfs = TightTreeDFSs::new();
         
         while dfs.build_tight_tree(&self.graph, &self.ranks, nodes.next().unwrap(), &mut HashSet::new()) < num_nodes {
             let (tail, head) = self.find_non_tight_edge(&dfs);
@@ -107,14 +461,13 @@ impl<T: Default> TightTreeBuilder<T> {
         FeasibleTreeBuilder { graph: self.graph, ranks: self.ranks, tree: dfs.into_tree_subgraph() }
     }
     
-    fn find_non_tight_edge(&self, tree: &TighTreeDFS) -> (NodeIndex, NodeIndex) {
+    fn find_non_tight_edge(&self, tree: &TightTreeDFSs) -> (NodeIndex, NodeIndex) {
         self.graph.edge_indices()
             .filter_map(|e| self.graph.edge_endpoints(e))
             .filter(|(tail, head)| !tree.contains_edge(*tail, *head) && tree.is_incident_edge(tail, head))
             .min_by(|a, b| self.ranks.slack(a.0, a.1).cmp(&self.ranks.slack(b.0, b.1))).unwrap()
     }
 }
-
 
 pub(crate) struct FeasibleTreeBuilder<T: Default> {
     graph: StableDiGraph<Option<T>, usize>,
@@ -242,12 +595,12 @@ impl<T: Default> InitializeLowLim<T> {
     }
 }
 
-impl<T> LowLimDFS<T> for InitializeLowLim<T> {
+impl<T> LowLimDFSS<T> for InitializeLowLim<T> {
     fn tree(&self) -> &StableDiGraph<Option<T>, usize> {
         &self.tree
     }
 }
-trait LowLimDFS<T> {
+trait LowLimDFSS<T> {
     fn dfs_low_lim(&self, low_lim: &mut HashMap<NodeIndex, TreeData>, next: NodeIndex, parent: Option<NodeIndex>, max_lim: &mut usize, visited: &mut HashSet<NodeIndex>) {
         visited.insert(next);
         low_lim.entry(next).and_modify(|e| { e.lim = *max_lim; e.parent = parent; });
@@ -282,7 +635,7 @@ impl<T: Default> UpdateLowLim<T> {
     }
 }
 
-impl<T> LowLimDFS<T> for UpdateLowLim<T> {
+impl<T> LowLimDFSS<T> for UpdateLowLim<T> {
     fn tree(&self) -> &StableDiGraph<Option<T>, usize> {
         &self.tree
     }

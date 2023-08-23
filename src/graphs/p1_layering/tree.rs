@@ -1,16 +1,78 @@
 use std::collections::{ HashSet, hash_set::Iter, VecDeque, HashMap };
 
-use petgraph::{stable_graph::{NodeIndex, StableDiGraph, Neighbors, NodeIndices}, Direction::{Incoming, Outgoing}, visit::EdgeRef};
+use petgraph::{stable_graph::{NodeIndex, StableDiGraph, Neighbors, NodeIndices, EdgeIndex}, Direction::{Incoming, Outgoing}, visit::EdgeRef};
 
-use super::rank::Ranks;
+use super::{rank::Ranks, Ranked, Slack, Vertex, Edge};
 
 #[derive(Debug)]
-pub(super) struct TighTreeDFS {
+pub(super) struct TightTreeDFSs {
     pub(super) vertices: HashSet<NodeIndex>,
     pub(super) edges: HashSet<(NodeIndex, NodeIndex)>,
 }
 
-impl TighTreeDFS {
+#[derive(Debug)]
+pub(super) struct TightTreeDFS {
+    vertices: HashSet<NodeIndex>,
+    pub(super) edges: HashSet<EdgeIndex>,
+}
+
+impl TightTreeDFS {
+    pub(super) fn new() -> Self {
+        Self {
+            vertices: HashSet::new(),
+            edges: HashSet::new(),
+        }
+    }
+
+    pub(super) fn contains_vertex(&self, vertex: &NodeIndex) -> bool {
+        self.vertices.contains(&(*vertex).into())
+    }
+
+    pub(super) fn contains_edge(&self, edge: EdgeIndex) -> bool {
+        self.edges.contains(&edge)
+    }
+
+    pub(super) fn vertices(&self) -> Iter<'_, NodeIndex> {
+        self.vertices.iter()
+    }
+
+    /// Returns true if exactly one vertex is a member of the tree.
+    pub(super) fn is_incident_edge(&self, edge: &EdgeIndex, graph: &StableDiGraph<Vertex, Edge>) -> bool {
+        let (tail, head)  = graph.edge_endpoints(*edge).unwrap();
+        self.vertices.contains(&tail) ^ self.vertices.contains(&head)
+    }
+
+    pub(super) fn tight_tree(&mut self, ranked: &Ranked, vertex: NodeIndex, visited: &mut HashSet<EdgeIndex>) -> usize {
+        // start from topmost nodes.
+        // then for each topmost node add nodes to tree until done. Then continue with next node until no more nodes are found.
+        let mut node_count = 1;
+        if !self.vertices.contains(&vertex) {
+            self.vertices.insert(vertex);
+        }
+
+        for edge in ranked.graph.edges_directed(vertex, Incoming).chain(ranked.graph.edges_directed(vertex, Outgoing)) {
+            let (tail, head) = (edge.source(), edge.target());
+            let edge = edge.id();
+            // find out if the other vertex of the edge is the head or the tail
+            let other = if tail == vertex { head } else { tail };
+
+            if !visited.contains(&edge) {
+                visited.insert(edge);
+                if self.edges.contains(&edge) {
+                    node_count += self.tight_tree(ranked, other, visited);
+                } else if !self.vertices.contains(&other) && edge.slack(&ranked.graph, ranked.minimum_length) == 0 {
+                    self.vertices.insert(other);
+                    self.edges.insert(edge);
+                    node_count += self.tight_tree(ranked, other, visited);
+                }
+            }
+        }
+
+        node_count
+    }
+}
+
+impl TightTreeDFSs {
     pub(super) fn new() -> Self {
         Self {
             vertices: HashSet::new(),
@@ -68,6 +130,32 @@ impl TighTreeDFS {
         node_count
     }
 
+    pub(super) fn tight_tree(&mut self, ranked: &Ranked, vertex: NodeIndex, visited: &mut HashSet<EdgeIndex>) -> usize {
+        // start from topmost nodes.
+        // then for each topmost node add nodes to tree until done. Then continue with next node until no more nodes are found.
+        let mut node_count = 1;
+        if !self.vertices.contains(&vertex) {
+            self.vertices.insert(vertex);
+        }
+        for connected_edge in ranked.graph.edges_directed(vertex, Incoming).chain(ranked.graph.edges_directed(vertex, Outgoing)) {
+            let (tail, head) = (connected_edge.source(), connected_edge.target());
+            // find out if the other vertex of the edge is the head or the tail
+            let other = if connected_edge.source() == vertex { head } else { tail };
+
+            if !visited.contains(&connected_edge.id()) {
+                visited.insert(connected_edge.id());
+                if self.edges.contains(&(tail, head)) {
+                    node_count += self.tight_tree(ranked, other, visited);
+                } else if !self.vertices.contains(&other) && connected_edge.id().slack(&ranked.graph, ranked.minimum_length) == 0 {
+                    self.vertices.insert(other);
+                    self.edges.insert((tail, head));
+                    node_count += self.tight_tree(ranked, other, visited);
+                }
+            }
+        }
+        node_count
+    }
+
     pub(super) fn into_tree_subgraph<T>(self) -> StableDiGraph<Option<T>, usize> {
         StableDiGraph::from_edges(self.edges.iter())
     }
@@ -91,12 +179,12 @@ mod tests {
     mod tight_tree_dfs {
         use std::collections::HashSet;
 
-        use crate::graphs::p1_layering::{tree::TighTreeDFS, start_layering, tests::{create_test_graph, create_tight_tree_builder_non_tight_ranking}};
+        use crate::graphs::p1_layering::{tree::TightTreeDFSs, start_layering, tests::{create_test_graph, create_tight_tree_builder_non_tight_ranking}};
 
 
         #[test]
         fn test_dfs_start_from_root() {
-            let mut dfs = TighTreeDFS::new();
+            let mut dfs = TightTreeDFSs::new();
             let tight_tree_builder = start_layering(create_test_graph::<i32>()).initial_ranking(1);
             let number_of_nodes = tight_tree_builder.graph.node_count();
             dfs.build_tight_tree(&tight_tree_builder.graph, &tight_tree_builder.ranks, 0.into(), &mut HashSet::new());
@@ -106,7 +194,7 @@ mod tests {
 
         #[test]
         fn test_dfs_start_not_from_root() {
-            let mut dfs = TighTreeDFS::new();
+            let mut dfs = TightTreeDFSs::new();
             let tight_tree_builder = start_layering(create_test_graph::<i32>()).initial_ranking(1);
             let number_of_nodes = tight_tree_builder.graph.node_count();
             dfs.build_tight_tree(&tight_tree_builder.graph, &tight_tree_builder.ranks, 4.into(), &mut HashSet::new());
@@ -116,7 +204,7 @@ mod tests {
 
         #[test]
         fn test_dfs_non_tight_ranking() {
-            let mut dfs = TighTreeDFS::new();
+            let mut dfs = TightTreeDFSs::new();
             let mut tight_tree_builder = create_tight_tree_builder_non_tight_ranking::<i32>();
             let number_of_nodes = tight_tree_builder.graph.node_count();
             dfs.build_tight_tree(&tight_tree_builder.graph, &tight_tree_builder.ranks, 0.into(), &mut HashSet::new());

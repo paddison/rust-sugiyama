@@ -1,6 +1,6 @@
 use petgraph::stable_graph::StableDiGraph;
 
-use super::{TightTreeBuilder, FeasibleTreeBuilder, rank::tests::create_test_ranking_not_tight, tree::TighTreeDFS};
+use super::{TightTreeBuilder, FeasibleTreeBuilder, rank::tests::create_test_ranking_not_tight, tree::TightTreeDFSs};
 
 pub(crate) fn create_test_graph<T: Default>() -> StableDiGraph<Option<T>, usize> {
     petgraph::stable_graph::StableDiGraph::from_edges(&[(0, 1), (1, 2), (2, 3), (0, 4), (0, 5), (4, 6), (5, 6), (3, 7), (6, 7)])
@@ -21,7 +21,7 @@ static FEASIBLE_TREE_POS_CUT_VALUE: [(u32, u32); 7] = [(0, 1), (1, 2), (2, 3), (
 
 
 fn create_test_builder(edges: &[(usize, usize)]) -> FeasibleTreeBuilder<isize> {
-    let dfs = TighTreeDFS::from_edges(edges);
+    let dfs = TightTreeDFSs::from_edges(edges);
     let mut graph = create_test_graph();
     dfs.make_edges_disjoint(&mut graph);
 
@@ -29,7 +29,7 @@ fn create_test_builder(edges: &[(usize, usize)]) -> FeasibleTreeBuilder<isize> {
     FeasibleTreeBuilder { graph, ranks, tree: dfs.into_tree_subgraph() }
 }
 mod feasible_tree_builder {
-    use crate::graphs::p1_layering::{start_layering, FeasibleTreeBuilder, tree::{TighTreeDFS}, rank::tests::create_test_ranking_not_tight, tests::{create_test_builder, EXAMPLE_GRAPH_1}};
+    use crate::graphs::p1_layering::{start_layering, FeasibleTreeBuilder, tree::{TightTreeDFSs}, rank::tests::create_test_ranking_not_tight, tests::{create_test_builder, EXAMPLE_GRAPH_1}};
 
     use super::create_test_graph;
 
