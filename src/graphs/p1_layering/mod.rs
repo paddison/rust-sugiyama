@@ -17,6 +17,18 @@ use self::tree::{TighTreeDFS};
 
 use super::p2_reduce_crossings::ProperLayeredGraph;
 
+struct Vertex {
+    rank: i32,
+    low: u32,
+    lim: u32,
+    parent: Option<NodeIndex>,
+}
+
+struct Edge {
+    weight: i32,
+    cut_value: i32,
+}
+
 pub(crate) fn start_layering<T: Default>(graph: StableDiGraph<Option<T>, usize>) -> UnlayeredGraph<T> {
     UnlayeredGraph { graph }
 }
@@ -151,8 +163,9 @@ impl<T: Default> FeasibleTreeBuilder<T> {
         }
     }
 
-    fn update_cutvalues(self, mut cut_values: HashMap<(NodeIndex, NodeIndex), isize>, starting_vertex: NodeIndex) -> UpdateLowLim<T> {
-        let queue = VecDeque::from([starting_vertex]);
+    fn update_cutvalues(self, mut cut_values: HashMap<(NodeIndex, NodeIndex), isize>, connecting_path: Vec<NodeIndex>, removed_edge: (NodeIndex, NodeIndex)) -> UpdateLowLim<T> {
+        self.remove_outdated_cutvalues(&mut cut_values, connecting_path, removed_edge);
+        let queue = VecDeque::from([removed_edge.0]);
         self.calculate_cutvalues(queue, &mut cut_values);
         UpdateLowLim { graph: self.graph, tree: self.tree, cut_values, ranks: self.ranks }
     }
@@ -166,6 +179,19 @@ impl<T: Default> FeasibleTreeBuilder<T> {
         self.calculate_cutvalues(queue, &mut cut_values);
 
         InitializeLowLim { graph: self.graph, tree: self.tree, ranks: self.ranks, cut_values }
+    }
+
+    fn remove_outdated_cutvalues(&self, cut_values: &mut HashMap<(NodeIndex, NodeIndex), isize>, connecting_path: Vec<NodeIndex>, removed_edge: (NodeIndex, NodeIndex)) {
+        // starting from the first node, we know all adjacent cutvalues except for one.
+        // thus we should be able to update every cut value efficiently by going through the path.
+        // the last thing we need to do is calculate the cut value for the edge that was added.
+        // remove all the cutvalues on the path:
+        cut_values.remove(&removed_edge);
+        for (tail, head) in connecting_path[..connecting_path.len() - 1].iter().copied().zip(connecting_path[1..].iter().copied()) {
+            if cut_values.remove(&(tail, head)).is_none() {
+                cut_values.remove(&(head, tail));
+            }
+        }
     }
 
     fn get_neighborhood_info(
@@ -374,16 +400,9 @@ impl<T: Default> FeasibleTree<T> {
         // is it a good idea to add the edge that was removed back to the graph or should we keep a separate list of removed edges?
         self.graph.add_edge(edge.0, edge.1, usize::default()); 
 
-        // update cut values
-        // the only cut values that need to be updated are those in the path connecting the swap edge in the tree
-        // find the first cut value in the path which can be updated,
-        // then update all cut values that are missing along the way.
-        // the first value which can be updated is alway one of the vertices of the edge that was removed.
-        self.remove_outdated_cutvalues(connecting_path, edge);
-
         // destructure self, since we need to build the tree anew:
         let Self { graph, tree, ranks, cut_values, low_lim } = self;
-        FeasibleTreeBuilder { graph, ranks, tree }.update_cutvalues(cut_values, edge.0)
+        FeasibleTreeBuilder { graph, ranks, tree }.update_cutvalues(cut_values, connecting_path, edge)
             .update_low_lim(low_lim, least_common_ancestor)
             .update_ranks()
     }
@@ -432,18 +451,6 @@ impl<T: Default> FeasibleTree<T> {
         root_is_in_head != (u.low <= tail.lim && tail.lim <= u.lim)
     }
 
-    fn remove_outdated_cutvalues(&mut self, connecting_path: Vec<NodeIndex>, removed_edge: (NodeIndex, NodeIndex)) {
-        // starting from the first node, we know all adjacent cutvalues except for one.
-        // thus we should be able to update every cut value efficiently by going through the path.
-        // the last thing we need to do is calculate the cut value for the edge that was added.
-        // remove all the cutvalues on the path:
-        self.cut_values.remove(&removed_edge);
-        for (tail, head) in connecting_path[..connecting_path.len() - 1].iter().copied().zip(connecting_path[1..].iter().copied()) {
-            if self.cut_values.remove(&(tail, head)).is_none() {
-                self.cut_values.remove(&(head, tail));
-            }
-        }
-    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
