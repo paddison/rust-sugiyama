@@ -1,15 +1,11 @@
 use std::collections::HashMap;
 
-use petgraph::stable_graph::NodeIndex;
+use petgraph::{stable_graph::NodeIndex, };
 
-use crate::graphs::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir}, p1_layering::{self}};
+use crate::graphs::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir}, p1_layering::{self, Vertex, Edge, start}};
 
-pub fn feasible_tree<T: Default>(edges: &[(u32, u32)], minimum_length: usize) {
-    let graph = petgraph::stable_graph::StableDiGraph::<Option<T>, usize>::from_edges(edges);
-    p1_layering::start_layering(graph)
-                     .initial_ranking(minimum_length)
-                     .make_tight()
-                     .init_cutvalues();
+pub fn rank(edges: &[(u32, u32)], minimum_length: u32) {
+    let proper_layered = start(edges, minimum_length).init_rank().make_tight().init_cutvalues().init_low_lim().rank();
 }
 
 /// Calculates the final x-coordinates for each vertex, after the graph was layered and crossings where minimized.

@@ -5,7 +5,7 @@ use std::{
 
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-use crate::graphs::{p3_calculate_coordinates::{VDir, HDir}, p1_layering::rank::Ranks};
+use crate::graphs::{p3_calculate_coordinates::{VDir, HDir}};
 
 #[derive(Clone)]
 /// Has to guarantee that each identifier in levels has an entry in position
