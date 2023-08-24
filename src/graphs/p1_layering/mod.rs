@@ -18,7 +18,9 @@ use self::tree::{TightTreeDFSs, TightTreeDFS};
 
 use super::p2_reduce_crossings::ProperLayeredGraph;
 
+#[derive(Clone, Copy)]
 struct Vertex {
+    id: usize,
     rank: i32,
     low: u32,
     lim: u32,
@@ -28,6 +30,7 @@ struct Vertex {
 impl Default for Vertex {
     fn default() -> Self {
         Self {
+            id: 0,
             rank: 0,
             low: 0,
             lim: 0,
@@ -80,6 +83,31 @@ impl Slack for EdgeIndex {
     }
 }
 
+trait SlackGraph {
+    fn slack(&self, edge: EdgeIndex) -> i32 {
+        let graph = self.graph();
+        let (tail, head) = graph.edge_endpoints(edge).unwrap();
+        graph[head].rank - graph[tail].rank - self.minimum_length()
+    }
+
+    fn graph(&self) -> &StableDiGraph<Vertex, Edge>;
+    fn minimum_length(&self) -> i32;
+}
+
+macro_rules! impl_slack {
+    ($t:ty) => {
+        impl SlackGraph for $t {
+            fn graph(&self) -> &StableDiGraph<Vertex, Edge> {
+                &self.graph
+            }
+
+            fn minimum_length(&self) -> i32 {
+                self.minimum_length
+            }
+        } 
+    };
+}
+
 struct Unlayered {
     graph: StableDiGraph<Vertex, Edge>,
     minimum_length: i32
@@ -111,6 +139,8 @@ struct Ranked {
     minimum_length: i32
 }
 
+impl_slack!(Ranked);
+
 impl Ranked {
     fn make_tight(mut self) -> Tight {
         // let Self { mut graph, minimum_length } = self;
@@ -130,7 +160,7 @@ impl Ranked {
         while dfs.tight_tree(&self, nodes.next().unwrap(), &mut HashSet::new()) < num_nodes {
             let edge = self.find_non_tight_edge(&dfs);
             let (_, head) = self.graph.edge_endpoints(edge).unwrap();
-            let mut delta = edge.slack(&self.graph, self.minimum_length);
+            let mut delta = self.slack(edge);
 
             if dfs.contains_vertex(&head) {
                 delta = -delta;
@@ -147,7 +177,7 @@ impl Ranked {
     fn find_non_tight_edge(&self, dfs: &TightTreeDFS) -> EdgeIndex {
         self.graph.edge_indices()
             .filter(|e| !dfs.contains_edge(*e) && dfs.is_incident_edge(e, &self.graph))
-            .min_by(|a, b| a.slack(&self.graph, self.minimum_length).cmp(&b.slack(&self.graph, self.minimum_length))).unwrap()
+            .min_by(|e1, e2| self.slack(*e1).cmp(&self.slack(*e2))).unwrap()
     }
 
     fn tighten_edge(&mut self, dfs: &TightTreeDFS, delta: i32) {
@@ -166,6 +196,138 @@ impl Ranked {
 
 }
 
+
+struct Upd {
+    graph: StableDiGraph<Vertex, Edge>,
+    minimum_length: i32,
+    connecting_path: Vec<EdgeIndex>,
+    removed_edge: EdgeIndex,
+    least_common_ancestor: NodeIndex,
+    updated_low_lim: bool,
+    updated_cut_values: bool,
+    updated_ranks: bool,
+}
+
+impl CalculateCutValues for Upd {
+    fn graph_mut(&mut self) -> &mut StableDiGraph<Vertex, Edge> {
+        &mut self.graph
+    }
+
+    fn graph(&self) -> &StableDiGraph<Vertex, Edge> {
+        &self.graph
+    }
+}
+
+impl LowLimDFS for Upd {
+    fn graph(&mut self) -> &mut StableDiGraph<Vertex, Edge> {
+        &mut self.graph
+    }
+}
+
+impl Upd {
+    fn new(graph: StableDiGraph<Vertex, Edge>, minimum_length: i32, connecting_path: Vec<EdgeIndex>, removed_edge: EdgeIndex, least_common_ancestor: NodeIndex) -> Self {
+        Self {
+            graph, 
+            minimum_length,
+            connecting_path,
+            removed_edge,
+            least_common_ancestor,
+            updated_cut_values: false,
+            updated_low_lim: false,
+            updated_ranks: false
+        }
+        
+    }
+    fn update_cutvalues(mut self) -> Self {
+        self.remove_outdated_cutvalues();
+        let queue = VecDeque::from([self.graph.edge_endpoints(self.removed_edge).unwrap().0]);
+        self.calculate_cut_values(queue);
+        self.updated_cut_values = true;
+        self
+    }
+
+    fn remove_outdated_cutvalues(&mut self) {
+        // starting from the first node, we know all adjacent cutvalues except for one.
+        // thus we should be able to update every cut value efficiently by going through the path.
+        // the last thing we need to do is calculate the cut value for the edge that was added.
+        // remove all the cutvalues on the path:
+        self.graph[self.removed_edge].cut_value = None;
+        for edge in &self.connecting_path {
+            self.graph[*edge].cut_value = None;
+        }
+    }
+
+    fn update_low_lim(mut self) -> Self {
+        let parent = self.graph[self.least_common_ancestor].parent;
+        let mut visited = match &parent {
+            Some(parent) => HashSet::from([*parent]),
+            None => HashSet::new()
+        };
+        let mut max_lim = self.graph[self.least_common_ancestor].lim;
+        self.dfs_low_lim(self.least_common_ancestor, parent, &mut max_lim, &mut visited);
+        self.updated_low_lim = true;
+        self
+    }
+
+    fn update_ranks(mut self) -> Self {
+        let node = self.graph.node_identifiers().next().unwrap();
+        let mut visited = HashSet::from([node]);
+        self.graph[node].rank = 0;
+        let mut queue = VecDeque::from([node]);
+
+        while let Some(parent) = queue.pop_front() {
+            self.update_neighbor_ranks(parent, Outgoing, 1, &mut queue, &mut visited);
+            self.update_neighbor_ranks(parent, Incoming, -1, &mut queue, &mut visited);
+        }
+        self.updated_ranks = true;
+        self
+    }
+
+    fn update_neighbor_ranks(&mut self, parent: NodeIndex, direction: Direction, coefficient: i32, queue: &mut VecDeque<NodeIndex>,  visited: &mut HashSet<NodeIndex>) {
+        while let Some((edge, other)) = self.graph.neighbors_directed(parent, direction).detach().next(&self.graph) {
+            if !self.graph[edge].is_tree_edge || visited.contains(&other) {
+                continue;
+            }
+            self.graph[other].rank = self.graph[parent].rank + self.minimum_length * coefficient;
+            queue.push_back(other);
+            visited.insert(other);
+        }
+    }
+
+    fn execute(self) -> Feasible {
+        assert!(self.updated_cut_values && self.updated_low_lim && self.updated_ranks);
+        Feasible { graph: self.graph, minimum_length: self.minimum_length }
+    }
+}
+// struct UpdCutVals {
+//     graph: StableDiGraph<Vertex, Edge>,
+//     minimum_length: i32,
+//     connecting_path: Vec<EdgeIndex>,
+//     removed_edge: EdgeIndex,
+// }
+
+// impl UpdCutVals {
+//     fn update_cutvalues(mut self) -> UpdLowLim {
+//         self.remove_outdated_cutvalues(self.connecting_path, self.removed_edge);
+//         let queue = VecDeque::from([self.graph.edge_endpoints(self.removed_edge).unwrap().0]);
+//         let Self { graph, minimum_length, .. } = self;
+//         let t = Tight { graph: self.graph, minimum_length: self.minimum_length };
+//         t.calculate_cut_values(queue);
+//         UpdLowLim { graph: t.graph, minimum_length: t.minimum_length }
+//     }
+
+//     fn remove_outdated_cutvalues(&mut self, connecting_path: Vec<EdgeIndex>, removed_edge: EdgeIndex) {
+//         // starting from the first node, we know all adjacent cutvalues except for one.
+//         // thus we should be able to update every cut value efficiently by going through the path.
+//         // the last thing we need to do is calculate the cut value for the edge that was added.
+//         // remove all the cutvalues on the path:
+//         self.graph[removed_edge].cut_value = None;
+//         for edge in connecting_path {
+//             self.graph[edge].cut_value = None;
+//         }
+//     }
+// }
+
 struct Tight {
     graph: StableDiGraph<Vertex, Edge>,
     minimum_length: i32,
@@ -181,7 +343,7 @@ impl Tight {
         InitLowLim { graph: self.graph, minimum_length: self.minimum_length }
     }
 
-    fn update_cutvalues(mut self, connecting_path: Vec<NodeIndex>, removed_edge: (NodeIndex, NodeIndex)) -> InitLowLim {
+    fn update_cutvalues(mut self, connecting_path: Vec<EdgeIndex>, removed_edge: (NodeIndex, NodeIndex)) -> InitLowLim {
         self.remove_outdated_cutvalues(connecting_path, removed_edge);
         let queue = VecDeque::from([removed_edge.0]);
         self.calculate_cut_values(queue);
@@ -198,18 +360,16 @@ impl Tight {
                   .collect::<VecDeque<_>>()
     }
 
-    fn remove_outdated_cutvalues(&mut self, connecting_path: Vec<NodeIndex>, removed_edge: (NodeIndex, NodeIndex)) {
+    fn remove_outdated_cutvalues(&mut self, connecting_path: Vec<EdgeIndex>, removed_edge: (NodeIndex, NodeIndex)) {
         // starting from the first node, we know all adjacent cutvalues except for one.
         // thus we should be able to update every cut value efficiently by going through the path.
         // the last thing we need to do is calculate the cut value for the edge that was added.
         // remove all the cutvalues on the path:
         let removed_edge = self.graph.find_edge_undirected(removed_edge.0, removed_edge.1).unwrap().0;
         self.graph[removed_edge].cut_value = None;
-        for (tail, head) in connecting_path[..connecting_path.len() - 1].iter().copied().zip(connecting_path[1..].iter().copied()) {
-            let edge = self.graph.find_edge_undirected(tail, head).unwrap().0;
+        for edge in connecting_path {
             self.graph[edge].cut_value = None;
         }
-
     }
 
     fn calculate_cut_values(&mut self, mut queue: VecDeque<NodeIndex>) {
@@ -349,39 +509,220 @@ trait LowLimDFS {
     fn graph(&mut self) -> &mut StableDiGraph<Vertex, Edge>;
 }
 
+trait CalculateCutValues {
+    fn calculate_cut_values(&mut self, mut queue: VecDeque<NodeIndex>) {
+        while let Some(vertex) = queue.pop_front() {
+            let incoming = self.get_neighborhood_info(vertex, Incoming); 
+            let outgoing = self.get_neighborhood_info(vertex, Outgoing); 
+
+            // if we can't calculate cut value yet, or the value is already known
+            let (mut incoming, mut outgoing) = match (incoming, outgoing) {
+                (Some(inc), Some(out)) => (inc, out),
+                _ => continue,
+            };
+
+            let missing = match (incoming.missing, outgoing.missing) {
+                (Some(u), None) => u,
+                (None, Some(v)) => v,
+                _ => continue,
+            };
+
+            let edge = match self.graph_mut().find_edge(vertex, missing) {
+                Some(e) => {
+                    // switch direction, if vertex is tail component of edge
+                    std::mem::swap(&mut incoming, &mut outgoing);
+                    e
+                },
+                None => self.graph_mut().find_edge(missing, vertex).unwrap()
+
+            };
+
+            self.graph_mut()[edge].cut_value = Some(self.calculate_cut_value(edge, incoming, outgoing));
+            // continue traversing tree in direction of edge whose vertex was missing before
+            queue.push_back(missing);
+        }
+    }
+
+    fn calculate_cut_value(&self, edge: EdgeIndex, incoming: NeighborhoodInfo, outgoing: NeighborhoodInfo) -> i32 {
+        self.graph()[edge].weight 
+        + incoming.non_tree_edge_weight_sum - incoming.cut_value_sum + incoming.tree_edge_weight_sum
+        - outgoing.non_tree_edge_weight_sum + outgoing.cut_value_sum - outgoing.tree_edge_weight_sum
+    }
+
+    fn get_neighborhood_info(&self, vertex: NodeIndex, direction: Direction) -> Option<NeighborhoodInfo> {
+        // return the sum of all cut values,
+        // sum of weights of cut value edges
+        // missing cut value (only if there is one)
+        // sum of weights of edges who are not tree edges
+        let mut cut_value_sum = 0;
+        let mut tree_edge_weight_sum = 0;
+        let mut non_tree_edge_weight_sum = 0;
+        let mut missing = None;
+
+        for edge in self.graph().edges_directed(vertex, direction) {
+            let (tail, head) = (edge.source(), edge.target());
+            let edge = *edge.weight();
+            if !edge.is_tree_edge {
+                non_tree_edge_weight_sum += edge.weight;
+            } else if let Some(cut_value) = edge.cut_value {
+                cut_value_sum += cut_value;
+                tree_edge_weight_sum += edge.weight;
+            } else if missing.is_none() {
+                missing = Some(if tail == vertex { head } else { tail });
+            } else {
+                return None;
+            }
+        }
+        Some(
+            NeighborhoodInfo {
+                cut_value_sum,
+                tree_edge_weight_sum,
+                non_tree_edge_weight_sum,
+                missing,
+            }
+        )
+    }
+
+    fn graph_mut(&mut self) -> &mut StableDiGraph<Vertex, Edge>;
+    fn graph(&self) -> &StableDiGraph<Vertex, Edge>;
+}
+
 struct UpdateRank {
     graph: StableDiGraph<Vertex, Edge>,
     minimum_length: i32,
 }
 
 impl UpdateRank {
-    // fn update_ranks(mut self) {
-    //     let node = self.graph.node_identifiers().next().unwrap();
-    //     let mut visited = HashSet::from([node]);
-    //     self.graph[node].rank = 0;
-    //     let mut new_ranks = HashMap::from([(node, 0)]);
-    //     // start at arbitrary node and traverse the tree
-    //     let mut queue = VecDeque::from([node]);
+    fn update_ranks(mut self) {
+        let node = self.graph.node_identifiers().next().unwrap();
+        let mut visited = HashSet::from([node]);
+        self.graph[node].rank = 0;
+        let mut queue = VecDeque::from([node]);
 
-    //     while let Some(parent) = queue.pop_front() {
-    //         for n in self.graph.neighbors_directed(parent, Incoming) {
-    //             if new_ranks.contains_key(&n) {
-    //                 continue;
-    //             }
-    //             new_ranks.insert(n, new_ranks.get(&parent).unwrap() - self.minimum_length);
-    //             queue.push_back(n);
-    //         }
+        while let Some(parent) = queue.pop_front() {
+            self.update_neighbor_ranks(parent, Outgoing, 1, &mut queue, &mut visited);
+            self.update_neighbor_ranks(parent, Incoming, -1, &mut queue, &mut visited);
+        }
+    }
 
-    //         for n in self.graph.neighbors_directed(parent, Outgoing) {
-    //             if new_ranks.contains_key(&n) {
-    //                 continue;
-    //             }
-    //             new_ranks.insert(n, new_ranks.get(&parent).unwrap() + self.minimum_length);
-    //             queue.push_back(n);
-    //         }
-    //     }
-    //     let updated_ranks = Ranks::new(new_ranks, &self.tree, self.ranks.get_minimum_length());
-    // }
+    fn update_neighbor_ranks(&mut self, parent: NodeIndex, direction: Direction, coefficient: i32, queue: &mut VecDeque<NodeIndex>,  visited: &mut HashSet<NodeIndex>) {
+        while let Some((edge, other)) = self.graph.neighbors_directed(parent, direction).detach().next(&self.graph) {
+            if !self.graph[edge].is_tree_edge || visited.contains(&other) {
+                continue;
+            }
+            self.graph[other].rank = self.graph[parent].rank + self.minimum_length * coefficient;
+            queue.push_back(other);
+            visited.insert(other);
+        }
+    }
+}
+
+struct Feasible {
+    graph: StableDiGraph<Vertex, Edge>,
+    minimum_length: i32,
+}
+
+impl_slack!(Feasible);
+
+impl Feasible {
+    fn rank(mut self) {
+
+        while let Some(edge) = self.leave_edge() {
+            // swap edges and calculate cut value
+            let swap_edge = self.enter_edge(edge);
+            self = self.exchange(edge, swap_edge).update_cutvalues().update_low_lim().update_ranks().execute();
+        }
+
+        // don't balance ranks since we want maximum width to 
+        // give indication about number of parallel processes running
+        // let Self { mut graph, minimum_length } = self;
+
+        // merge tree and graph back together
+        // build layers (this also normalizes ranks)
+    }
+
+    fn leave_edge(&self) -> Option<EdgeIndex> {
+        for edge in self.graph.edge_indices() {
+            if let Some(cut_value) = self.graph[edge].cut_value {
+                if cut_value < 0 {
+                    return Some(edge);
+                }
+            }
+        }
+        None
+    }
+
+    fn enter_edge(&mut self, edge: EdgeIndex) -> EdgeIndex {
+        // find a non-tree edge to replace e.
+        // remove e from tree
+        // consider all edges going from head to tail component.
+        // choose edge with minimum slack.
+        let (mut u, mut v) = self.graph.edge_endpoints(edge).map(|(t, h)| (self.graph[t], self.graph[h])).unwrap();
+
+        if !(u.lim < v.lim) {
+            std::mem::swap(&mut u, &mut v); 
+        }
+
+        self.graph.edge_indices()
+            .filter(|e| !self.graph[*e].is_tree_edge)
+            .filter(|e| self.is_head_to_tail(*e, u, u.lim < v.lim))
+            .min_by(|e1, e2| self.slack(*e1).cmp(&self.slack(*e2)))
+            .unwrap()
+    }
+
+    fn is_head_to_tail(&self, edge: EdgeIndex, u: Vertex, root_is_in_head: bool) -> bool {
+        // edge needs to go from head to tail. e.g. tail neads to be in head component, and head in tail component
+        let (tail, head) = self.graph.edge_endpoints(edge).map(|(t, h)| (self.graph[t], self.graph[h])).unwrap();
+        // check if head is in tail component
+        root_is_in_head == (u.low <= head.lim && head.lim <= u.lim) &&
+        // check if tail is in head component
+        root_is_in_head != (u.low <= tail.lim && tail.lim <= u.lim)
+    }
+
+    fn exchange(mut self, edge: EdgeIndex, swap_edge: EdgeIndex) -> Upd {
+        // get path connecting the head and tail of swap_edge in the tree
+        let (connecting_path, least_common_ancestor) = self.get_path_in_tree(swap_edge);
+
+        // swap edges 
+        self.graph[edge].is_tree_edge = false;
+        self.graph[swap_edge].is_tree_edge = true;
+
+        // destructure self, since we need to build the tree anew:
+        let Self { graph, minimum_length } = self;
+        Upd::new(graph, minimum_length, connecting_path, edge, least_common_ancestor)
+    }
+
+    fn get_path_in_tree(&self, edge: EdgeIndex) -> (Vec<EdgeIndex>, NodeIndex) {
+        assert!(!self.graph[edge].is_tree_edge);
+        let (w_id, x_id)  = self.graph.edge_endpoints(edge).unwrap();
+        let (w, x) = (self.graph[w_id], self.graph[x_id]);
+        let mut path_w_l = Vec::new();
+        let mut path_l_x = VecDeque::new();
+        // follow path back until least common ancestor is found
+        // record path from w to l
+        let least_common_ancestor = loop {
+            let l_id = w.parent.unwrap();
+            path_w_l.push(self.graph.find_edge_undirected(w_id, l_id).unwrap().0);
+            let l = self.graph[l_id];
+            if l.low <= w.lim && x.lim <= l.lim {
+                break l_id;
+            }
+        };
+
+        // record path from x to l
+        loop {
+            let l_id = x.parent.unwrap();
+            let l = self.graph[l_id];
+            if l.low <= w.lim && x.lim <= l.lim {
+                assert_eq!(l_id, least_common_ancestor); // for debugging check that roots are identical
+                break
+            }
+
+            path_l_x.push_front(self.graph.find_edge_undirected(x_id, l_id).unwrap().0);
+        }
+
+        (path_w_l.into_iter().chain(path_l_x.into_iter()).collect::<Vec<_>>(), least_common_ancestor)
+    }
 }
 // ---------------------------------
 // ------- OLD IMPLEMENTATION ------
