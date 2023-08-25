@@ -6,8 +6,8 @@ use super::{InitialRanks, Vertex, Edge, traits::Slack};
 
 #[derive(Debug)]
 pub(super) struct TightTreeDFSs {
-    pub(super) vertices: HashSet<NodeIndex>,
-    pub(super) edges: HashSet<(NodeIndex, NodeIndex)>,
+    vertices: HashSet<NodeIndex>,
+    edges: HashSet<(NodeIndex, NodeIndex)>,
 }
 
 #[derive(Debug)]
@@ -72,7 +72,34 @@ impl TightTreeDFS {
     }
 }
 
-// #[cfg(test)]
+#[cfg(test)]
+mod tests {
+    use std::collections::HashSet;
+
+    use crate::graphs::p1_layering::{tight_tree_dfs::TightTreeDFS, tests::{Builder, GraphBuilder, EXAMPLE_GRAPH, UnlayeredGraphBuilder}};
+
+
+        #[test]
+        fn test_dfs_start_from_root() {
+            let mut dfs = TightTreeDFS::new();
+            let initial_ranks = Builder::<UnlayeredGraphBuilder>::from_edges(&EXAMPLE_GRAPH).build().init_rank();
+            let number_of_nodes = initial_ranks.graph.node_count();
+            dfs.tight_tree(&initial_ranks, 0.into(), &mut HashSet::new());
+            assert_eq!(dfs.edges.len(), number_of_nodes - 1);
+            assert_eq!(dfs.vertices.len(), number_of_nodes);
+        }
+
+        #[test]
+        fn test_dfs_start_not_from_root() {
+            let mut dfs = TightTreeDFS::new();
+            let initial_ranks = Builder::<UnlayeredGraphBuilder>::from_edges(&EXAMPLE_GRAPH).build().init_rank();
+            let number_of_nodes = initial_ranks .graph.node_count();
+            dfs.tight_tree(&initial_ranks, 4.into(), &mut HashSet::new());
+            assert_eq!(dfs.edges.len(), number_of_nodes - 1);
+            assert_eq!(dfs.vertices.len(), number_of_nodes);
+        }
+
+}
 // mod tests {
 //     mod tight_tree_dfs {
 //         use std::collections::HashSet;

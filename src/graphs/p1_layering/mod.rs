@@ -1,7 +1,7 @@
 mod tight_tree_dfs;
 mod traits;
 #[cfg(test)]
-mod tests;
+pub(crate)mod tests;
 
 use std::collections::{HashSet, VecDeque};
 
@@ -12,15 +12,28 @@ use petgraph::visit::IntoNodeIdentifiers;
 use crate::{impl_slack, impl_low_lim_dfs, impl_calculate_cut_values};
 
 use self::traits::{LowLimDFS, CalculateCutValues, Slack};
-use self::tight_tree_dfs::{TightTreeDFS};
+use self::tight_tree_dfs::TightTreeDFS;
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) struct Vertex {
     id: usize,
     rank: i32,
     low: u32,
     lim: u32,
     parent: Option<NodeIndex>,
+}
+
+impl Vertex {
+    #[cfg(test)]
+    fn new(low: u32, lim: u32, parent: Option<NodeIndex>) -> Self {
+        Self {
+            id: 0,
+            rank: 0,
+            low,
+            lim,
+            parent
+        }
+    }
 }
 
 impl Default for Vertex {
@@ -139,10 +152,8 @@ impl InitialRanks {
     }
 
     fn tighten_edge(&mut self, dfs: &TightTreeDFS, delta: i32) {
-        for e in &dfs.edges {
-            let (tail, head) = self.graph.edge_endpoints(*e).unwrap();
-            self.graph[tail].rank += delta;
-            self.graph[head].rank += delta;
+        for v in dfs.vertices() {
+            self.graph[*v].rank += delta;
         }
     }
 
@@ -158,6 +169,8 @@ pub(crate) struct TightTree {
     minimum_length: i32,
 }
 
+impl_slack!(TightTree);
+
 impl CalculateCutValues for TightTree {
     fn graph_mut(&mut self) -> &mut StableDiGraph<Vertex, Edge> {
         &mut self.graph
@@ -169,13 +182,13 @@ impl CalculateCutValues for TightTree {
 }
 
 impl TightTree {
-    pub(crate) fn init_cutvalues(mut self) -> InitTightTreeData {
+    pub(crate) fn init_cutvalues(mut self) -> InitLowLim {
         // TODO: check if it is faster to collect tree edges or to do unecessary iterations
         // let tree_edges = self.graph.edge_indices().filter(|e| self.graph[*e].is_tree_edge).collect::<HashSet<_>>();
         let queue = self.leaves();
         // traverse tree inward via breadth first starting from leaves
         self.calculate_cut_values(queue);
-        InitTightTreeData { graph: self.graph, minimum_length: self.minimum_length }
+        InitLowLim { graph: self.graph, minimum_length: self.minimum_length }
     }
 
     fn leaves(&self) -> VecDeque<NodeIndex> {
@@ -190,14 +203,14 @@ impl TightTree {
 }
 
 
-pub(crate) struct InitTightTreeData {
+pub(crate) struct InitLowLim {
     graph: StableDiGraph<Vertex, Edge>,
     minimum_length: i32,
 }
 
-impl_low_lim_dfs!(InitTightTreeData);
+impl_low_lim_dfs!(InitLowLim);
 
-impl InitTightTreeData {
+impl InitLowLim {
     pub(crate) fn init_low_lim(mut self) -> FeasibleTree {
         // start at arbitrary root node
         let root = self.graph.node_indices().next().unwrap();
@@ -215,7 +228,7 @@ pub(crate) struct FeasibleTree {
 impl_slack!(FeasibleTree);
 
 impl FeasibleTree {
-    pub(crate) fn rank(mut self) {
+    pub(crate) fn rank(mut self) -> Self {
 
         while let Some(edge) = self.leave_edge() {
             // swap edges and calculate cut value
@@ -226,6 +239,7 @@ impl FeasibleTree {
         // don't balance ranks since we want maximum width to 
         // give indication about number of parallel processes running
         self.normalize();
+        self
     }
 
     fn leave_edge(&self) -> Option<EdgeIndex> {
@@ -245,25 +259,25 @@ impl FeasibleTree {
         // consider all edges going from head to tail component.
         // choose edge with minimum slack.
         let (mut u, mut v) = self.graph.edge_endpoints(edge).map(|(t, h)| (self.graph[t], self.graph[h])).unwrap();
-
-        if !(u.lim < v.lim) {
+        let is_root_in_head = u.lim < v.lim;
+        if !is_root_in_head {
             std::mem::swap(&mut u, &mut v); 
         }
 
         self.graph.edge_indices()
             .filter(|e| !self.graph[*e].is_tree_edge)
-            .filter(|e| self.is_head_to_tail(*e, u, u.lim < v.lim))
+            .filter(|e| self.is_head_to_tail(*e, u, is_root_in_head))
             .min_by(|e1, e2| self.slack(*e1).cmp(&self.slack(*e2)))
             .unwrap()
     }
 
-    fn is_head_to_tail(&self, edge: EdgeIndex, u: Vertex, root_is_in_head: bool) -> bool {
+    fn is_head_to_tail(&self, edge: EdgeIndex, u: Vertex, is_root_in_head: bool) -> bool {
         // edge needs to go from head to tail. e.g. tail neads to be in head component, and head in tail component
         let (tail, head) = self.graph.edge_endpoints(edge).map(|(t, h)| (self.graph[t], self.graph[h])).unwrap();
         // check if head is in tail component
-        root_is_in_head == (u.low <= head.lim && head.lim <= u.lim) &&
+        is_root_in_head == (u.low <= head.lim && head.lim <= u.lim) &&
         // check if tail is in head component
-        root_is_in_head != (u.low <= tail.lim && tail.lim <= u.lim)
+        is_root_in_head != (u.low <= tail.lim && tail.lim <= u.lim)
     }
 
     fn exchange(mut self, removed_edge: EdgeIndex, swap_edge: EdgeIndex) -> UpdateTree {
@@ -290,10 +304,10 @@ impl FeasibleTree {
         let mut l_id = w_id;
         let least_common_ancestor = loop {
             let l = self.graph[l_id];
-            path_w_l.push(self.graph.find_edge_undirected(l_id, l.parent.unwrap()).unwrap().0);
             if l.low <= w.lim && x.lim <= l.lim {
                 break l_id;
             }
+            path_w_l.push(self.graph.find_edge_undirected(l_id, l.parent.unwrap()).unwrap().0);
             l_id = l.parent.unwrap();
         };
 
@@ -316,7 +330,7 @@ impl FeasibleTree {
     }
 }
 
-struct UpdateTree {
+pub(crate) struct UpdateTree {
     graph: StableDiGraph<Vertex, Edge>,
     minimum_length: i32,
     connecting_path: Vec<EdgeIndex>,
@@ -375,7 +389,8 @@ impl UpdateTree {
     }
 
     fn update_neighbor_ranks(&mut self, parent: NodeIndex, direction: Direction, coefficient: i32, queue: &mut VecDeque<NodeIndex>,  visited: &mut HashSet<NodeIndex>) {
-        while let Some((edge, other)) = self.graph.neighbors_directed(parent, direction).detach().next(&self.graph) {
+        let mut walker = self.graph.neighbors_directed(parent, direction).detach();
+        while let Some((edge, other)) = walker.next(&self.graph) {
             if !self.graph[edge].is_tree_edge || visited.contains(&other) {
                 continue;
             }

@@ -30,21 +30,22 @@ macro_rules! impl_slack {
     };
 }
 pub(super) trait LowLimDFS {
+    fn graph_mut(&mut self) -> &mut StableDiGraph<Vertex, Edge>;
+    fn graph(&self) -> &StableDiGraph<Vertex, Edge>;
+
     fn dfs_low_lim(&mut self, next: NodeIndex, parent: Option<NodeIndex>, max_lim: &mut u32, visited: &mut HashSet<NodeIndex>) {
         visited.insert(next);
         self.graph_mut()[next].lim = *max_lim;
         self.graph_mut()[next].parent = parent;
-        while let Some(n) = self.graph_mut().neighbors_undirected(next).detach().next_node(self.graph_mut()) {
-            if visited.contains(&n) {
-                continue;
+        let mut walker = self.graph_mut().neighbors_undirected(next).detach();
+        while let Some((edge, n)) = walker.next(self.graph_mut()) {
+            if !visited.contains(&n) && self.graph()[edge].is_tree_edge {
+                *max_lim -= 1;
+                self.dfs_low_lim(n, Some(next), max_lim, visited);
             }
-            *max_lim -= 1;
-            self.dfs_low_lim(n, Some(next), max_lim, visited);
-            self.graph_mut()[next].low = *max_lim;
         }
+        self.graph_mut()[next].low = *max_lim;
     }
-    fn graph_mut(&mut self) -> &mut StableDiGraph<Vertex, Edge>;
-    fn graph(&self) -> &StableDiGraph<Vertex, Edge>;
 }
 
 #[macro_export]
