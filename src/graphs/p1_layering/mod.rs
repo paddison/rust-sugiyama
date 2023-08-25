@@ -202,7 +202,6 @@ impl TightTree {
     }
 }
 
-
 pub(crate) struct InitLowLim {
     graph: StableDiGraph<Vertex, Edge>,
     minimum_length: i32,
@@ -298,7 +297,7 @@ impl FeasibleTree {
         let (w_id, x_id)  = self.graph.edge_endpoints(edge).unwrap();
         let (w, x) = (self.graph[w_id], self.graph[x_id]);
         let mut path_w_l = Vec::new();
-        let mut path_l_x = VecDeque::new();
+        let mut path_l_x = Vec::new();
         // follow path back until least common ancestor is found
         // record path from w to l
         let mut l_id = w_id;
@@ -312,14 +311,17 @@ impl FeasibleTree {
         };
 
         // record path from x to l
+        // we don't need to care about the order in which the edges are added,
+        // since we only need them to remove the outdated cutvalues.
         let mut l_id = x_id;
         while l_id != least_common_ancestor {
             let parent = self.graph[l_id].parent.unwrap();
-            path_l_x.push_front(self.graph.find_edge_undirected(l_id, parent).unwrap().0);
+            path_l_x.push(self.graph.find_edge_undirected(l_id, parent).unwrap().0);
             l_id = parent;
         }
 
-        (path_w_l.into_iter().chain(path_l_x.into_iter()).collect::<Vec<_>>(), least_common_ancestor)
+        path_w_l.append(&mut path_l_x);
+        (path_w_l, least_common_ancestor)
     }
 
     fn normalize(&mut self) {

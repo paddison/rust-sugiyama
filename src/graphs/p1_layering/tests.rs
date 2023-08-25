@@ -568,7 +568,7 @@ mod feasible_tree {
         let head = 8.into();
         let edge = ft.graph.add_edge(tail, head, Edge::default());
         let (actual_path, actual_lca) = ft.get_path_in_tree(edge);
-        let expected_path = [(1, 3), (0, 1), (0, 4), (4, 8)].into_iter().map(|(t, h)| ft.graph.find_edge(t.into(), h.into()).unwrap()).collect::<Vec<_>>();
+        let expected_path = [(1, 3), (0, 1), (4, 8), (0, 4)].into_iter().map(|(t, h)| ft.graph.find_edge(t.into(), h.into()).unwrap()).collect::<Vec<_>>();
         let expected_lca = NodeIndex::from(0_u32);
         assert_eq!(actual_path, expected_path);
         assert_eq!(actual_lca, expected_lca);
