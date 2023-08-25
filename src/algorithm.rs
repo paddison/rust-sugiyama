@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use petgraph::{stable_graph::NodeIndex, };
+use petgraph::stable_graph::NodeIndex;
 
-use crate::graphs::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir}, p1_layering::{self, Vertex, Edge, start}};
+use crate::graphs::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir}, p1_layering::start};
 
 pub fn rank(edges: &[(u32, u32)], minimum_length: u32) {
-    let proper_layered = start(edges, minimum_length).init_rank().make_tight().init_cutvalues().init_low_lim().rank();
+    start(edges, minimum_length).init_rank().make_tight().init_cutvalues().init_low_lim().rank();
 }
 
 /// Calculates the final x-coordinates for each vertex, after the graph was layered and crossings where minimized.

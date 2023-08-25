@@ -5,12 +5,6 @@ use petgraph::{stable_graph::{NodeIndex, StableDiGraph, EdgeIndex}, Direction::{
 use super::{InitialRanks, Vertex, Edge, traits::Slack};
 
 #[derive(Debug)]
-pub(super) struct TightTreeDFSs {
-    vertices: HashSet<NodeIndex>,
-    edges: HashSet<(NodeIndex, NodeIndex)>,
-}
-
-#[derive(Debug)]
 pub(super) struct TightTreeDFS {
     vertices: HashSet<NodeIndex>,
     pub(super) edges: HashSet<EdgeIndex>,

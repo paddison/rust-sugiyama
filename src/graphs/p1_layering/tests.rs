@@ -447,7 +447,7 @@ mod init_low_lim {
 }
 
 mod feasible_tree {
-    use petgraph::{stable_graph::NodeIndex, data::Build};
+    use petgraph::stable_graph::NodeIndex;
 
     use crate::graphs::p1_layering::{tests::{FeasibleTreeBuilder, LOW_LIM_GRAPH, LOW_LIM_GRAPH_LOW_LIM_VALUES}, Edge};
 
@@ -578,9 +578,9 @@ mod feasible_tree {
 mod update_tree {
     use petgraph::stable_graph::NodeIndex;
 
-    use crate::graphs::p1_layering::{Vertex, Edge};
+    use crate::graphs::p1_layering::Vertex;
 
-    use super::{UpdateTreeBuilder, Builder, GraphBuilder, EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE, EXAMPLE_GRAPH, CUT_VALUES_EXAMPLE_GRAPH_NEG_CUT_VALUE, LOW_LIM_GRAPH, LOW_LIM_GRAPH_LOW_LIM_VALUES, LOW_LIM_GRAPH_AFTER_UPDATE, EXAMPLE_GRAPH_LOW_LIM_VALUES_NEG_CUT_VALUE};
+    use super::{UpdateTreeBuilder, Builder, GraphBuilder, EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE, EXAMPLE_GRAPH, CUT_VALUES_EXAMPLE_GRAPH_NEG_CUT_VALUE, LOW_LIM_GRAPH_LOW_LIM_VALUES, LOW_LIM_GRAPH_AFTER_UPDATE, EXAMPLE_GRAPH_LOW_LIM_VALUES_NEG_CUT_VALUE};
 
     #[test]
     fn update_cutvalues_updated_correctly() {
@@ -706,9 +706,7 @@ mod update_tree {
 }
 
 mod integration {
-    use petgraph::visit::IntoNodeIdentifiers;
-
-    use crate::graphs::p1_layering::{UnlayeredGraph, traits::Slack, FeasibleTree};
+    use crate::graphs::p1_layering::{traits::Slack, FeasibleTree};
 
     use super::{Builder, EXAMPLE_GRAPH, UnlayeredGraphBuilder, GraphBuilder};
 
