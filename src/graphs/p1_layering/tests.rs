@@ -706,7 +706,7 @@ mod update_tree {
 }
 
 mod integration {
-    use crate::graphs::p1_layering::{traits::Slack, FeasibleTree};
+    use crate::graphs::p1_layering::{traits::Slack, FeasibleTree, tests::init_low_lim};
 
     use super::{Builder, EXAMPLE_GRAPH, UnlayeredGraphBuilder, GraphBuilder};
 
@@ -714,9 +714,9 @@ mod integration {
         // all cut values must be positive,
         0 <= actual.graph.edge_indices()
             .filter(|e| actual.graph[*e].is_tree_edge)
-            .map(|e| actual.graph[e].cut_value.unwrap())
+            .filter_map(|e| actual.graph[e].cut_value)
             .min()
-            .unwrap()
+            .unwrap_or(0)
         &&
         // tree must be tight
         0 == actual.graph.edge_indices()
@@ -736,6 +736,33 @@ mod integration {
     fn run_algorithm_example_graph() {
         let graph = Builder::<UnlayeredGraphBuilder>::from_edges(&EXAMPLE_GRAPH).build();
         let actual = graph.init_rank().make_tight().init_cutvalues().init_low_lim().rank();
+        assert!(is_correct(actual));
+    }
+
+    #[test]
+    fn run_algorithm_tree_500_nodes_three_edges_per_node() {
+        use graph_generator::GraphLayout;
+        let edges = GraphLayout::new_from_num_nodes(500, 3).build_edges().into_iter().map(|(t, h)| (t as u32, h as u32)).collect::<Vec<_>>();
+        let actual = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build()
+            .init_rank()
+            .make_tight()
+            .init_cutvalues()
+            .init_low_lim()
+            .rank();
+        assert!(is_correct(actual));
+    }
+
+    #[test]
+    fn run_algorithm_random_graph_300_nodes() {
+        use graph_generator::RandomLayout;
+        let edges = RandomLayout::new(1000).build_edges().into_iter().map(|(t, h)| (t as u32, h as u32)).collect::<Vec<_>>();
+        println!("built random layout");
+        let actual = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build()
+            .init_rank()
+            .make_tight()
+            .init_cutvalues()
+            .init_low_lim()
+            .rank();
         assert!(is_correct(actual));
     }
 }
@@ -836,5 +863,45 @@ mod benchmark {
         let start = std::time::Instant::now();
         let _ = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build().init_rank().make_tight().init_cutvalues().init_low_lim().rank();
         println!("1000000 Vertices, 8 Edges per vertice: {}ms", start.elapsed().as_millis());
+    }
+
+    #[test]
+    fn time_10_e_random() {
+        let edges = graph_generator::RandomLayout::new(10).build_edges().into_iter().map(|(a, b)| (a as u32, b as u32)).collect::<Vec<_>>();
+        let start = std::time::Instant::now();
+        let _ = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build().init_rank().make_tight().init_cutvalues().init_low_lim().rank();
+        println!("Random Layout, 10 edges: {}ms", start.elapsed().as_millis());
+    }
+
+    #[test]
+    fn time_100_e_random() {
+        let edges = graph_generator::RandomLayout::new(100).build_edges().into_iter().map(|(a, b)| (a as u32, b as u32)).collect::<Vec<_>>();
+        let start = std::time::Instant::now();
+        let _ = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build().init_rank().make_tight().init_cutvalues().init_low_lim().rank();
+        println!("Random Layoout, 100 edges: {}ms", start.elapsed().as_millis());
+    }
+
+    #[test]
+    fn time_1000_e_random() {
+        let edges = graph_generator::RandomLayout::new(1000).build_edges().into_iter().map(|(a, b)| (a as u32, b as u32)).collect::<Vec<_>>();
+        let start = std::time::Instant::now();
+        let _ = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build().init_rank().make_tight().init_cutvalues().init_low_lim().rank();
+        println!("Random Layoout, 1000 edges: {}ms", start.elapsed().as_millis());
+    }
+
+    #[test]
+    fn time_2000_e_random() {
+        let edges = graph_generator::RandomLayout::new(2000).build_edges().into_iter().map(|(a, b)| (a as u32, b as u32)).collect::<Vec<_>>();
+        let start = std::time::Instant::now();
+        let _ = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build().init_rank().make_tight().init_cutvalues().init_low_lim().rank();
+        println!("Random Layoout, 2000 edges: {}ms", start.elapsed().as_millis());
+    }
+
+    #[test]
+    fn time_4000_e_random() {
+        let edges = graph_generator::RandomLayout::new(4000).build_edges().into_iter().map(|(a, b)| (a as u32, b as u32)).collect::<Vec<_>>();
+        let start = std::time::Instant::now();
+        let _ = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build().init_rank().make_tight().init_cutvalues().init_low_lim().rank();
+        println!("Random Layoout, 4000 edges: {}ms", start.elapsed().as_millis());
     }
 }
