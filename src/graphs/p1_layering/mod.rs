@@ -1,3 +1,4 @@
+// TODOS: Keep non graph edges during rank() procedure in vecdeque to be able to cyclically search through them
 mod tight_tree_dfs;
 mod traits;
 #[cfg(test)]
@@ -127,7 +128,7 @@ impl InitialRanks {
         let num_nodes = self.graph.node_count();
         let mut nodes = self.graph.node_indices().collect::<Vec<_>>().into_iter();
         let mut dfs = TightTreeDFS::new();
-        
+
         while dfs.tight_tree(&self, nodes.next().unwrap(), &mut HashSet::new()) < num_nodes {
             let edge = self.find_non_tight_edge(&dfs);
             let (_, head) = self.graph.edge_endpoints(edge).unwrap();
@@ -294,28 +295,47 @@ impl FeasibleTree {
 
     fn get_path_in_tree(&self, edge: EdgeIndex) -> (Vec<EdgeIndex>, NodeIndex) {
         assert!(!self.graph[edge].is_tree_edge);
-        let (w_id, x_id)  = self.graph.edge_endpoints(edge).unwrap();
-        let (w, x) = (self.graph[w_id], self.graph[x_id]);
+        let (mut w_id, mut x_id)  = self.graph.edge_endpoints(edge).unwrap();
+        // println!("w: {w_id:?}, x: {x_id:?}");
+        let (mut w, mut x) = (self.graph[w_id], self.graph[x_id]);
+        if w.lim > x.lim {
+            std::mem::swap(&mut w_id, &mut x_id);
+            std::mem::swap(&mut w, &mut x);
+        }
         let mut path_w_l = Vec::new();
         let mut path_l_x = Vec::new();
         // follow path back until least common ancestor is found
         // record path from w to l
-        let mut l_id = w_id;
-        let least_common_ancestor = loop {
-            let l = self.graph[l_id];
-            if l.low <= w.lim && x.lim <= l.lim {
-                break l_id;
+
+        let least_common_ancestor = match w.parent {
+            None => w_id,
+            Some(mut parent) => {
+                let mut l_id = w_id;
+                loop {
+                    path_w_l.push(self.graph.find_edge_undirected(l_id, parent).unwrap().0);
+                    l_id = parent;
+                    let l = self.graph[l_id];
+                    if l.low <= w.lim && x.lim <= l.lim || l.parent.is_none() {
+                        break l_id;
+                    }
+                    parent = l.parent.unwrap();
+                }
             }
-            path_w_l.push(self.graph.find_edge_undirected(l_id, l.parent.unwrap()).unwrap().0);
-            l_id = l.parent.unwrap();
         };
+        
 
         // record path from x to l
         // we don't need to care about the order in which the edges are added,
         // since we only need them to remove the outdated cutvalues.
+        // println!("lca: {least_common_ancestor:?}");
         let mut l_id = x_id;
         while l_id != least_common_ancestor {
-            let parent = self.graph[l_id].parent.unwrap();
+            let parent = if l_id.index() == 0 && least_common_ancestor.index() != 0 {
+                // println!("{l_id:?}, {least_common_ancestor:?}");
+                self.graph[l_id].parent.unwrap()
+            } else {
+                self.graph[l_id].parent.unwrap()
+            };
             path_l_x.push(self.graph.find_edge_undirected(l_id, parent).unwrap().0);
             l_id = parent;
         }
@@ -375,6 +395,7 @@ impl UpdateTree {
             None => HashSet::new()
         };
         let mut max_lim = self.graph[self.least_common_ancestor].lim;
+        // println!("lca: {:?}, p: {parent:?}", self.least_common_ancestor);
         self.dfs_low_lim(self.least_common_ancestor, parent, &mut max_lim, &mut visited);
     }
 
