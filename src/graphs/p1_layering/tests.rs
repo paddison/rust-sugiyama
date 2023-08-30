@@ -706,13 +706,13 @@ mod update_tree {
 }
 
 mod integration {
-    use crate::graphs::p1_layering::{traits::Slack, FeasibleTree, tests::init_low_lim};
+    use crate::graphs::p1_layering::{traits::Slack, FeasibleTree};
 
     use super::{Builder, EXAMPLE_GRAPH, UnlayeredGraphBuilder, GraphBuilder};
 
     fn is_correct(actual: FeasibleTree) -> bool {
         // all cut values must be positive,
-        0 <= actual.graph.edge_indices()
+        0 <= actual.graph().edge_indices()
             .filter(|e| actual.graph[*e].is_tree_edge)
             .filter_map(|e| actual.graph[e].cut_value)
             .min()

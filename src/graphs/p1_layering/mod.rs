@@ -1,8 +1,8 @@
 // TODOS: Keep non graph edges during rank() procedure in vecdeque to be able to cyclically search through them
 mod tight_tree_dfs;
-mod traits;
+pub(super) mod traits;
 #[cfg(test)]
-pub(crate)mod tests;
+pub(crate) mod tests;
 
 use std::collections::{HashSet, VecDeque};
 
@@ -12,13 +12,15 @@ use petgraph::visit::IntoNodeIdentifiers;
 
 use crate::{impl_slack, impl_low_lim_dfs, impl_calculate_cut_values};
 
-use self::traits::{LowLimDFS, CalculateCutValues, Slack};
+use self::traits::{LowLimDFS, CalculateCutValues, Slack, Ranked};
 use self::tight_tree_dfs::TightTreeDFS;
+
+use super::p2_reduce_crossings::InsertDummyVertices;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) struct Vertex {
-    id: usize,
-    rank: i32,
+    pub(crate) id: usize,
+    pub(crate) rank: i32,
     low: u32,
     lim: u32,
     parent: Option<NodeIndex>,
@@ -37,6 +39,11 @@ impl Vertex {
     }
 }
 
+impl Ranked for Vertex {
+    fn rank(&self) -> i32 {
+        self.rank
+    }
+}
 impl Default for Vertex {
     fn default() -> Self {
         Self {
@@ -111,7 +118,7 @@ pub(crate) struct InitialRanks {
     minimum_length: i32
 }
 
-impl_slack!(InitialRanks);
+impl_slack!(InitialRanks, Vertex, Edge);
 
 impl InitialRanks {
     pub(crate) fn make_tight(mut self) -> TightTree {
@@ -170,7 +177,7 @@ pub(crate) struct TightTree {
     minimum_length: i32,
 }
 
-impl_slack!(TightTree);
+impl_slack!(TightTree, Vertex, Edge);
 
 impl CalculateCutValues for TightTree {
     fn graph_mut(&mut self) -> &mut StableDiGraph<Vertex, Edge> {
@@ -221,14 +228,14 @@ impl InitLowLim {
 }
 
 pub(crate) struct FeasibleTree {
-    graph: StableDiGraph<Vertex, Edge>,
-    minimum_length: i32,
+    pub(super) graph: StableDiGraph<Vertex, Edge>,
+    pub(super) minimum_length: i32,
 }
 
-impl_slack!(FeasibleTree);
+impl_slack!(FeasibleTree, Vertex, Edge);
 
 impl FeasibleTree {
-    pub(crate) fn rank(mut self) -> Self {
+    pub(crate) fn rank(mut self) -> FeasibleTree {
 
         while let Some(edge) = self.leave_edge() {
             // swap edges and calculate cut value
@@ -296,7 +303,7 @@ impl FeasibleTree {
     fn get_path_in_tree(&self, edge: EdgeIndex) -> (Vec<EdgeIndex>, NodeIndex) {
         assert!(!self.graph[edge].is_tree_edge);
         let (mut w_id, mut x_id)  = self.graph.edge_endpoints(edge).unwrap();
-        // println!("w: {w_id:?}, x: {x_id:?}");
+        println!("w: {w_id:?}, x: {x_id:?}");
         let (mut w, mut x) = (self.graph[w_id], self.graph[x_id]);
         if w.lim > x.lim {
             std::mem::swap(&mut w_id, &mut x_id);
@@ -327,11 +334,11 @@ impl FeasibleTree {
         // record path from x to l
         // we don't need to care about the order in which the edges are added,
         // since we only need them to remove the outdated cutvalues.
-        // println!("lca: {least_common_ancestor:?}");
+        println!("lca: {least_common_ancestor:?}");
         let mut l_id = x_id;
         while l_id != least_common_ancestor {
             let parent = if l_id.index() == 0 && least_common_ancestor.index() != 0 {
-                // println!("{l_id:?}, {least_common_ancestor:?}");
+                println!("{l_id:?}, {least_common_ancestor:?}");
                 self.graph[l_id].parent.unwrap()
             } else {
                 self.graph[l_id].parent.unwrap()

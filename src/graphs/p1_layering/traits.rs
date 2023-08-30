@@ -4,22 +4,26 @@ use petgraph::{stable_graph::{StableDiGraph, NodeIndex, EdgeIndex}, Direction::{
 
 use super::{Vertex, Edge, NeighborhoodInfo};
 
-pub(super) trait Slack {
+pub(crate) trait Ranked {
+    fn rank(&self) -> i32;
+}
+
+pub(crate) trait Slack<V: Ranked, E> {
     fn slack(&self, edge: EdgeIndex) -> i32 {
         let graph = self.graph();
         let (tail, head) = graph.edge_endpoints(edge).unwrap();
-        graph[head].rank - graph[tail].rank - self.minimum_length()
+        graph[head].rank() - graph[tail].rank() - self.minimum_length()
     }
 
-    fn graph(&self) -> &StableDiGraph<Vertex, Edge>;
+    fn graph(&self) -> &StableDiGraph<V, E>;
     fn minimum_length(&self) -> i32;
 }
 
 #[macro_export]
 macro_rules! impl_slack {
-    ($t:ty) => {
-        impl Slack for $t {
-            fn graph(&self) -> &StableDiGraph<Vertex, Edge> {
+    ($t:ty, $v:ty, $e:ty) => {
+        impl Slack<$v, $e> for $t {
+            fn graph(&self) -> &StableDiGraph<$v, $e> {
                 &self.graph
             }
 

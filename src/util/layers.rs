@@ -5,7 +5,7 @@ use std::{
 
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-use crate::graphs::{p3_calculate_coordinates::{VDir, HDir}};
+use crate::graphs::{p3_calculate_coordinates::{VDir, HDir}, p2_reduce_crossings::{Vertex, Edge}};
 
 #[derive(Clone)]
 /// Has to guarantee that each identifier in levels has an entry in position
@@ -117,7 +117,8 @@ impl Layers {
         return true
     }
 
-    fn iterate(dir: IterDir, length: usize) -> impl Iterator<Item = usize> {
+    // todo: Refactor this into trait
+    pub(crate) fn iterate(dir: IterDir, length: usize) -> impl Iterator<Item = usize> {
         let (mut start, step) = match dir {
             IterDir::Forward => (usize::MAX, 1), // up corresponds to left to right
             IterDir::Backward => (length, usize::MAX),
@@ -145,7 +146,8 @@ impl Index<usize> for Layers {
     }
 }
 
-enum IterDir {
+#[derive(Clone, Copy)]
+pub(crate) enum IterDir {
     Forward,
     Backward,
 }
