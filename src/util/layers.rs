@@ -7,6 +7,8 @@ use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
 use crate::graphs::{p3_calculate_coordinates::{VDir, HDir}, p2_reduce_crossings::{Vertex, Edge}};
 
+use super::{iterate, IterDir};
+
 #[derive(Clone)]
 /// Has to guarantee that each identifier in levels has an entry in position
 pub(crate) struct Layers {
@@ -117,24 +119,13 @@ impl Layers {
         return true
     }
 
-    // todo: Refactor this into trait
-    pub(crate) fn iterate(dir: IterDir, length: usize) -> impl Iterator<Item = usize> {
-        let (mut start, step) = match dir {
-            IterDir::Forward => (usize::MAX, 1), // up corresponds to left to right
-            IterDir::Backward => (length, usize::MAX),
-        };
-        std::iter::repeat_with(move || {
-                start = start.wrapping_add(step);
-                start
-            }).take(length)
-    }
     
     pub(crate) fn iterate_vertically(&self, dir: VDir) -> impl Iterator<Item = usize> {
-        Self::iterate(dir.into(), self.height())
+        iterate(IterDir::from(dir), self.height())
     }
 
     pub(crate) fn iterate_horizontally(&self, dir: HDir, level: usize) -> impl Iterator<Item = usize> {
-        Self::iterate(dir.into(), self._inner[level].len())
+        iterate(dir.into(), self._inner[level].len())
     }
 }
 
@@ -146,35 +137,12 @@ impl Index<usize> for Layers {
     }
 }
 
-#[derive(Clone, Copy)]
-pub(crate) enum IterDir {
-    Forward,
-    Backward,
-}
-
-impl From<VDir> for IterDir {
-    fn from(val: VDir) -> Self {
-        match val {
-            VDir::Up => Self::Backward,
-            VDir::Down => Self::Forward,
-        }
-    }
-}
-
-impl From<HDir> for IterDir {
-    fn from(val: HDir) -> Self {
-        match val {
-            HDir::Left => Self::Backward,
-            HDir::Right => Self::Forward,
-        }
-    }
-}
 
 #[cfg(test)]
 mod test {
     use petgraph::stable_graph::StableDiGraph;
 
-    use crate::{graphs::p3_calculate_coordinates::{VDir, HDir}, util::layers::IterDir};
+    use crate::{graphs::p3_calculate_coordinates::{VDir, HDir}, util::IterDir};
 
     use super::Layers;
 
@@ -190,7 +158,7 @@ mod test {
 
     #[test]
     fn test_traverse_forward() {
-        let mut l = Layers::iterate(IterDir::Forward, 4);
+        let mut l = super::iterate(IterDir::Forward, 4);
 
         assert_eq!(l.next(), Some(0));
         assert_eq!(l.next(), Some(1));
@@ -201,7 +169,7 @@ mod test {
 
     #[test]
     fn test_traverse_backward() {
-        let mut l = Layers::iterate(IterDir::Backward, 4);
+        let mut l = super::iterate(IterDir::Backward, 4);
 
         assert_eq!(l.next(), Some(3));
         assert_eq!(l.next(), Some(2));
