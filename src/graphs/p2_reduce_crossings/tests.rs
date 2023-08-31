@@ -30,6 +30,23 @@ static COMPLEX_EXAMPLE_RANKS: [(u32, u32); 16] = [
     (14, 5), (15, 5), (13, 5)
 ];
 
+static TYPE_2_CONFLICT_2_COLS: [(u32, u32); 8] = [
+    (0, 3), (1, 2),
+    (2, 5), (3, 4),
+    (4, 7), (5, 6),
+    (6, 8), (7, 8),
+];
+
+static TYPE_2_CONFLICT_2_COLS_RANKS: [(u32, u32); 9] = [
+    (0, 0), (1, 0),
+    (2, 1), (3, 1),
+    (4, 2), (5, 2),
+    (6, 3), (7, 3),
+    (8, 4)
+];
+
+static TYPE_2_CONFLICT_2_COLS_DUMMIES: [u32; 4] = [2, 3, 4, 5];
+
     struct Builder {
         graph: StableDiGraph<Vertex, Edge>,
         minimum_length: i32,
@@ -50,6 +67,13 @@ static COMPLEX_EXAMPLE_RANKS: [(u32, u32); 16] = [
 
         fn with_minimum_length(mut self, minimum_length: i32) -> Self {
             self.minimum_length = minimum_length;
+            self
+        }
+
+        fn with_dummies(mut self, dummies: &[u32]) -> Self {
+            for dummy in dummies {
+                self.graph[NodeIndex::from(*dummy)].is_dummy = true;
+            }
             self
         }
 
@@ -172,8 +196,8 @@ mod order {
 }
 
 mod reduce_crossings {
-    use super::{Builder, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS};
-
+    use super::{Builder, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS, TYPE_2_CONFLICT_2_COLS, TYPE_2_CONFLICT_2_COLS_RANKS, TYPE_2_CONFLICT_2_COLS_DUMMIES};
+    use crate::graphs::p2_reduce_crossings::ReduceCrossings;
     #[test]
     fn minimizes_crossings() {
         let mut mc = Builder::new_from_edges_with_ranking(&THREE_DUMMIES, &THREE_DUMMIES_RANKS).build().prepare_for_initial_ordering().init_order();
@@ -192,7 +216,60 @@ mod reduce_crossings {
     }
 
     #[test]
-    fn dummies_must_be_straight_line() {
+    fn count_crossings() {
+        let endpoints = [0, 1, 2, 0, 3, 4, 0, 2, 3, 2, 4].to_vec();
+        let length = 5;
+        assert_eq!(ReduceCrossings::count_crossings(endpoints, length), 12);
+    }
 
+    #[test]
+    fn count_crossings_6() {
+        let endpoints = [0, 1, 2, 0, 3, 2, 1].to_vec();
+        let length = 4;
+        assert_eq!(ReduceCrossings::count_crossings(endpoints, length), 6);
+    }
+}
+
+#[cfg(test)]
+mod benchmark {
+    use crate::graphs::{p1_layering::tests::{Builder, UnlayeredGraphBuilder, GraphBuilder}, p2_reduce_crossings::InsertDummyVertices};
+
+    #[test]
+    fn random_graph_100_edges() {
+        let edges = graph_generator::RandomLayout::new(10).build_edges().into_iter().map(|(a, b)| (a as u32, b as u32)).collect::<Vec<_>>();
+        let id: InsertDummyVertices = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build().init_rank().make_tight().init_cutvalues().init_low_lim().rank().into();
+        let start = std::time::Instant::now();
+        id.prepare_for_initial_ordering().init_order().ordering();
+        println!("Random Layout, 100 edges: {}ms", start.elapsed().as_millis());
+    }
+
+    #[test]
+    fn random_graph_1000_edges() {
+        let edges = graph_generator::RandomLayout::new(1000).build_edges().into_iter().map(|(a, b)| (a as u32, b as u32)).collect::<Vec<_>>();
+        let id: InsertDummyVertices = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build().init_rank().make_tight().init_cutvalues().init_low_lim().rank().into();
+        let start = std::time::Instant::now();
+        id.prepare_for_initial_ordering().init_order().ordering();
+        println!("Random Layout, 1000 edges: {}ms", start.elapsed().as_millis());
+    }
+
+    #[test]
+    fn random_graph_2000_edges() {
+        let edges = graph_generator::RandomLayout::new(2000).build_edges().into_iter().map(|(a, b)| (a as u32, b as u32)).collect::<Vec<_>>();
+        println!("Random Layout, 2000 edges");
+        let start = std::time::Instant::now();
+        let id: InsertDummyVertices = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build().init_rank().make_tight().init_cutvalues().init_low_lim().rank().into();
+        println!("Ranking: {}ms", start.elapsed().as_millis());
+        let start = std::time::Instant::now();
+        id.prepare_for_initial_ordering().init_order().ordering();
+        println!("Crossing Reduction: {}ms", start.elapsed().as_millis());
+    }
+
+    #[test]
+    fn random_graph_4000_edges() {
+        let edges = graph_generator::RandomLayout::new(4000).build_edges().into_iter().map(|(a, b)| (a as u32, b as u32)).collect::<Vec<_>>();
+        let id: InsertDummyVertices = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build().init_rank().make_tight().init_cutvalues().init_low_lim().rank().into();
+        let start = std::time::Instant::now();
+        id.prepare_for_initial_ordering().init_order().ordering();
+        println!("Random Layout, 4000 edges: {}ms", start.elapsed().as_millis());
     }
 }
