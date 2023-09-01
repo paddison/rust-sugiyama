@@ -16,7 +16,7 @@ use crate::util::{
 /// 
 /// It's then used to mark all type 1 conflicts (a crossing between an inner segment and a non-inner segment)
 pub struct MinimalCrossings<T: Default> {
-    layers: Layers,
+    pub layers: Layers,
     graph: StableDiGraph<Option<T>, usize>
 }
 

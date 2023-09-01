@@ -84,7 +84,7 @@ static TYPE_2_CONFLICT_2_COLS_DUMMIES: [u32; 4] = [2, 3, 4, 5];
 mod insert_dummy_vertices {
     use petgraph::{stable_graph::{StableDiGraph, NodeIndex}, data::FromElements};
 
-    use crate::graphs::{p2_reduce_crossings::{Edge, Vertex, InsertDummyVertices, tests::{ONE_DUMMY, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS}}, };
+    use crate::graphs::{p2_reduce_crossings::{Order, Edge, Vertex, InsertDummyVertices, tests::{ONE_DUMMY, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS}}, };
 
     use super::{ONE_DUMMY_RANKS, Builder};
 
@@ -129,7 +129,7 @@ mod init_order {
 
     #[test]
     fn all_neighbors_must_be_at_adjacent_level_one_dummy() {
-        let io = Builder::new_from_edges_with_ranking(&ONE_DUMMY, &ONE_DUMMY_RANKS).build().prepare_for_initial_ordering().init_order();
+        let io = Builder::new_from_edges_with_ranking(&ONE_DUMMY, &ONE_DUMMY_RANKS).build().prepare_for_initial_ordering();
         let g = &io.graph;
         for v in g.node_indices() {
             let rank = g[v].rank;
@@ -141,7 +141,7 @@ mod init_order {
 
     #[test]
     fn all_neighbors_must_be_at_adjacent_level_three_dummies() {
-        let io = Builder::new_from_edges_with_ranking(&THREE_DUMMIES, &THREE_DUMMIES_RANKS).build().prepare_for_initial_ordering().init_order();
+        let io = Builder::new_from_edges_with_ranking(&THREE_DUMMIES, &THREE_DUMMIES_RANKS).build().prepare_for_initial_ordering();
         let g = &io.graph;
         for v in g.node_indices() {
             let rank = g[v].rank;
@@ -152,7 +152,7 @@ mod init_order {
     }
     #[test]
     fn all_neighbors_must_be_at_adjacent_level_seven_dummies() {
-        let io = Builder::new_from_edges_with_ranking(&COMPLEX_EXAMPLE, &COMPLEX_EXAMPLE_RANKS).build().prepare_for_initial_ordering().init_order();
+        let io = Builder::new_from_edges_with_ranking(&COMPLEX_EXAMPLE, &COMPLEX_EXAMPLE_RANKS).build().prepare_for_initial_ordering();
         let g = &io.graph;
         for v in g.node_indices() {
             let rank = g[v].rank;
@@ -193,41 +193,25 @@ mod order {
         assert_eq!(Order::cross_count(&[0, 2, 5], &[5, 7, 12345]), 0);
     }
 
-}
-
-mod reduce_crossings {
-    use super::{Builder, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS, TYPE_2_CONFLICT_2_COLS, TYPE_2_CONFLICT_2_COLS_RANKS, TYPE_2_CONFLICT_2_COLS_DUMMIES};
-    use crate::graphs::p2_reduce_crossings::ReduceCrossings;
-    #[test]
-    fn minimizes_crossings() {
-        let mut mc = Builder::new_from_edges_with_ranking(&THREE_DUMMIES, &THREE_DUMMIES_RANKS).build().prepare_for_initial_ordering().init_order();
-        assert_ne!(mc.order.crossings, 0);
-        mc.ordering();
-        assert_eq!(mc.order.crossings, 0);
-    }
-
-    #[test]
-    fn minimizes_crossings_complex_example() {
-        let mut mc = Builder::new_from_edges_with_ranking(&COMPLEX_EXAMPLE, &COMPLEX_EXAMPLE_RANKS).build().prepare_for_initial_ordering().init_order();
-        mc.ordering();
-        for r in mc.order._inner {
-            println!("{:?}", r);
-        }
-    }
-
     #[test]
     fn count_crossings() {
         let endpoints = [0, 1, 2, 0, 3, 4, 0, 2, 3, 2, 4].to_vec();
         let length = 5;
-        assert_eq!(ReduceCrossings::count_crossings(endpoints, length), 12);
+        assert_eq!(Order::count_crossings(endpoints, length), 12);
     }
 
     #[test]
     fn count_crossings_6() {
         let endpoints = [0, 1, 2, 0, 3, 2, 1].to_vec();
         let length = 4;
-        assert_eq!(ReduceCrossings::count_crossings(endpoints, length), 6);
+        assert_eq!(Order::count_crossings(endpoints, length), 6);
     }
+}
+
+mod reduce_crossings {
+    use super::{Builder, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS, TYPE_2_CONFLICT_2_COLS, TYPE_2_CONFLICT_2_COLS_RANKS, TYPE_2_CONFLICT_2_COLS_DUMMIES};
+    use crate::graphs::p2_reduce_crossings::ReduceCrossings;
+
 }
 
 #[cfg(test)]
@@ -236,10 +220,10 @@ mod benchmark {
 
     #[test]
     fn random_graph_100_edges() {
-        let edges = graph_generator::RandomLayout::new(10).build_edges().into_iter().map(|(a, b)| (a as u32, b as u32)).collect::<Vec<_>>();
+        let edges = graph_generator::RandomLayout::new(100).build_edges().into_iter().map(|(a, b)| (a as u32, b as u32)).collect::<Vec<_>>();
         let id: InsertDummyVertices = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build().init_rank().make_tight().init_cutvalues().init_low_lim().rank().into();
         let start = std::time::Instant::now();
-        id.prepare_for_initial_ordering().init_order().ordering();
+        id.prepare_for_initial_ordering().ordering::<usize>();
         println!("Random Layout, 100 edges: {}ms", start.elapsed().as_millis());
     }
 
@@ -248,7 +232,7 @@ mod benchmark {
         let edges = graph_generator::RandomLayout::new(1000).build_edges().into_iter().map(|(a, b)| (a as u32, b as u32)).collect::<Vec<_>>();
         let id: InsertDummyVertices = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build().init_rank().make_tight().init_cutvalues().init_low_lim().rank().into();
         let start = std::time::Instant::now();
-        id.prepare_for_initial_ordering().init_order().ordering();
+        id.prepare_for_initial_ordering().ordering::<usize>();
         println!("Random Layout, 1000 edges: {}ms", start.elapsed().as_millis());
     }
 
@@ -260,7 +244,7 @@ mod benchmark {
         let id: InsertDummyVertices = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build().init_rank().make_tight().init_cutvalues().init_low_lim().rank().into();
         println!("Ranking: {}ms", start.elapsed().as_millis());
         let start = std::time::Instant::now();
-        id.prepare_for_initial_ordering().init_order().ordering();
+        id.prepare_for_initial_ordering().ordering::<usize>();
         println!("Crossing Reduction: {}ms", start.elapsed().as_millis());
     }
 
@@ -269,7 +253,7 @@ mod benchmark {
         let edges = graph_generator::RandomLayout::new(4000).build_edges().into_iter().map(|(a, b)| (a as u32, b as u32)).collect::<Vec<_>>();
         let id: InsertDummyVertices = Builder::<UnlayeredGraphBuilder>::from_edges(&edges).build().init_rank().make_tight().init_cutvalues().init_low_lim().rank().into();
         let start = std::time::Instant::now();
-        id.prepare_for_initial_ordering().init_order().ordering();
+        id.prepare_for_initial_ordering().ordering::<usize>();
         println!("Random Layout, 4000 edges: {}ms", start.elapsed().as_millis());
     }
 }

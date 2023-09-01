@@ -11,8 +11,8 @@ use super::{iterate, IterDir};
 
 #[derive(Clone)]
 /// Has to guarantee that each identifier in levels has an entry in position
-pub(crate) struct Layers {
-    _inner: Vec<Vec<NodeIndex>>,
+pub struct Layers {
+    pub _inner: Vec<Vec<NodeIndex>>,
     positions: HashMap<NodeIndex, (usize, usize)>, // level, position
     upper_neighbours: HashMap<NodeIndex, Vec<NodeIndex>>,
     lower_neighbours: HashMap<NodeIndex, Vec<NodeIndex>>,
@@ -75,7 +75,7 @@ impl Layers {
         self.positions.get(&id).unwrap().0
     }
 
-    pub fn get_adjacent(&self, id: NodeIndex, dir: HDir) -> Option<NodeIndex> {
+    pub(crate) fn get_adjacent(&self, id: NodeIndex, dir: HDir) -> Option<NodeIndex> {
         match dir {
             HDir::Left => self.get_next(id),
             HDir::Right => self.get_previous(id),

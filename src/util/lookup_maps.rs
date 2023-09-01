@@ -24,6 +24,7 @@ impl<V: Copy> NodeLookupMap<V> {
 
         Self { _inner }
     }
+
 }
 
 impl NodeLookupMap<NodeIndex> {

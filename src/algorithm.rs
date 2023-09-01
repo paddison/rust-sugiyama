@@ -1,15 +1,30 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
 use petgraph::stable_graph::NodeIndex;
 
-use crate::graphs::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir}, p1_layering::start};
+use crate::graphs::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir}, p1_layering::start, p2_reduce_crossings::InsertDummyVertices};
 
-pub fn rank(edges: &[(u32, u32)], minimum_length: u32) {
-    start(edges, minimum_length).init_rank().make_tight().init_cutvalues().init_low_lim().rank();
+pub fn build_layout<T: Default + Clone>(edges: &[(u32, u32)], minimum_length: u32) -> Vec<(usize, (isize, isize))> {
+    let proper_graph = rank(edges, minimum_length);
+    let minimal_crossings = minimize_crossings::<T>(proper_graph);
+    calculate_coordinates::<T>(minimal_crossings, 10)
+}
+
+pub fn rank(edges: &[(u32, u32)], minimum_length: u32) -> InsertDummyVertices {
+    start(edges, minimum_length).init_rank().make_tight().init_cutvalues().init_low_lim().rank().into()
+}
+
+pub fn minimize_crossings<T: Default + Clone>(graph: InsertDummyVertices) -> MinimalCrossings<T> {
+    graph.prepare_for_initial_ordering().ordering()
 }
 
 /// Calculates the final x-coordinates for each vertex, after the graph was layered and crossings where minimized.
-pub fn calculate_coordinates<T: Default + Clone>(graph: MinimalCrossings<T>, vertex_spacing: usize) -> Vec<(NodeIndex, isize)>{
+pub fn calculate_coordinates<T: Default + Clone>(graph: MinimalCrossings<T>, vertex_spacing: usize) -> Vec<(usize, (isize, isize))>{
+    let y_coordinates = graph.layers._inner.iter()
+        .enumerate()
+        .map(|(rank, row)| row.iter().map(move |v| (*v, rank as isize * vertex_spacing as isize)))
+        .flatten()
+        .collect::<HashMap<NodeIndex, isize>>(); 
     let mut layouts = Vec::new();
     let marked = graph.mark_type_1_conflicts();
     
@@ -75,15 +90,60 @@ pub fn calculate_coordinates<T: Default + Clone>(graph: MinimalCrossings<T>, ver
         *c -= min;
     }
 
-    final_layout
+    final_layout.into_iter().map(|(v, x)| (v.index(), (x, *y_coordinates.get(&v).unwrap()))).collect()
+
 }
 
+#[cfg(test)]
+mod benchmark {
+    use super::build_layout;
+
+    #[test]
+    fn r_100() {
+        let edges = graph_generator::RandomLayout::new(100).build_edges().into_iter().map(|(r, l)| (r as u32, l as u32)).collect::<Vec<(u32, u32)>>();
+        let start = std::time::Instant::now();
+        let layout = build_layout::<usize>(&edges, 1);
+        println!("Random 100 edges: {}ms", start.elapsed().as_millis());
+    }
+
+    #[test]
+    fn r_1000() {
+        let edges = graph_generator::RandomLayout::new(1000).build_edges().into_iter().map(|(r, l)| (r as u32, l as u32)).collect::<Vec<(u32, u32)>>();
+        let start = std::time::Instant::now();
+        let layout = build_layout::<usize>(&edges, 1);
+        println!("Random 1000 edges: {}ms", start.elapsed().as_millis());
+    }
+
+    #[test]
+    fn r_2000() {
+        let edges = graph_generator::RandomLayout::new(2000).build_edges().into_iter().map(|(r, l)| (r as u32, l as u32)).collect::<Vec<(u32, u32)>>();
+        let start = std::time::Instant::now();
+        let layout = build_layout::<usize>(&edges, 1);
+        println!("Random 2000 edges: {}ms", start.elapsed().as_millis());
+    }
+
+    #[test]
+    fn r_4000() {
+        let edges = graph_generator::RandomLayout::new(2000).build_edges().into_iter().map(|(r, l)| (r as u32, l as u32)).collect::<Vec<(u32, u32)>>();
+        let start = std::time::Instant::now();
+        let layout = build_layout::<usize>(&edges, 1);
+        println!("Random 4000 edges: {}ms", start.elapsed().as_millis());
+    }
+    #[test]
+    fn r_8000() {
+        let edges = graph_generator::RandomLayout::new(8000).build_edges().into_iter().map(|(r, l)| (r as u32, l as u32)).collect::<Vec<(u32, u32)>>();
+        let start = std::time::Instant::now();
+        let layout = build_layout::<usize>(&edges, 1);
+        println!("Random 8000 edges: {}ms", start.elapsed().as_millis());
+    }
+}
 #[cfg(test)]
 mod test {
     use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
     use crate::{graphs::p3_calculate_coordinates::MinimalCrossings, util::layers::Layers, algorithm::calculate_coordinates};
 
+    use super::build_layout;
     pub fn g_levels(levels: usize) -> MinimalCrossings<usize>{
         let mut edges = Vec::new();
         let mut layers = Vec::new();
@@ -203,4 +263,18 @@ mod test {
         coords.sort_by(|a, b| a.0.cmp(&b.0));
         println!("{coords:?}");
     }
+
+    #[test]
+    fn verify_looks_good() {
+        let edges = [
+                (0, 1), 
+                (1, 2), 
+                (2, 3), (2, 4), 
+                (3, 5), (3, 6), (3, 7), (3, 8), (4, 5), (4, 6), (4, 7), (4, 8),
+                (5, 9), (6, 9), (7, 9), (8, 9)
+        ];
+        let layout = build_layout::<usize>(&edges, 1); 
+        println!("{:?}", layout);
+    }
+
 }

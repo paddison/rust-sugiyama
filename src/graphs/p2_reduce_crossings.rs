@@ -1,5 +1,6 @@
 mod tests;
-use std::collections::{ HashSet, VecDeque };
+use std::collections::{ HashSet, HashMap };
+use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 use std::time::Instant;
 
@@ -8,6 +9,7 @@ use petgraph::algo::toposort;
 use petgraph::stable_graph::{StableDiGraph, NodeIndex};
 use petgraph::visit::IntoNeighborsDirected;
 
+use crate::util::lookup_maps::NodeLookupMap;
 use crate::{impl_slack, util};
 use crate::util::{IterDir, radix_sort};
 use crate::{util::layers::Layers, impl_layer_graph};
@@ -18,9 +20,10 @@ use crate::graphs::p1_layering::traits::Slack;
 
 use super::p1_layering::FeasibleTree;
 use super::p1_layering::traits::Ranked;
+use super::p3_calculate_coordinates::MinimalCrossings;
 
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub(crate) struct Vertex {
+pub struct Vertex {
     id: usize,
     rank: u32,
     pos: usize,
@@ -67,7 +70,7 @@ impl From<P1Vertex> for Vertex {
     }
 }
 
-pub(crate) struct Edge;
+pub struct Edge;
 
 impl From<P1Edge> for Edge {
     fn from(_: P1Edge) -> Self {
@@ -82,15 +85,38 @@ impl Default for Edge {
 }
 
 // later test if its better to access neighbors via graph or to store them separately
+#[derive(Clone)]
 struct Order {
     _inner: Vec<Vec<NodeIndex>>,
+    positions: HashMap<NodeIndex, usize>,
     crossings: usize,
+}
+
+impl Display for Order {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut s = String::new();
+        for row in &self._inner {
+            for c in row {
+                s.push_str(&c.index().to_string());
+                s.push(',')
+            }
+            s.push('\n');
+        }
+        f.write_str(&s)
+    }
 }
 
 impl Order {
     fn new(layers: Vec<Vec<NodeIndex>>) -> Self {
+        let mut positions = HashMap::new();
+        for l in &layers {
+            for (pos, v) in l.iter().enumerate() {
+                positions.insert(*v, pos);
+            }
+        }
         Self{ 
             _inner: layers,
+            positions,
             crossings: usize::MAX,
         }
     }
@@ -98,6 +124,7 @@ impl Order {
     fn new_empty(max_rank: usize) -> Self {
         Self {
             _inner: vec![Vec::new(); max_rank],
+            positions: HashMap::new(),
             crossings: usize::MAX,
         }
     }
@@ -108,34 +135,19 @@ impl Order {
 
     fn exchange(&mut self, i: usize, rank: usize) {
         self[rank].swap(i, i + 1);
+        self.positions.insert(self[rank][i], i);
+        self.positions.insert(self[rank][i + 1], i + 1);
     }
-
-    fn get_neighbor_positions(&self, neighbors: &[NodeIndex], rank: usize) -> Vec<usize> {
-        neighbors.iter()
-            .filter_map(|n| self[rank].iter().position(|v| v == n))
-            .collect()
-    }
-
 
     fn crossing(&self, v: NodeIndex, w: NodeIndex, graph: &StableDiGraph<Vertex, Edge>, rank: usize) -> usize {
-        // check upper lower neighbor crossings or only the one for the direction?
         let mut crossings = 0;
         if rank > 0 {
-            let v_adjacent = self.get_neighbor_positions(&graph[v].upper_neighbors, rank - 1);
-            let w_adjacent = self.get_neighbor_positions(&graph[w].upper_neighbors, rank - 1);
+            let mut v_adjacent = graph[v].upper_neighbors.iter().map(|n| *self.positions.get(n).unwrap()).collect::<Vec<_>>();
+            let mut w_adjacent = graph[w].upper_neighbors.iter().map(|n| *self.positions.get(n).unwrap()).collect::<Vec<_>>();
+            v_adjacent.sort();
+            w_adjacent.sort();
             crossings += Self::cross_count(&v_adjacent, &w_adjacent);
         }
-        /*
-        if rank < self.max_rank() - 1 {
-            // let neighbors_ms = Instant::now();
-            let v_adjacent = self.get_neighbor_positions(&graph[v].lower_neighbors, rank + 1);
-            let w_adjacent = self.get_neighbor_positions(&graph[w].lower_neighbors, rank + 1);
-            // println!("lower_neighbors: {}ms", neighbors_ms.elapsed().as_millis());
-            // let cross_count_ms = Instant::now();
-            crossings += Self::cross_count(&v_adjacent, &w_adjacent);
-            // println!("crosscount: {}ms", cross_count_ms.elapsed().as_millis());
-        }
-         */
         crossings
     }
 
@@ -156,6 +168,64 @@ impl Order {
         }
 
         all_crossings
+    }
+
+    fn crossings(&self, graph: &StableDiGraph<Vertex, Edge>) -> usize {
+        let mut cross_count = 0;
+        for rank in 0..self.max_rank() - 1 {
+            cross_count += self.bilayer_cross_count(graph, rank);
+        }
+        cross_count 
+    }
+
+    fn bilayer_cross_count(&self, graph: &StableDiGraph<Vertex, Edge>, rank: usize) -> usize {
+        // find initial edge order
+        let north = &self[rank];
+        let south = &self[rank + 1];
+        let mut len = south.len();
+        let mut key_length = 0;
+        while len > 0 {
+            len /= 10;
+            key_length += 1;
+        }
+        let edge_endpoint_positions = north.iter()
+            .map(|v| radix_sort(
+                graph.neighbors_directed(*v, Outgoing)
+                            .filter_map(|n| self.positions.get(&n))
+                            .copied()
+                            .collect(), key_length)
+            ).flatten()
+            .collect::<Vec<_>>();
+
+        Self::count_crossings(edge_endpoint_positions, south.len())
+    }
+
+    fn count_crossings(endpoints: Vec<usize>, south_len: usize) -> usize {
+        // build the accumulator tree
+        let mut c = 0;
+        while 1 << c < south_len { c += 1 };
+        let tree_size = (1 << (c + 1)) - 1;
+        let first_index = (1 << c) - 1;
+        let mut tree = vec![0; tree_size];
+
+        let mut cross_count = 0;
+
+        // traverse through the positions and adjust tree nodes
+        for pos in endpoints {
+            let mut index = pos + first_index;
+            tree[index] += 1;
+            while index > 0 {
+                // traverse up the tree, incrementing the nodes of the tree
+                // each time we visit them.
+                //
+                // When visiting a left node, add the value of the node on the right to 
+                // the cross count;
+                if index % 2 == 1 { cross_count += tree[index + 1] }
+                index = (index - 1) / 2;
+                tree[index] += 1;
+            }
+        }
+        cross_count
     }
 }
 
@@ -183,11 +253,11 @@ impl_slack!(InsertDummyVertices, Vertex, Edge);
 
 // Keep Vertex
 impl InsertDummyVertices {
-    fn prepare_for_initial_ordering(mut self) -> InitOrdering {
+    pub fn prepare_for_initial_ordering(mut self) -> ReduceCrossings {
         self.insert_dummy_vertices();
         self.fill_in_neighbors();
 
-        InitOrdering { graph: self.graph }
+        ReduceCrossings { graph: self.graph }
     }
     fn insert_dummy_vertices(&mut self) {
         // find all edges that have slack of greater than 0.
@@ -241,14 +311,40 @@ impl From<FeasibleTree> for InsertDummyVertices {
     }
 }
 
-
-pub struct InitOrdering {
+pub struct ReduceCrossings {
     graph: StableDiGraph<Vertex, Edge>,
 }
 
-impl InitOrdering {
-    fn init_order(mut self) -> ReduceCrossings {
-        fn dfs(v: NodeIndex, order: &mut Vec<Vec<NodeIndex>>, graph: &StableDiGraph<Vertex, Edge>, visited: &mut HashSet<NodeIndex>) {
+impl Deref for ReduceCrossings {
+    type Target = StableDiGraph<Vertex, Edge>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.graph
+    }
+}
+
+impl ReduceCrossings {
+    pub fn ordering<T: Default>(mut self) -> MinimalCrossings<T> {
+        let order = self.init_order();
+        let max_iterations = 24;
+        let min_improvement = 0.05;
+        // move downwards for crossing reduction
+        let order = self.reduce_crossings_bilayer_sweep(order);
+        // self.reduce_crossings(max_iterations, min_improvement, IterDir::Forward);
+        // self.reduce_crossings(max_iterations, min_improvement, IterDir::Backward);
+        // move upwards for crossing reduction
+        let Self { graph } = self;
+        let g = graph.map(|_, w| if w.is_dummy { None } else { Some(T::default()) }, |_, _| usize::default());
+        let layers = Layers::new(order._inner, &g);
+        MinimalCrossings::new(layers, g)
+    }
+
+    fn init_order(&mut self) -> Order {
+        fn dfs(
+            v: NodeIndex, 
+            order: &mut Vec<Vec<NodeIndex>>,
+            graph: &StableDiGraph<Vertex, Edge>, 
+            visited: &mut HashSet<NodeIndex>) {
             if !visited.contains(&v) {
                 visited.insert(v);
                 order[graph[v].rank as usize].push(v);
@@ -260,7 +356,7 @@ impl InitOrdering {
             .map(|v| v.rank as usize)
             .max_by(|r1, r2| r1.cmp(&r2))
             .expect("Got invalid ranking");
-        let mut order = vec![Vec::new(); max_rank];
+        let mut order = vec![Vec::new(); max_rank + 1];
         let mut visited = HashSet::new();
 
         // build initial order via dfs
@@ -272,67 +368,73 @@ impl InitOrdering {
         order.iter().for_each(|r| 
             r.iter().enumerate().for_each(|(pos, v)| self.graph[*v].pos = pos)
         );
-
-        ReduceCrossings { 
-            graph: self.graph, 
-            order: Order::new(order),
-        }
-    }
-}
-
-pub(crate) struct ReduceCrossings {
-    graph: StableDiGraph<Vertex, Edge>,
-    order: Order,
-}
-
-impl ReduceCrossings {
-    fn ordering(&mut self) {
-        let max_iterations = 24;
-        let min_improvement = 0.05;
-        // move downwards for crossing reduction
-        self.reduce_crossings(max_iterations, min_improvement, IterDir::Forward);
-        self.reduce_crossings(max_iterations, min_improvement, IterDir::Backward);
-        // move upwards for crossing reduction
+        Order::new(order)
     }
 
-    fn reduce_crossings(&mut self, max_iterations: usize, min_improvement: f64, direction: IterDir) {
-        let mut median_ms = 0;
-        let mut transpose_ms = 0;
-        let now = Instant::now();
-        for i in 0..max_iterations {
-            let median = Instant::now();
-            let mut order = self.wmedian(i % 2 == 0);
-            median_ms += median.elapsed().as_millis();
-
-            let transpose = Instant::now();
-            self.transpose(&mut order, direction);
-            transpose_ms += transpose.elapsed().as_millis();
-            // abort if we don't improve significantly anymore
-            if (Self::cross_count_old(&mut order, &self.graph) as f64 / Self::cross_count_old(&mut self.order, &self.graph) as f64) < min_improvement {
-                return;
+    fn reduce_crossings_bilayer_sweep(&mut self, mut order: Order) -> Order {
+        let mut best_crossings = order.crossings(&self);
+        println!("bc: {best_crossings}");
+        let mut last_best = 0;
+        let mut best = order.clone();
+        for i in 0.. {
+            order = self.wmedian(i % 2 == 0, &order);
+            let crossings = order.crossings(&self);
+            if crossings < best_crossings {
+                best_crossings = crossings;
+                println!("bc: {best_crossings}");
+                best = order.clone();
+                last_best = 0; 
+            } else {
+                last_best += 1;
             }
-            if Self::cross_count_old(&mut order, &self.graph) < Self::cross_count_old(&mut self.order, &self.graph) {
-                // println!("{}", order.crossings);
-                self.order = order;
+            if last_best == 4 {
+                return best;
             }
         }
+            /*
+        for i in 0..24 {
+            order = self.wmedian(i % 2 == 0, &order);
+            self.transpose(&mut order, IterDir::Forward);
+            let crossings = order.crossings(&self);
+            if crossings < best_crossings {
+                println!("{crossings}");
+                best_crossings = crossings;
+                best = order.clone();
+            }
+        }
+            */
+        best
     }
 
-    fn wmedian(&mut self, move_down: bool) -> Order {
+    fn wmedian(&self, move_down: bool, current: &Order) -> Order {
         let dir = if move_down { IterDir::Forward  } else { IterDir::Backward };
-        let mut new_order = Order::new_empty(self.order.max_rank());
+        let mut o = vec![Vec::new(); current.max_rank()];
+        let mut positions = HashMap::new();
 
-        for rank in util::iterate(dir, self.order.max_rank()) {
-            new_order[rank] = self.order[rank].clone();
-            new_order[rank].sort_by(|a, b| self.median_value(*a, move_down, rank).cmp(&self.median_value(*b, move_down, rank)));
+        for rank in util::iterate(dir, current.max_rank()) {
+            o[rank] = current[rank].clone();
+            //println!("{:?}", self.order[rank]);
+            o[rank].sort_by(|a, b| 
+                            self.median_value(*a, move_down, &positions)
+                                .cmp(&self.median_value(*b, move_down, &positions)));
+            o[rank].iter().enumerate().for_each(|(pos, v)| { positions.insert(*v, pos); });
         }
 
-        new_order
+        Order::new(o)
     }
 
-    fn median_value(&self, vertex: NodeIndex, move_down: bool, rank: usize) -> usize {
-        let neighbors = if move_down { &self.graph[vertex].upper_neighbors } else { &self.graph[vertex].lower_neighbors };
-        let adjacent = self.order.get_neighbor_positions(neighbors, rank);
+    fn median_value(&self, vertex: NodeIndex, move_down: bool, positions: &HashMap<NodeIndex, usize>) -> usize {
+        let neighbors = if move_down { 
+            &self.graph[vertex].upper_neighbors 
+        } else { 
+            &self.graph[vertex].lower_neighbors 
+        };
+        let mut adjacent = neighbors.iter()
+            .map(|n| *positions.get(n).unwrap())
+            .collect::<Vec<_>>();
+
+        adjacent.sort();
+
         let length_p = adjacent.len();
         let m = length_p / 2;
         if length_p == 0 {
@@ -343,7 +445,7 @@ impl ReduceCrossings {
             (adjacent[0] + adjacent[1]) / 2
         } else {
             let left = adjacent[m - 1] - adjacent[0];
-            let right = adjacent[length_p] - adjacent[m];
+            let right = adjacent[length_p - 1] - adjacent[m];
             (adjacent[m - 1] * right + adjacent[m] * left) / (left + right) 
         }
     }
@@ -359,11 +461,13 @@ impl ReduceCrossings {
                     let v = order[rank][i];
                     let w = order[rank][i + 1];
                     if order.crossing(v, w, &self.graph, rank) > order.crossing(w, v, &self.graph, rank) {
+                        //println!("swapped");
                         improved = true;
                         order.exchange(i, rank);
                     }
                 }
             }
+            /*
             Self::cross_count_old(order, &self.graph);
             let new_crossings = order.crossings as f64;
             if new_crossings / initial_crossings > 0.99 { 
@@ -372,15 +476,8 @@ impl ReduceCrossings {
             } else {
                 println!("{}", new_crossings / initial_crossings);
             }
+            */
         }
-    }
-
-    fn crossings(&self) -> usize {
-        let mut cross_count = 0;
-        for i in 0..self.order.max_rank() - 1 {
-            cross_count += self.bilayer_cross_count(&self.order[i], &self.order[i + 1]);
-        }
-        cross_count 
     }
 
     fn cross_count_old(order: &mut Order, graph: &StableDiGraph<Vertex, Edge>) -> usize {
@@ -395,50 +492,4 @@ impl ReduceCrossings {
             order.crossings
     }
 
-    fn bilayer_cross_count(&self, north: &[NodeIndex], south: &[NodeIndex]) -> usize {
-        // find initial edge order
-        let mut len = south.len();
-        let mut key_length = 0;
-        while len > 0 {
-            len /= 10;
-            key_length += 1;
-        }
-        let edge_endpoint_positions = north.iter()
-            .map(|v| radix_sort(
-                self.graph.neighbors_directed(*v, Outgoing)
-                            .map(|n| self.graph[n].pos)
-                            .collect(), key_length)
-            ).flatten()
-            .collect::<Vec<_>>();
-
-        Self::count_crossings(edge_endpoint_positions, south.len())
-    }
-
-    fn count_crossings(endpoints: Vec<usize>, south_len: usize) -> usize {
-        // build the accumulator tree
-        let mut c = 0;
-        while 1 << c < south_len { c += 1 };
-        let tree_size = (1 << (c + 1)) - 1;
-        let first_index = (1 << c) - 1;
-        let mut tree = vec![0; tree_size];
-
-        let mut cross_count = 0;
-
-        // traverse through the positions and adjust tree nodes
-        for pos in endpoints {
-            let mut index = pos + first_index;
-            tree[index] += 1;
-            while index > 0 {
-                // traverse up the tree, incrementing the nodes of the tree
-                // each time we visit them.
-                //
-                // When visiting a left node, add the value of the node on the right to 
-                // the cross count;
-                if index % 2 == 1 { cross_count += tree[index + 1] }
-                index = (index - 1) / 2;
-                tree[index] += 1;
-            }
-        }
-        cross_count
-    }
 }
