@@ -1,5 +1,5 @@
 mod tests;
-use std::collections::HashMap;
+use std::collections::{ HashSet, VecDeque };
 use std::ops::{Deref, DerefMut};
 use std::time::Instant;
 
@@ -248,21 +248,30 @@ pub struct InitOrdering {
 
 impl InitOrdering {
     fn init_order(mut self) -> ReduceCrossings {
-        let mut order = Vec::new();
-
-        // TODO: Change this to dfs.
-        // fill in initial position
-        for v in toposort(&self.graph, None).unwrap() {
-            let weight = &self.graph[v];
-            let rank = weight.rank as usize;
-
-            while order.len() <= rank {
-                order.push(Vec::new());
+        fn dfs(v: NodeIndex, order: &mut Vec<Vec<NodeIndex>>, graph: &StableDiGraph<Vertex, Edge>, visited: &mut HashSet<NodeIndex>) {
+            if !visited.contains(&v) {
+                visited.insert(v);
+                order[graph[v].rank as usize].push(v);
+                graph.neighbors_directed(v, Outgoing).for_each(|n| dfs(n, order, graph, visited)) 
             }
-
-            self.graph[v].pos = order[rank].len();
-            order[rank].push(v);
         }
+
+        let max_rank = self.graph.node_weights()
+            .map(|v| v.rank as usize)
+            .max_by(|r1, r2| r1.cmp(&r2))
+            .expect("Got invalid ranking");
+        let mut order = vec![Vec::new(); max_rank];
+        let mut visited = HashSet::new();
+
+        // build initial order via dfs
+        self.graph.node_indices()
+            .filter(|v| self.graph[*v].rank == 0)
+            .for_each(|v| dfs(v, &mut order, &self.graph, &mut visited));
+
+        // fill in initial position
+        order.iter().for_each(|r| 
+            r.iter().enumerate().for_each(|(pos, v)| self.graph[*v].pos = pos)
+        );
 
         ReduceCrossings { 
             graph: self.graph, 
