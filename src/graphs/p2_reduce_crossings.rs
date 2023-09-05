@@ -20,12 +20,12 @@ use crate::graphs::p1_layering::traits::Slack;
 
 use super::p1_layering::FeasibleTree;
 use super::p1_layering::traits::Ranked;
-use super::p3_calculate_coordinates::MinimalCrossings;
+use super::p3_new::{MinimalCrossings, Vertex as VertexP3, Edge as EdgeP3}; 
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Vertex {
     id: usize,
-    rank: u32,
+    rank: usize,
     pos: usize,
     is_dummy: bool,
     upper_neighbors: Vec<NodeIndex>, // store positions of neighbors on adjacent ranks, since we need to acces them very often
@@ -33,7 +33,7 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    fn new(rank: u32) -> Self {
+    fn new(rank: usize) -> Self {
         Self {
             id: 0,
             rank,
@@ -66,7 +66,7 @@ impl Ranked for Vertex {
 
 impl From<P1Vertex> for Vertex {
     fn from(vertex: P1Vertex) -> Self {
-        Vertex { id: vertex.id, rank: vertex.rank as u32, pos: 0, is_dummy: false, upper_neighbors: Vec::new(), lower_neighbors: Vec::new() }
+        Vertex { id: vertex.id, rank: vertex.rank as usize, pos: 0, is_dummy: false, upper_neighbors: Vec::new(), lower_neighbors: Vec::new() }
     }
 }
 
@@ -324,7 +324,7 @@ impl Deref for ReduceCrossings {
 }
 
 impl ReduceCrossings {
-    pub fn ordering<T: Default>(mut self) -> MinimalCrossings<T> {
+    pub fn ordering(mut self) -> MinimalCrossings {
         let order = self.init_order();
         let max_iterations = 24;
         let min_improvement = 0.05;
@@ -334,8 +334,8 @@ impl ReduceCrossings {
         // self.reduce_crossings(max_iterations, min_improvement, IterDir::Backward);
         // move upwards for crossing reduction
         let Self { graph } = self;
-        let g = graph.map(|_, w| if w.is_dummy { None } else { Some(T::default()) }, |_, _| usize::default());
-        let layers = Layers::new(order._inner, &g);
+        let g = graph.map(|v, w| VertexP3::new(v, w.rank, w.pos, w.is_dummy), |_, w| EdgeP3::new());
+        let layers = Layers::new2(order._inner, &g);
         MinimalCrossings::new(layers, g)
     }
 
