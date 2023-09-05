@@ -5,7 +5,6 @@ use petgraph::Direction::Incoming;
 use petgraph::stable_graph::{StableDiGraph, NodeIndex, EdgeIndex};
 use petgraph::visit::{EdgeRef, IntoEdgeReferences};
 
-use crate::graphs::p3_calculate_coordinates::{ VDir, HDir };
 use crate::util:: layers::Layers;
 
 /// Reprents a Layered Graph, in which the number of crossings of edges between
@@ -321,7 +320,7 @@ impl Blocks {
         x_coordinates.insert(root, 0);
         let mut w = root;
         loop {
-            if self[w].pos > 1 {
+            if self[w].pos > 0 {
                 let u = self[self.pred(w)].root;
                 self.place_block(u, x_coordinates, vertex_spacing);
                 // initialize sink of current node to have the same sink as the root
@@ -350,7 +349,7 @@ impl Blocks {
         self.layers._inner[self[vertex].rank][self[vertex].pos - 1]
     }
 }
-/*
+
 /// Represents the horizontal direction in which the algorithm is run
 #[derive(Clone, Copy, PartialEq)]
 pub(crate) enum HDir {
@@ -364,15 +363,13 @@ pub(crate) enum VDir {
     Up,
     Down,
 }
-*/
 
 mod tests {
-    use petgraph::{stable_graph::{StableDiGraph, NodeIndex}, visit::IntoEdgeReferences};
+    use petgraph::stable_graph::{StableDiGraph, NodeIndex};
 
     use super::{Vertex, Edge, MinimalCrossings};
     use crate::util::layers::Layers;
-    use petgraph::visit::EdgeRef;
-    use crate::graphs::p3_calculate_coordinates::{HDir, VDir};
+    use super::{HDir, VDir};
 
     pub(crate) fn create_test_layout() -> MinimalCrossings {
 
