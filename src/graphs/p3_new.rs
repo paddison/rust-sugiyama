@@ -56,6 +56,12 @@ pub struct Edge {
     has_type_1_conflict: bool
 }
 
+impl Edge {
+    pub(crate) fn new() -> Self {
+        Self { has_type_1_conflict: false }
+    }
+}
+
 impl Default for Edge {
     fn default() -> Self {
         Self {

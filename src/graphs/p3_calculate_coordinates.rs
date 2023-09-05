@@ -137,6 +137,8 @@ impl<T: Default> MarkedTypeOneConflicts<T> {
 
     #[inline(always)]
     fn is_marked(&self, edge: &(NodeIndex, NodeIndex)) -> bool {
+        println!("{:?}, {:?}", edge, self.type_1_conflicts.contains(edge));
+        // TODO: This is a bug, edge needs to be reversed depending on direction
         self.type_1_conflicts.contains(edge)
     }
 
