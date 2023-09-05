@@ -5,7 +5,8 @@ use std::{
 
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-use crate::graphs::{p3_calculate_coordinates::{VDir, HDir}, p2_reduce_crossings::{Vertex, Edge}};
+use crate::graphs::{p3_calculate_coordinates::{VDir, HDir}, p2_reduce_crossings::{Vertex, Edge}, p3_new::{Vertex as V, Edge as E}};
+
 
 use super::{iterate, IterDir};
 
@@ -29,6 +30,35 @@ impl Layers {
         }
     }
     #[allow(dead_code)]
+    pub fn new2(inner: Vec<Vec<NodeIndex>>, g: &StableDiGraph<V, E>) -> Self {
+        let mut positions = HashMap::new();
+        let mut upper_neighbours = HashMap::new();
+        let mut lower_neighbours = HashMap::new();
+
+        for (level_index, level) in inner.iter().enumerate() {
+            for (pos, vertex) in level.iter().enumerate() {
+                positions.insert(*vertex, (level_index, pos));
+            }
+        }
+
+        for l in &inner {
+            for v in l {
+                let v_level = positions.get(v).unwrap().0;
+                let v_upper_neighbors = g.neighbors_directed(*v, petgraph::Direction::Incoming).collect::<HashSet<_>>();
+                let v_lower_neighbors = g.neighbors_directed(*v, petgraph::Direction::Outgoing).collect::<HashSet<_>>();
+                let v_direct_upper_neighbors = Self::initialize_neighbors(&inner, v_level.wrapping_sub(1), v_upper_neighbors);
+                let v_direct_lower_neighbors = Self::initialize_neighbors(&inner, v_level + 1, v_lower_neighbors);
+                
+                upper_neighbours.insert(*v, v_direct_upper_neighbors);
+                lower_neighbours.insert(*v, v_direct_lower_neighbors);
+            }
+        }
+
+        let layers = Self { _inner: inner, positions, upper_neighbours, lower_neighbours };
+        assert!(layers.is_valid());
+        layers
+    }
+
     pub fn new<T>(inner: Vec<Vec<NodeIndex>>, g: &StableDiGraph<Option<T>, usize>) -> Self {
 
         let mut positions = HashMap::new();
