@@ -46,6 +46,7 @@ static _TYPE_2_CONFLICT_2_COLS_RANKS: [(u32, u32); 9] = [
 
 static _TYPE_2_CONFLICT_2_COLS_DUMMIES: [u32; 4] = [2, 3, 4, 5];
 
+
 struct Builder {
     graph: StableDiGraph<Vertex, Edge>,
     minimum_length: i32,
@@ -128,6 +129,7 @@ mod insert_dummy_vertices {
 mod init_order {
     use super::{Builder, ONE_DUMMY, ONE_DUMMY_RANKS, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS};
 
+    
     #[test]
     fn all_neighbors_must_be_at_adjacent_level_one_dummy() {
         let io = Builder::new_from_edges_with_ranking(&ONE_DUMMY, &ONE_DUMMY_RANKS).build().prepare_for_initial_ordering();
@@ -142,7 +144,9 @@ mod init_order {
 
     #[test]
     fn all_neighbors_must_be_at_adjacent_level_three_dummies() {
-        let io = Builder::new_from_edges_with_ranking(&THREE_DUMMIES, &THREE_DUMMIES_RANKS).build().prepare_for_initial_ordering();
+        let io = Builder::new_from_edges_with_ranking(&THREE_DUMMIES, &THREE_DUMMIES_RANKS)
+            .build()
+            .prepare_for_initial_ordering();
         let g = &io.graph;
         for v in g.node_indices() {
             let rank = g[v].rank;
@@ -154,7 +158,9 @@ mod init_order {
 
     #[test]
     fn all_neighbors_must_be_at_adjacent_level_seven_dummies() {
-        let io = Builder::new_from_edges_with_ranking(&COMPLEX_EXAMPLE, &COMPLEX_EXAMPLE_RANKS).build().prepare_for_initial_ordering();
+        let io = Builder::new_from_edges_with_ranking(&COMPLEX_EXAMPLE, &COMPLEX_EXAMPLE_RANKS)
+            .build()
+            .prepare_for_initial_ordering();
         let g = &io.graph;
         for v in g.node_indices() {
             let rank = g[v].rank;
@@ -166,6 +172,35 @@ mod init_order {
 }
 
 // TODO: Add new tests for Order crosscount
+#[cfg(test)]
+mod order {
+    use petgraph::stable_graph::StableDiGraph;
+    use crate::phases::p2_reduce_crossings::Order;
+
+    static ORDER_TWO_CROSSINGS: [(u32, u32); 3] = [
+        (0, 4), (1, 3), (2, 3)
+    ];
+
+    #[test]
+    fn two_crossings() {
+        let order = Order::new(vec![
+            vec![0.into(), 1.into(), 2.into()], 
+            vec![3.into(), 4.into()]
+        ]);
+        let graph = StableDiGraph::from_edges(&ORDER_TWO_CROSSINGS);
+        assert_eq!(order.bilayer_cross_count(&graph, 0), 2);
+    }
+
+    #[test]
+    fn four_crossings() {
+        let order = Order::new(vec![
+            vec![1.into(), 2.into(), 3.into(), 4.into()], 
+            vec![5.into(), 6.into(), 7.into(), 8.into()]
+        ]);
+        let graph = StableDiGraph::from_edges(&[(1, 8), (2, 7), (3, 6), (4, 5)]);
+        assert_eq!(order.bilayer_cross_count(&graph, 0), 6);
+    }
+}
 #[cfg(test)]
 mod benchmark {
     use crate::phases::{p1_layering::tests::{Builder, UnlayeredGraphBuilder, GraphBuilder}, p2_reduce_crossings::InsertDummyVertices};
