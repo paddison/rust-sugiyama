@@ -9,9 +9,9 @@ use petgraph::stable_graph::{StableDiGraph, NodeIndex};
 
 use crate::{impl_slack, util};
 use crate::util::{IterDir, radix_sort};
-use crate::graphs::p1_layering::Vertex as P1Vertex;
-use crate::graphs::p1_layering::Edge as P1Edge;
-use crate::graphs::p1_layering::traits::Slack;
+use crate::phases::p1_layering::Vertex as P1Vertex;
+use crate::phases::p1_layering::Edge as P1Edge;
+use crate::phases::p1_layering::traits::Slack;
 
 use super::p1_layering::FeasibleTree;
 use super::p1_layering::traits::Ranked;

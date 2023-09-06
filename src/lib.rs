@@ -1,3 +1,3 @@
 pub mod algorithm;
-mod graphs;
+mod phases;
 mod util;

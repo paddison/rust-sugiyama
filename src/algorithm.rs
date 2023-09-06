@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use petgraph::stable_graph::NodeIndex;
 
-use crate::graphs::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir}, p1_layering::start, p2_reduce_crossings::InsertDummyVertices};
+use crate::phases::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir}, p1_layering::start, p2_reduce_crossings::InsertDummyVertices};
 
 pub fn build_layout(edges: &[(u32, u32)], minimum_length: u32) -> Vec<(usize, (isize, isize))> {
     let proper_graph = rank(edges, minimum_length);

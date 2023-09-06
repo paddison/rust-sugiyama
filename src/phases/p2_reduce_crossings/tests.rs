@@ -86,7 +86,7 @@ impl Builder {
 #[cfg(test)]
 mod insert_dummy_vertices {
 
-    use crate::graphs::p2_reduce_crossings::tests::{ONE_DUMMY, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS};
+    use crate::phases::p2_reduce_crossings::tests::{ONE_DUMMY, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS};
 
     use super::{ONE_DUMMY_RANKS, Builder};
 
@@ -168,7 +168,7 @@ mod init_order {
 // TODO: Add new tests for Order crosscount
 #[cfg(test)]
 mod benchmark {
-    use crate::graphs::{p1_layering::tests::{Builder, UnlayeredGraphBuilder, GraphBuilder}, p2_reduce_crossings::InsertDummyVertices};
+    use crate::phases::{p1_layering::tests::{Builder, UnlayeredGraphBuilder, GraphBuilder}, p2_reduce_crossings::InsertDummyVertices};
 
     #[test]
     fn random_graph_100_edges() {

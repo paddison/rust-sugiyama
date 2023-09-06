@@ -70,7 +70,7 @@ impl TightTreeDFS {
 mod tests {
     use std::collections::HashSet;
 
-    use crate::graphs::p1_layering::{tight_tree_dfs::TightTreeDFS, tests::{Builder, GraphBuilder, EXAMPLE_GRAPH, UnlayeredGraphBuilder}};
+    use crate::phases::p1_layering::{tight_tree_dfs::TightTreeDFS, tests::{Builder, GraphBuilder, EXAMPLE_GRAPH, UnlayeredGraphBuilder}};
 
 
         #[test]
