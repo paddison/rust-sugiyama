@@ -165,52 +165,7 @@ mod init_order {
     }
 }
 
-#[cfg(test)]
-mod order {
-    use crate::graphs::p2_reduce_crossings::Order;
-
-    #[test]
-    fn cross_count_4_crossings() {
-        let v = [2, 3];
-        let w = [0, 1];
-        assert_eq!(Order::cross_count(&v, &w), 4);
-    }
-
-    #[test]
-    fn cross_count_no_crossings() {
-        assert_eq!(Order::cross_count(&[0, 1], &[2, 3]), 0);
-    }
-
-    #[test]
-    fn cross_count_one_crossing() {
-        assert_eq!(Order::cross_count(&[5, 10], &[7, 1000]), 1);
-    }
-
-    #[test]
-    fn cross_count_eight_crossings_one_shared() {
-        assert_eq!(Order::cross_count(&[5, 7, 12345], &[0, 2, 5]), 8);
-    }
-
-    #[test]
-    fn cross_count_no_crossings_one_shared() {
-        assert_eq!(Order::cross_count(&[0, 2, 5], &[5, 7, 12345]), 0);
-    }
-
-    #[test]
-    fn count_crossings() {
-        let endpoints = [0, 1, 2, 0, 3, 4, 0, 2, 3, 2, 4].to_vec();
-        let length = 5;
-        assert_eq!(Order::count_crossings(endpoints, length), 12);
-    }
-
-    #[test]
-    fn count_crossings_6() {
-        let endpoints = [0, 1, 2, 0, 3, 2, 1].to_vec();
-        let length = 4;
-        assert_eq!(Order::count_crossings(endpoints, length), 6);
-    }
-}
-
+// TODO: Add new tests for Order crosscount
 #[cfg(test)]
 mod benchmark {
     use crate::graphs::{p1_layering::tests::{Builder, UnlayeredGraphBuilder, GraphBuilder}, p2_reduce_crossings::InsertDummyVertices};

@@ -1,26 +1,21 @@
+#[cfg(test)]
 mod tests;
 use std::collections::{ HashSet, HashMap };
 use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
-use std::time::Instant;
 
 use petgraph::Direction::{Incoming, Outgoing};
-use petgraph::algo::toposort;
 use petgraph::stable_graph::{StableDiGraph, NodeIndex};
-use petgraph::visit::IntoNeighborsDirected;
 
-use crate::util::lookup_maps::NodeLookupMap;
 use crate::{impl_slack, util};
 use crate::util::{IterDir, radix_sort};
-use crate::{util::layers::Layers, impl_layer_graph};
-use crate::util::traits::LayerGraph;
 use crate::graphs::p1_layering::Vertex as P1Vertex;
 use crate::graphs::p1_layering::Edge as P1Edge;
 use crate::graphs::p1_layering::traits::Slack;
 
 use super::p1_layering::FeasibleTree;
 use super::p1_layering::traits::Ranked;
-use super::p3_new::{MinimalCrossings, Vertex as VertexP3, Edge as EdgeP3}; 
+use super::p3_calculate_coordinates::{MinimalCrossings, Vertex as VertexP3, Edge as EdgeP3}; 
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct Vertex {
@@ -89,7 +84,6 @@ impl Default for Edge {
 struct Order {
     _inner: Vec<Vec<NodeIndex>>,
     positions: HashMap<NodeIndex, usize>,
-    crossings: usize,
 }
 
 impl Display for Order {
@@ -117,57 +111,11 @@ impl Order {
         Self{ 
             _inner: layers,
             positions,
-            crossings: usize::MAX,
-        }
-    }
-
-    fn new_empty(max_rank: usize) -> Self {
-        Self {
-            _inner: vec![Vec::new(); max_rank],
-            positions: HashMap::new(),
-            crossings: usize::MAX,
         }
     }
 
     fn max_rank(&self) -> usize {
         self.len()
-    }
-
-    fn exchange(&mut self, i: usize, rank: usize) {
-        self[rank].swap(i, i + 1);
-        self.positions.insert(self[rank][i], i);
-        self.positions.insert(self[rank][i + 1], i + 1);
-    }
-
-    fn crossing(&self, v: NodeIndex, w: NodeIndex, graph: &StableDiGraph<Vertex, Edge>, rank: usize) -> usize {
-        let mut crossings = 0;
-        if rank > 0 {
-            let mut v_adjacent = graph[v].upper_neighbors.iter().map(|n| *self.positions.get(n).unwrap()).collect::<Vec<_>>();
-            let mut w_adjacent = graph[w].upper_neighbors.iter().map(|n| *self.positions.get(n).unwrap()).collect::<Vec<_>>();
-            v_adjacent.sort();
-            w_adjacent.sort();
-            crossings += Self::cross_count(&v_adjacent, &w_adjacent);
-        }
-        crossings
-    }
-
-    fn cross_count(v_adjacent: &[usize], w_adjacent: &[usize]) -> usize {
-        let mut all_crossings = 0;
-        let mut k = 0;
-        for i in v_adjacent {
-            let i = *i;
-            let mut crossings = k;
-            while k < w_adjacent.len() && w_adjacent[k] < i {
-                let j = w_adjacent[k];
-                if i > j {
-                    crossings += 1;
-                }
-                k += 1;
-            }
-            all_crossings += crossings;
-        }
-
-        all_crossings
     }
 
     fn crossings(&self, graph: &StableDiGraph<Vertex, Edge>) -> usize {
@@ -326,17 +274,14 @@ impl Deref for ReduceCrossings {
 impl ReduceCrossings {
     pub fn ordering(mut self) -> MinimalCrossings {
         let order = self.init_order();
-        let max_iterations = 24;
-        let min_improvement = 0.05;
         // move downwards for crossing reduction
         let order = self.reduce_crossings_bilayer_sweep(order);
         // self.reduce_crossings(max_iterations, min_improvement, IterDir::Forward);
         // self.reduce_crossings(max_iterations, min_improvement, IterDir::Backward);
         // move upwards for crossing reduction
         let Self { graph } = self;
-        let g = graph.map(|v, w| VertexP3::new(v, w.rank, w.pos, w.is_dummy), |_, w| EdgeP3::new());
-        let layers = Layers::new2(order._inner, &g);
-        MinimalCrossings::new(layers, g)
+        let g = graph.map(|v, w| VertexP3::new(v, w.rank, w.pos, w.is_dummy), |_, _| EdgeP3::new());
+        MinimalCrossings::new(order._inner, g)
     }
 
     fn init_order(&mut self) -> Order {
@@ -391,18 +336,6 @@ impl ReduceCrossings {
                 return best;
             }
         }
-            /*
-        for i in 0..24 {
-            order = self.wmedian(i % 2 == 0, &order);
-            self.transpose(&mut order, IterDir::Forward);
-            let crossings = order.crossings(&self);
-            if crossings < best_crossings {
-                println!("{crossings}");
-                best_crossings = crossings;
-                best = order.clone();
-            }
-        }
-            */
         best
     }
 
@@ -449,47 +382,4 @@ impl ReduceCrossings {
             (adjacent[m - 1] * right + adjacent[m] * left) / (left + right) 
         }
     }
-
-    fn transpose(&self, order: &mut Order, direction: IterDir) {
-        let mut improved = true;
-        Self::cross_count_old(order, &self.graph);
-        while improved {
-            let initial_crossings = order.crossings as f64;
-            improved = false;
-            for rank in util::iterate(direction, order.max_rank()) {
-                for i in 0..order[rank].len() - 1 {
-                    let v = order[rank][i];
-                    let w = order[rank][i + 1];
-                    if order.crossing(v, w, &self.graph, rank) > order.crossing(w, v, &self.graph, rank) {
-                        //println!("swapped");
-                        improved = true;
-                        order.exchange(i, rank);
-                    }
-                }
-            }
-            /*
-            Self::cross_count_old(order, &self.graph);
-            let new_crossings = order.crossings as f64;
-            if new_crossings / initial_crossings > 0.99 { 
-                println!("didn't improve");
-                improved = false; 
-            } else {
-                println!("{}", new_crossings / initial_crossings);
-            }
-            */
-        }
-    }
-
-    fn cross_count_old(order: &mut Order, graph: &StableDiGraph<Vertex, Edge>) -> usize {
-            order.crossings = 0;
-            for rank in 0..order.max_rank() {
-                for i in 0..order[rank].len() - 1 {
-                    let v = order[rank][i];
-                    let w = order[rank][i + 1];
-                    order.crossings += order.crossing(v, w, graph, rank);
-                }
-            }
-            order.crossings
-    }
-
 }
