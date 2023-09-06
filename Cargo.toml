@@ -6,5 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-petgraph = "0.6.3"
+petgraph = "0.6.4"
 graph_generator = { git = "https://github.com/paddison/graph_generator.git" }

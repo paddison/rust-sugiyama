@@ -1,5 +1,3 @@
-use crate::graphs::p3_calculate_coordinates::{VDir, HDir};
-
 // todo: Refactor this into trait
 pub(crate) fn iterate(dir: IterDir, length: usize) -> impl Iterator<Item = usize> {
     let (mut start, step) = match dir {

@@ -15,8 +15,6 @@ use crate::{impl_slack, impl_low_lim_dfs, impl_calculate_cut_values};
 use self::traits::{LowLimDFS, CalculateCutValues, Slack, Ranked};
 use self::tight_tree_dfs::TightTreeDFS;
 
-use super::p2_reduce_crossings::InsertDummyVertices;
-
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) struct Vertex {
     pub(crate) id: usize,
