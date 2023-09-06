@@ -1,14 +1,13 @@
-use std::{collections::HashMap, hash::Hash};
+use std::collections::HashMap;
 
 use petgraph::stable_graph::NodeIndex;
 
-use crate::graphs::{p3_new::{MinimalCrossings, VDir, HDir}, p1_layering::start, p2_reduce_crossings::InsertDummyVertices};
+use crate::graphs::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir}, p1_layering::start, p2_reduce_crossings::InsertDummyVertices};
 
 pub fn build_layout(edges: &[(u32, u32)], minimum_length: u32) -> Vec<(usize, (isize, isize))> {
     let proper_graph = rank(edges, minimum_length);
     let minimal_crossings = minimize_crossings(proper_graph);
-    //calculate_coordinates::<T>(minimal_crossings, 10)
-    vec![]
+    calculate_coordinates(minimal_crossings, 10)
 }
 
 pub fn rank(edges: &[(u32, u32)], minimum_length: u32) -> InsertDummyVertices {
@@ -21,7 +20,7 @@ pub fn minimize_crossings(graph: InsertDummyVertices) -> MinimalCrossings {
 
 /// Calculates the final x-coordinates for each vertex, after the graph was layered and crossings where minimized.
 pub fn calculate_coordinates(graph: MinimalCrossings, vertex_spacing: usize) -> Vec<(usize, (isize, isize))>{
-    let y_coordinates = graph.layers._inner.iter()
+    let y_coordinates = graph.layers.iter()
         .enumerate()
         .map(|(rank, row)| row.iter().map(move |v| (*v, rank as isize * vertex_spacing as isize)))
         .flatten()
@@ -103,7 +102,7 @@ mod benchmark {
     fn r_100() {
         let edges = graph_generator::RandomLayout::new(100).build_edges().into_iter().map(|(r, l)| (r as u32, l as u32)).collect::<Vec<(u32, u32)>>();
         let start = std::time::Instant::now();
-        let layout = build_layout(&edges, 1);
+        let _ = build_layout(&edges, 1);
         println!("Random 100 edges: {}ms", start.elapsed().as_millis());
     }
 
@@ -111,197 +110,48 @@ mod benchmark {
     fn r_1000() {
         let edges = graph_generator::RandomLayout::new(1000).build_edges().into_iter().map(|(r, l)| (r as u32, l as u32)).collect::<Vec<(u32, u32)>>();
         let start = std::time::Instant::now();
-        let layout = build_layout(&edges, 1);
+        let _ = build_layout(&edges, 1);
         println!("Random 1000 edges: {}ms", start.elapsed().as_millis());
     }
 
     #[test]
     fn r_2000() {
-        let edges = graph_generator::RandomLayout::new(2000).build_edges().into_iter().map(|(r, l)| (r as u32, l as u32)).collect::<Vec<(u32, u32)>>();
+        let edges = graph_generator::RandomLayout::new(2000).build_edges();
         let start = std::time::Instant::now();
-        let layout = build_layout(&edges, 1);
+        let _ = build_layout(&edges, 1);
         println!("Random 2000 edges: {}ms", start.elapsed().as_millis());
     }
 
     #[test]
     fn r_4000() {
-        let edges = graph_generator::RandomLayout::new(2000).build_edges().into_iter().map(|(r, l)| (r as u32, l as u32)).collect::<Vec<(u32, u32)>>();
+        let edges = graph_generator::RandomLayout::new(2000).build_edges();
         let start = std::time::Instant::now();
-        let layout = build_layout(&edges, 1);
+        let _ = build_layout(&edges, 1);
         println!("Random 4000 edges: {}ms", start.elapsed().as_millis());
     }
     #[test]
     fn r_8000() {
-        let edges = graph_generator::RandomLayout::new(8000).build_edges().into_iter().map(|(r, l)| (r as u32, l as u32)).collect::<Vec<(u32, u32)>>();
+        let edges = graph_generator::RandomLayout::new(8000).build_edges();
         let start = std::time::Instant::now();
-        let layout = build_layout(&edges, 1);
+        let _ = build_layout(&edges, 1);
         println!("Random 8000 edges: {}ms", start.elapsed().as_millis());
     }
+
+    #[test]
+    fn l_1000_2() {
+        let n = 1000;
+        let e = 2;
+        let edges = graph_generator::GraphLayout::new_from_num_nodes(n, e).build_edges();
+        let start = std::time::Instant::now();
+        let _ = build_layout(&edges, 1);
+        println!("{n} nodes, {e} edges per node: {}ms", start.elapsed().as_millis());
+    }
 }
+
 #[cfg(test)]
-mod test {
-    use petgraph::stable_graph::{NodeIndex, StableDiGraph};
-
-    use crate::{graphs::p3_calculate_coordinates::MinimalCrossings, util::layers::Layers, algorithm::calculate_coordinates};
-    use crate::graphs::p3_new::MinimalCrossings as MinimalCrossingsNew;
-    use crate::graphs::p3_new::{Vertex, Edge};
-
+mod check_visuals {
     use super::build_layout;
-    pub fn g_levels(levels: usize) -> MinimalCrossings<usize>{
-        let mut edges = Vec::new();
-        let mut layers = Vec::new();
-        let mut id = 0;
-        for l in 0..levels {
-
-            let mut level = Vec::new();
-            for _ in 0..2_usize.pow(l as u32) {
-                level.push(NodeIndex::from(id as u32));
-                id += 1;
-            }
-            layers.push(level);
-        } 
-
-        for level in &layers[0..layers.len() - 1] {
-            for n in level {
-                edges.push((n.index() as u32, n.index() as u32 * 2 + 1));
-                edges.push((n.index() as u32, n.index() as u32 * 2 + 2));
-            }
-        }
-
-        let g = StableDiGraph::from_edges(&edges);
-        let layers = Layers::new(layers, &g);
-
-        MinimalCrossings::new(layers, g)
-    }
     
-    pub fn g_levels_new(levels: usize) -> MinimalCrossingsNew{
-        let mut edges = Vec::new();
-        let mut layers = Vec::new();
-        let mut id = 0;
-        for l in 0..levels {
-
-            let mut level = Vec::new();
-            for _ in 0..2_usize.pow(l as u32) {
-                level.push(NodeIndex::from(id as u32));
-                id += 1;
-            }
-            layers.push(level);
-        } 
-
-        for level in &layers[0..layers.len() - 1] {
-            for n in level {
-                edges.push((n.index() as u32, n.index() as u32 * 2 + 1));
-                edges.push((n.index() as u32, n.index() as u32 * 2 + 2));
-            }
-        }
-
-        let mut g = StableDiGraph::from_edges(&edges);
-        for (rank, level) in layers.iter().enumerate() {
-            for (pos, v) in level.iter().enumerate() {
-                let weight = &mut g[*v];
-                *weight = Vertex::new(*v, rank, pos, false);
-            }
-        }
-        let layers = Layers::new2(layers, &g);
-
-        MinimalCrossingsNew::new(layers, g)
-    }
-    fn _test() -> MinimalCrossings<usize> {
-        let edges: [(usize, usize); 29] = [(0, 2), (0, 6), (1, 16), (1, 17), 
-                        (3, 8), (16, 8), (4, 8), (17, 19), (18, 20), (5, 8), (5, 9), (6, 8), (6, 21),
-                        (7, 10), (7, 11), (7, 12), (19, 23), (20, 24), (21, 12), (9, 22), (9, 25),
-                        (10, 13), (10, 14), (11, 14), (22, 13), (23, 15), (24, 15), (12, 15), (25, 15)];
-
-        let layers_raw: Vec<Vec<NodeIndex>> = [
-            vec![0, 1],
-            vec![2, 3, 16, 4, 17, 18, 5, 6],
-            vec![7, 8, 19, 20, 21, 9],
-            vec![10, 11, 22, 23, 24, 12, 25],
-            vec![13, 14, 15],
-        ].into_iter().map(|row| row.into_iter().map(|id| id.into()).collect())
-        .collect();
-        
-
-        let mut graph = StableDiGraph::new();
-
-        for _ in 0..16 {
-            graph.add_node(Some(usize::default()));
-        }
-        for _ in 0..10 {
-            graph.add_node(None);
-        }
-
-        for (a, b) in edges {
-            graph.add_edge(NodeIndex::new(a), NodeIndex::new(b), usize::default());
-        }
-
-        let layers = Layers::new::<usize>(layers_raw, &graph);
-        MinimalCrossings::new(layers, graph)
-    }
-
-    fn _g() -> MinimalCrossings<usize>{
-        let edges: Vec<(u32, u32)> = vec![(0, 1), (0, 2), (1, 3), (1, 4), (2, 5), (2, 6)];
-        let layers:  Vec<Vec<NodeIndex>> = [
-            vec![0],
-            vec![1, 2], 
-            vec![3, 4, 5, 6]
-        ].into_iter().map(|r| r.into_iter().map(|id| id.into()).collect()).collect();
-
-        let g = StableDiGraph::from_edges(edges);
-        let layers = Layers::new(layers, &g);
-
-        MinimalCrossings::new(layers, g)
-    }
-
-    #[test]
-    fn benchmark() {
-        let stack_size = 128 * 1024 * 1024;
-        let child = std::thread::Builder::new()
-            .stack_size(stack_size)
-            .spawn(|| {
-                let g = g_levels_new(16);
-                let start = std::time::Instant::now();
-                let c = calculate_coordinates(g, 10);
-                println!("{c:?}");
-                println!("{}ms", start.elapsed().as_millis());
-            }).unwrap();
-
-        // Wait for thread to join
-        child.join().unwrap();
-    }
-
-    #[test]
-    fn cmp_with_temanejo() {
-        let mut g = StableDiGraph::<Vertex, Edge>::from_edges(&[
-            (0, 1), 
-            (1, 2), 
-            (2, 3), (2, 4), 
-            (3, 5), (3, 6), (3, 7), (3, 8), (4, 5), (4, 6), (4, 7), (4, 8),
-            (5, 9), (6, 9), (7, 9), (8, 9)]);
-        
-        
-        let layers_raw = vec![
-            vec![0.into()],
-            vec![1.into()],
-            vec![2.into()],
-            vec![3.into(), 4.into()],
-            vec![5.into(), 6.into(), 7.into(), 8.into()],
-            vec![9.into()],
-        ];
-
-        for (rank, row) in layers_raw.iter().enumerate()    {
-            for (pos, v) in row.iter().enumerate() {
-                g[*v] = Vertex::new(*v, rank, pos, false);
-            }
-        }
-        let layers = Layers::new2(layers_raw, &g);
-
-        let mc = MinimalCrossingsNew::new(layers, g);
-        let mut coords = calculate_coordinates(mc, 10);
-        coords.sort_by(|a, b| a.0.cmp(&b.0));
-        println!("{coords:?}");
-    }
-
     #[test]
     fn verify_looks_good() {
         let edges = [
