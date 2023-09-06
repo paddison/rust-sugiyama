@@ -1,9 +1,5 @@
 use crate::graphs::p3_calculate_coordinates::{VDir, HDir};
 
-pub(crate) mod layers;
-pub(crate) mod traits;
-pub(crate) mod lookup_maps;
-
 // todo: Refactor this into trait
 pub(crate) fn iterate(dir: IterDir, length: usize) -> impl Iterator<Item = usize> {
     let (mut start, step) = match dir {
@@ -22,26 +18,7 @@ pub(crate) enum IterDir {
     Backward,
 }
 
-impl From<VDir> for IterDir {
-    fn from(val: VDir) -> Self {
-        match val {
-            VDir::Up => Self::Backward,
-            VDir::Down => Self::Forward,
-        }
-    }
-}
-
-impl From<HDir> for IterDir {
-    fn from(val: HDir) -> Self {
-        match val {
-            HDir::Left => Self::Backward,
-            HDir::Right => Self::Forward,
-        }
-    }
-}
-
 // TODO: implement this with binary and see if it is faster
-
 pub(crate) fn radix_sort(mut input: Vec<usize>, key_length: usize) -> Vec<usize> {
     let mut output = vec![0; input.len()];
 
