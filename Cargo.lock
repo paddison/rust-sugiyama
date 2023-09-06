@@ -32,14 +32,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "graph-coordinates"
-version = "0.1.0"
-dependencies = [
- "graph_generator",
- "petgraph",
-]
-
-[[package]]
 name = "graph_generator"
 version = "0.1.0"
 source = "git+https://github.com/paddison/graph_generator.git#8894f9b6a6e7c3fc7aea7daf5cb313b6d5404381"
@@ -113,6 +105,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ec0be4795e2f6a28069bec0b5ff3e2ac9bafc99e6a9a7dc3547996c5c816922c"
 dependencies = [
  "getrandom",
+]
+
+[[package]]
+name = "rust-sugiyama"
+version = "0.1.0"
+dependencies = [
+ "graph_generator",
+ "petgraph",
 ]
 
 [[package]]

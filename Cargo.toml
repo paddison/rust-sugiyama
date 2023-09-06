@@ -1,5 +1,5 @@
 [package]
-name = "graph-coordinates"
+name = "rust-sugiyama"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,4 +7,5 @@ edition = "2021"
 
 [dependencies]
 petgraph = "0.6.4"
+[dev-dependencies]
 graph_generator = { git = "https://github.com/paddison/graph_generator.git" }
