@@ -29,15 +29,14 @@ static COMPLEX_EXAMPLE_RANKS: [(u32, u32); 16] = [
     (12, 4),
     (14, 5), (15, 5), (13, 5)
 ];
-
-static TYPE_2_CONFLICT_2_COLS: [(u32, u32); 8] = [
+static _TYPE_2_CONFLICT_2_COLS: [(u32, u32); 8] = [
     (0, 3), (1, 2),
     (2, 5), (3, 4),
     (4, 7), (5, 6),
     (6, 8), (7, 8),
 ];
 
-static TYPE_2_CONFLICT_2_COLS_RANKS: [(u32, u32); 9] = [
+static _TYPE_2_CONFLICT_2_COLS_RANKS: [(u32, u32); 9] = [
     (0, 0), (1, 0),
     (2, 1), (3, 1),
     (4, 2), (5, 2),
@@ -45,46 +44,49 @@ static TYPE_2_CONFLICT_2_COLS_RANKS: [(u32, u32); 9] = [
     (8, 4)
 ];
 
-static TYPE_2_CONFLICT_2_COLS_DUMMIES: [u32; 4] = [2, 3, 4, 5];
+static _TYPE_2_CONFLICT_2_COLS_DUMMIES: [u32; 4] = [2, 3, 4, 5];
 
-    struct Builder {
-        graph: StableDiGraph<Vertex, Edge>,
-        minimum_length: i32,
-    }
+struct Builder {
+    graph: StableDiGraph<Vertex, Edge>,
+    minimum_length: i32,
+}
 
-    impl Builder {
-        fn new_from_edges_with_ranking(edges: &[(u32, u32)], ranks: &[(u32, u32)]) -> Self {
-            let mut graph = StableDiGraph::<Vertex, Edge>::from_edges(edges);
-            for (v, rank) in ranks {
-                graph[NodeIndex::from(*v)].rank = *rank as usize;
-            }
-            
-            Self {
-                graph,
-                minimum_length: 1,
-            }
+impl Builder {
+    fn new_from_edges_with_ranking(edges: &[(u32, u32)], ranks: &[(u32, u32)]) -> Self {
+        let mut graph = StableDiGraph::<Vertex, Edge>::from_edges(edges);
+        for (v, rank) in ranks {
+            graph[NodeIndex::from(*v)].rank = *rank as usize;
         }
-
-        fn with_minimum_length(mut self, minimum_length: i32) -> Self {
-            self.minimum_length = minimum_length;
-            self
-        }
-
-        fn with_dummies(mut self, dummies: &[u32]) -> Self {
-            for dummy in dummies {
-                self.graph[NodeIndex::from(*dummy)].is_dummy = true;
-            }
-            self
-        }
-
-        fn build(self) -> InsertDummyVertices {
-            InsertDummyVertices { graph: self.graph, minimum_length: self.minimum_length }
+        
+        Self {
+            graph,
+            minimum_length: 1,
         }
     }
+
+    #[allow(dead_code)]
+    fn with_minimum_length(mut self, minimum_length: i32) -> Self {
+        self.minimum_length = minimum_length;
+        self
+    }
+
+    #[allow(dead_code)]
+    fn with_dummies(mut self, dummies: &[u32]) -> Self {
+        for dummy in dummies {
+            self.graph[NodeIndex::from(*dummy)].is_dummy = true;
+        }
+        self
+    }
+
+    fn build(self) -> InsertDummyVertices {
+        InsertDummyVertices { graph: self.graph, minimum_length: self.minimum_length }
+    }
+}
+
+#[cfg(test)]
 mod insert_dummy_vertices {
-    use petgraph::{stable_graph::{StableDiGraph, NodeIndex}, data::FromElements};
 
-    use crate::graphs::{p2_reduce_crossings::{Order, Edge, Vertex, InsertDummyVertices, tests::{ONE_DUMMY, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS}}, };
+    use crate::graphs::p2_reduce_crossings::tests::{ONE_DUMMY, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS};
 
     use super::{ONE_DUMMY_RANKS, Builder};
 
@@ -124,7 +126,6 @@ mod insert_dummy_vertices {
 }
 
 mod init_order {
-
     use super::{Builder, ONE_DUMMY, ONE_DUMMY_RANKS, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS};
 
     #[test]
@@ -150,6 +151,7 @@ mod init_order {
             }
         }
     }
+
     #[test]
     fn all_neighbors_must_be_at_adjacent_level_seven_dummies() {
         let io = Builder::new_from_edges_with_ranking(&COMPLEX_EXAMPLE, &COMPLEX_EXAMPLE_RANKS).build().prepare_for_initial_ordering();
@@ -163,6 +165,7 @@ mod init_order {
     }
 }
 
+#[cfg(test)]
 mod order {
     use crate::graphs::p2_reduce_crossings::Order;
 
@@ -206,12 +209,6 @@ mod order {
         let length = 4;
         assert_eq!(Order::count_crossings(endpoints, length), 6);
     }
-}
-
-mod reduce_crossings {
-    use super::{Builder, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS, TYPE_2_CONFLICT_2_COLS, TYPE_2_CONFLICT_2_COLS_RANKS, TYPE_2_CONFLICT_2_COLS_DUMMIES};
-    use crate::graphs::p2_reduce_crossings::ReduceCrossings;
-
 }
 
 #[cfg(test)]
