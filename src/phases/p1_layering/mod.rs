@@ -35,6 +35,10 @@ impl Vertex {
             parent
         }
     }
+
+    pub(crate) fn from_id(id: usize) -> Self {
+        Self { id, rank: 0, low: 0, lim: 0, parent: None }
+    }
 }
 
 impl Ranked for Vertex {
@@ -79,8 +83,7 @@ struct NeighborhoodInfo {
 }
 
 
-pub(crate) fn start(edges: &[(u32, u32)], minimum_length: u32) -> UnlayeredGraph {
-    let graph = StableDiGraph::<Vertex, Edge>::from_edges(edges);
+pub(crate) fn start(graph: StableDiGraph<Vertex, Edge>, minimum_length: u32) -> UnlayeredGraph {
     UnlayeredGraph { graph, minimum_length: minimum_length as i32 }
 }
 

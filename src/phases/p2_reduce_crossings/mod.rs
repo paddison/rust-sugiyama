@@ -280,7 +280,7 @@ impl ReduceCrossings {
         // self.reduce_crossings(max_iterations, min_improvement, IterDir::Backward);
         // move upwards for crossing reduction
         let Self { graph } = self;
-        let g = graph.map(|v, w| VertexP3::new(v, w.rank, w.pos, w.is_dummy), |_, _| EdgeP3::new());
+        let g = graph.map(|v, w| VertexP3::new(w.id, v, w.rank, w.pos, w.is_dummy), |_, _| EdgeP3::new());
         MinimalCrossings::new(order._inner, g)
     }
 

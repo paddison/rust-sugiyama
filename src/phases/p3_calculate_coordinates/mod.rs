@@ -14,6 +14,7 @@ use petgraph::visit::EdgeRef;
 /// It's then used to mark all type 1 conflicts (a crossing between an inner segment and a non-inner segment)
 #[derive(Clone, Copy)]
 pub struct Vertex {
+    id: usize,
     rank: usize,
     pos: usize,
     is_dummy: bool,
@@ -26,6 +27,7 @@ pub struct Vertex {
 impl Default for Vertex {
     fn default() -> Self {
         Self {
+            id: 0,
             rank: usize::default(),
             pos: usize::default(),
             is_dummy: false,
@@ -38,15 +40,16 @@ impl Default for Vertex {
 }
 
 impl Vertex {
-    pub fn new(id: NodeIndex, rank: usize, pos: usize, is_dummy: bool) -> Self {
+    pub fn new(id: usize, align_root_sink: NodeIndex, rank: usize, pos: usize, is_dummy: bool) -> Self {
         Self {
+            id,
             rank,
             pos,
             is_dummy,      
-            root: id,
-            align: id,
+            root: align_root_sink,
+            align: align_root_sink,
             shift: isize::MAX,
-            sink: id,
+            sink: align_root_sink,
         }
     }
 }

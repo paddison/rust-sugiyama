@@ -23,9 +23,9 @@ pub(crate) fn create_test_layout() -> MinimalCrossings {
         for (pos, v) in row.iter().enumerate() {
             let weight = &mut graph[*v];
             if v.index() < 16 {
-                *weight = Vertex::new(*v, rank, pos, false);
+                *weight = Vertex::new(0, *v, rank, pos, false);
             } else {
-                *weight = Vertex::new(*v, rank, pos, true);
+                *weight = Vertex::new(0, *v, rank, pos, true);
             }
         }
     }

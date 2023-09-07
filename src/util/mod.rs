@@ -1,6 +1,6 @@
 use std::collections::{HashSet, VecDeque, HashMap};
 
-use petgraph::{stable_graph::{StableDiGraph, NodeIndex, DefaultIx, EdgeIndex, WalkNeighbors}, algo::toposort, Direction::{self, Incoming, Outgoing}, visit::IntoEdges, data::Build, graph::Node};
+use petgraph::{stable_graph::{StableDiGraph, NodeIndex}, Direction::{Incoming, Outgoing}};
 
 /// Takes a graph and breaks it down into its weakly connected components.
 /// A weakly connected component is a list of edges which are connected with each other.
@@ -37,8 +37,22 @@ fn build_sub_graph<V, E>(raw_parts: Vec<(NodeIndex, NodeIndex, E)>, graph: &mut 
         let mut indices = HashMap::<NodeIndex, NodeIndex>::new();
         let mut sub_graph = StableDiGraph::new();
         for (from, to, weight) in raw_parts {
-            let sg_from = *indices.entry(from).or_insert(sub_graph.add_node(graph.remove_node(from).unwrap()));
-            let sg_to = *indices.entry(to).or_insert(sub_graph.add_node(graph.remove_node(to).unwrap()));
+            let sg_from = match indices.get(&from) {
+                Some(id) => *id,
+                None => {
+                    let id = sub_graph.add_node(graph.remove_node(from).unwrap());
+                    indices.insert(from, id);
+                    id
+                }
+            };
+            let sg_to = match indices.get(&to) {
+                Some(id) => *id,
+                None => {
+                    let id = sub_graph.add_node(graph.remove_node(to).unwrap());
+                    indices.insert(to, id);
+                    id
+                }
+            };
             sub_graph.add_edge(sg_from, sg_to, weight);
         }
         sub_graph
@@ -52,30 +66,37 @@ fn determine_sub_graph<V, E>(vertex: NodeIndex, graph: &mut StableDiGraph<V, E>)
         let mut queue = VecDeque::from([vertex]);
         while let Some(vertex) = queue.pop_front() {
             visited.insert(vertex);
-            let incoming_walker = graph.neighbors_directed(vertex, Incoming).detach();
-            let outgoing_walker = graph.neighbors_directed(vertex, Outgoing).detach();
-            add_to_queue(vertex, &mut visited, &mut edges, graph, &mut queue, incoming_walker);
-            add_to_queue(vertex, &mut visited, &mut edges, graph, &mut queue, outgoing_walker);
+            let mut incoming_walker = graph.neighbors_directed(vertex, Incoming).detach();
+            let mut outgoing_walker = graph.neighbors_directed(vertex, Outgoing).detach();
+            while let Some((e, n)) = incoming_walker.next(&graph) {
+                if !visited.contains(&n) {
+                    let edge_weight = graph.remove_edge(e).unwrap();
+                    edges.push((n, vertex, edge_weight));
+                    queue.push_back(n);
+                }
+            }
+            while let Some((e, n)) = outgoing_walker.next(&graph) {
+                if !visited.contains(&n) {
+                    let edge_weight = graph.remove_edge(e).unwrap();
+                    edges.push((vertex, n, edge_weight));
+                    queue.push_back(n);
+                }
+            }
         }
 
         edges
 }
 
-fn add_to_queue<V, E>(
-    vertex: NodeIndex, 
-    visited: &HashSet<NodeIndex>, 
-    edges: &mut Vec<(NodeIndex, NodeIndex, E)>, 
-    graph: &mut StableDiGraph<V, E>, 
-    queue: &mut VecDeque<NodeIndex>, 
-    mut walker: WalkNeighbors<u32>) 
-{
-    while let Some((e, n)) = walker.next(&graph) {
-        if !visited.contains(&n) {
-            let edge_weight = graph.remove_edge(e).unwrap();
-            edges.push((vertex, n, edge_weight));
-            queue.push_back(n);
-        }
-    }
+#[test]
+fn into_weakly_connected_components_two_components() {
+    let g = StableDiGraph::<usize, usize>::from_edges([(0, 1), (1, 2), (3, 2), (4, 5), (4, 6)]);
+    let sgs = into_weakly_connected_components(g);
+    assert_eq!(sgs.len(), 2);
+    assert!(sgs[0].contains_edge(0.into(), 1.into()));
+    assert!(sgs[0].contains_edge(1.into(), 2.into()));
+    assert!(sgs[0].contains_edge(3.into(), 2.into()));
+    assert!(sgs[1].contains_edge(0.into(), 1.into()));
+    assert!(sgs[1].contains_edge(0.into(), 2.into()));
 }
 
 // todo: Refactor this into trait

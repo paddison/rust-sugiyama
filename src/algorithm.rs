@@ -9,8 +9,8 @@ pub fn build_layout_from_edges(edges: &[(u32, u32)], minimum_length: u32, vertex
     build_layout(graph, minimum_length, vertex_spacing)
 }
 
-pub fn build_layout_from_graph<V, E>(graph: StableDiGraph<V, E>, minimum_length: u32, vertex_spacing: usize) -> Vec<(usize, (isize, isize))> {
-    let graph = graph.map(|_, _| Vertex::default(), |_, _| Edge::default());
+pub fn build_layout_from_graph(graph: StableDiGraph<usize, usize>, minimum_length: u32, vertex_spacing: usize) -> Vec<(usize, (isize, isize))> {
+    let graph = graph.map(|_, w| Vertex::from_id(*w), |_, _| Edge::default());
     build_layout(graph, minimum_length, vertex_spacing)
 }
 
