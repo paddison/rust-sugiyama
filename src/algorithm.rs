@@ -2,19 +2,27 @@ use std::collections::HashMap;
 
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-use crate::phases::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir}, p1_layering::{start, Vertex, Edge}, p2_reduce_crossings::InsertDummyVertices};
+use crate::{phases::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir}, p1_layering::{start, Vertex, Edge}, p2_reduce_crossings::InsertDummyVertices}, util::into_weakly_connected_components};
 
-pub fn build_layout_from_edges(edges: &[(u32, u32)], minimum_length: u32, vertex_spacing: usize) -> Vec<(usize, (isize, isize))> {
-    let graph = StableDiGraph::from_edges(edges);
-    build_layout(graph, minimum_length, vertex_spacing)
+pub fn build_layout_from_edges(edges: &[(u32, u32)], minimum_length: u32, vertex_spacing: usize) -> Vec<Vec<(usize, (isize, isize), usize, usize)>> {
+    let mut graph = StableDiGraph::<Vertex, Edge>::from_edges(edges);
+    // initialize vertex ids to NodeIndex
+    let indices = graph.node_indices().collect::<Vec<_>>();
+    for i in indices {
+        graph[i].id = i.index();
+    }
+    into_weakly_connected_components(graph).into_iter()
+        .map(|graph| build_layout(graph, minimum_length, vertex_spacing))
+        .collect()
 }
 
-pub fn build_layout_from_graph(graph: StableDiGraph<usize, usize>, minimum_length: u32, vertex_spacing: usize) -> Vec<(usize, (isize, isize))> {
+pub fn build_layout_from_graph(graph: StableDiGraph<usize, usize>, minimum_length: u32, vertex_spacing: usize) -> Vec<(usize, (isize, isize), usize, usize)> {
     let graph = graph.map(|_, w| Vertex::from_id(*w), |_, _| Edge::default());
+    // build into subgraphs
     build_layout(graph, minimum_length, vertex_spacing)
 }
 
-fn build_layout(graph: StableDiGraph<Vertex, Edge>, minimum_length: u32, vertex_spacing: usize) -> Vec<(usize, (isize, isize))> {
+fn build_layout(graph: StableDiGraph<Vertex, Edge>, minimum_length: u32, vertex_spacing: usize) -> Vec<(usize, (isize, isize), usize, usize)> {
     let proper_graph = rank(graph, minimum_length);
     let minimal_crossings = minimize_crossings(proper_graph);
     calculate_coordinates(minimal_crossings, vertex_spacing)
@@ -30,7 +38,7 @@ fn minimize_crossings(graph: InsertDummyVertices) -> MinimalCrossings {
 
 // TODO: Put this in p3 module
 /// Calculates the final x-coordinates for each vertex, after the graph was layered and crossings where minimized.
-fn calculate_coordinates(graph: MinimalCrossings, vertex_spacing: usize) -> Vec<(usize, (isize, isize))>{
+fn calculate_coordinates(graph: MinimalCrossings, vertex_spacing: usize) -> Vec<(usize, (isize, isize), usize, usize)>{
     let y_coordinates = graph.layers.iter()
         .enumerate()
         .map(|(rank, row)| row.iter().map(move |v| (*v, rank as isize * vertex_spacing as isize)))
@@ -101,7 +109,13 @@ fn calculate_coordinates(graph: MinimalCrossings, vertex_spacing: usize) -> Vec<
         *c -= min;
     }
 
-    final_layout.into_iter().map(|(v, x)| (v.index(), (x, *y_coordinates.get(&v).unwrap()))).collect()
+    final_layout.into_iter()
+        .map(|(v, x)| (
+            marked[v].id, 
+            (x, *y_coordinates.get(&v).unwrap()), 
+            marked.layers.iter().map(|l| l.len()).max().unwrap_or(0),
+            marked.layers.len()))
+        .collect()
 
 }
 

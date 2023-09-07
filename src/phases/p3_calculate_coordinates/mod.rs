@@ -14,7 +14,7 @@ use petgraph::visit::EdgeRef;
 /// It's then used to mark all type 1 conflicts (a crossing between an inner segment and a non-inner segment)
 #[derive(Clone, Copy)]
 pub struct Vertex {
-    id: usize,
+    pub(crate) id: usize,
     rank: usize,
     pos: usize,
     is_dummy: bool,
@@ -158,7 +158,7 @@ impl MinimalCrossings {
 /// to determine the x-coordinate of a vertex.
 #[derive(Clone)]
 pub(crate) struct MarkedTypeOneConflicts {
-    layers: Vec<Vec<NodeIndex>>,
+    pub(crate)layers: Vec<Vec<NodeIndex>>,
     graph: StableDiGraph<Vertex, Edge>,
 }
 
