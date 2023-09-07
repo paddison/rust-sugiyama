@@ -1,23 +1,34 @@
 use std::collections::HashMap;
 
-use petgraph::stable_graph::NodeIndex;
+use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-use crate::phases::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir}, p1_layering::start, p2_reduce_crossings::InsertDummyVertices};
+use crate::phases::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir}, p1_layering::{start, Vertex, Edge}, p2_reduce_crossings::InsertDummyVertices};
 
-pub fn build_layout(edges: &[(u32, u32)], minimum_length: u32, vertex_spacing: usize) -> Vec<(usize, (isize, isize))> {
-    let proper_graph = rank(edges, minimum_length);
+pub fn build_layout_from_edges(edges: &[(u32, u32)], minimum_length: u32, vertex_spacing: usize) -> Vec<(usize, (isize, isize))> {
+    let graph = StableDiGraph::from_edges(edges);
+    build_layout(graph, minimum_length, vertex_spacing)
+}
+
+pub fn build_layout_from_graph<V, E>(graph: StableDiGraph<V, E>, minimum_length: u32, vertex_spacing: usize) -> Vec<(usize, (isize, isize))> {
+    let graph = graph.map(|_, _| Vertex::default(), |_, _| Edge::default());
+    build_layout(graph, minimum_length, vertex_spacing)
+}
+
+fn build_layout(graph: StableDiGraph<Vertex, Edge>, minimum_length: u32, vertex_spacing: usize) -> Vec<(usize, (isize, isize))> {
+    let proper_graph = rank(graph, minimum_length);
     let minimal_crossings = minimize_crossings(proper_graph);
     calculate_coordinates(minimal_crossings, vertex_spacing)
 }
 
-fn rank(edges: &[(u32, u32)], minimum_length: u32) -> InsertDummyVertices {
-    start(edges, minimum_length).init_rank().make_tight().init_cutvalues().init_low_lim().rank().into()
+fn rank(graph: StableDiGraph<Vertex, Edge>, minimum_length: u32) -> InsertDummyVertices {
+    start(graph, minimum_length).init_rank().make_tight().init_cutvalues().init_low_lim().rank().into()
 }
 
 fn minimize_crossings(graph: InsertDummyVertices) -> MinimalCrossings {
     graph.prepare_for_initial_ordering().ordering()
 }
 
+// TODO: Put this in p3 module
 /// Calculates the final x-coordinates for each vertex, after the graph was layered and crossings where minimized.
 fn calculate_coordinates(graph: MinimalCrossings, vertex_spacing: usize) -> Vec<(usize, (isize, isize))>{
     let y_coordinates = graph.layers.iter()
@@ -96,13 +107,13 @@ fn calculate_coordinates(graph: MinimalCrossings, vertex_spacing: usize) -> Vec<
 
 #[cfg(test)]
 mod benchmark {
-    use super::build_layout;
+    use super::build_layout_from_edges;
 
     #[test]
     fn r_100() {
         let edges = graph_generator::RandomLayout::new(100).build_edges().into_iter().map(|(r, l)| (r as u32, l as u32)).collect::<Vec<(u32, u32)>>();
         let start = std::time::Instant::now();
-        let _ = build_layout(&edges, 1, 10);
+        let _ = build_layout_from_edges(&edges, 1, 10);
         println!("Random 100 edges: {}ms", start.elapsed().as_millis());
     }
 
@@ -110,7 +121,7 @@ mod benchmark {
     fn r_1000() {
         let edges = graph_generator::RandomLayout::new(1000).build_edges().into_iter().map(|(r, l)| (r as u32, l as u32)).collect::<Vec<(u32, u32)>>();
         let start = std::time::Instant::now();
-        let _ = build_layout(&edges, 1, 10);
+        let _ = build_layout_from_edges(&edges, 1, 10);
         println!("Random 1000 edges: {}ms", start.elapsed().as_millis());
     }
 
@@ -118,7 +129,7 @@ mod benchmark {
     fn r_2000() {
         let edges = graph_generator::RandomLayout::new(2000).build_edges();
         let start = std::time::Instant::now();
-        let _ = build_layout(&edges, 1, 10);
+        let _ = build_layout_from_edges(&edges, 1, 10);
         println!("Random 2000 edges: {}ms", start.elapsed().as_millis());
     }
 
@@ -126,14 +137,14 @@ mod benchmark {
     fn r_4000() {
         let edges = graph_generator::RandomLayout::new(2000).build_edges();
         let start = std::time::Instant::now();
-        let _ = build_layout(&edges, 1, 10);
+        let _ = build_layout_from_edges(&edges, 1, 10);
         println!("Random 4000 edges: {}ms", start.elapsed().as_millis());
     }
     #[test]
     fn r_8000() {
         let edges = graph_generator::RandomLayout::new(8000).build_edges();
         let start = std::time::Instant::now();
-        let _ = build_layout(&edges, 1, 10);
+        let _ = build_layout_from_edges(&edges, 1, 10);
         println!("Random 8000 edges: {}ms", start.elapsed().as_millis());
     }
 
@@ -143,14 +154,14 @@ mod benchmark {
         let e = 2;
         let edges = graph_generator::GraphLayout::new_from_num_nodes(n, e).build_edges();
         let start = std::time::Instant::now();
-        let _ = build_layout(&edges, 1, 10);
+        let _ = build_layout_from_edges(&edges, 1, 10);
         println!("{n} nodes, {e} edges per node: {}ms", start.elapsed().as_millis());
     }
 }
 
 #[cfg(test)]
 mod check_visuals {
-    use super::build_layout;
+    use super::build_layout_from_edges;
     
     #[test]
     fn verify_looks_good() {
@@ -161,7 +172,7 @@ mod check_visuals {
                 (3, 5), (3, 6), (3, 7), (3, 8), (4, 5), (4, 6), (4, 7), (4, 8),
                 (5, 9), (6, 9), (7, 9), (8, 9)
         ];
-        let layout = build_layout(&edges, 1, 10); 
+        let layout = build_layout_from_edges(&edges, 1, 10); 
         println!("{:?}", layout);
     }
 
