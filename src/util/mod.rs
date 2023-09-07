@@ -1,3 +1,83 @@
+use std::collections::{HashSet, VecDeque, HashMap};
+
+use petgraph::{stable_graph::{StableDiGraph, NodeIndex, DefaultIx, EdgeIndex, WalkNeighbors}, algo::toposort, Direction::{self, Incoming, Outgoing}, visit::IntoEdges, data::Build, graph::Node};
+
+/// Takes a graph and breaks it down into its weakly connected components.
+/// A weakly connected component is a list of edges which are connected with each other.
+pub fn into_weakly_connected_components<V, E>(mut graph: StableDiGraph<V, E>) -> Vec<StableDiGraph<V, E>> {
+    // map graph weights to options so we can take them later while building the subgraphs
+    let mut sub_graphs = Vec::new();
+
+    // build each subgraph
+    while graph.node_count() > 0 {
+        // since node count is > 0, calling unwrap is safe.
+        let vertex = graph.node_indices().next().unwrap();
+
+        // if the graph is a single node graph
+        if graph.neighbors_undirected(vertex).count() == 0 {
+            let weight = graph.remove_node(vertex).unwrap();
+            let mut g = StableDiGraph::new();
+            g.add_node(weight);
+            sub_graphs.push(g);
+            continue;
+        }
+
+        let sub_graph_raw = determine_sub_graph(vertex, &mut graph);
+        
+        sub_graphs.push(build_sub_graph(sub_graph_raw, &mut graph));
+    }
+
+    return sub_graphs
+}
+
+fn build_sub_graph<V, E>(raw_parts: Vec<(NodeIndex, NodeIndex, E)>, graph: &mut StableDiGraph<V, E>) -> StableDiGraph<V, E> {
+        // remove all edges from graph. store references to nodeindices with them.
+        // build new graph:
+        // start with first edge. create a set hashmap to lookup nodeindices 
+        let mut indices = HashMap::<NodeIndex, NodeIndex>::new();
+        let mut sub_graph = StableDiGraph::new();
+        for (from, to, weight) in raw_parts {
+            let sg_from = *indices.entry(from).or_insert(sub_graph.add_node(graph.remove_node(from).unwrap()));
+            let sg_to = *indices.entry(to).or_insert(sub_graph.add_node(graph.remove_node(to).unwrap()));
+            sub_graph.add_edge(sg_from, sg_to, weight);
+        }
+        sub_graph
+}
+
+fn determine_sub_graph<V, E>(vertex: NodeIndex, graph: &mut StableDiGraph<V, E>) -> Vec<(NodeIndex, NodeIndex, E)> {
+        let mut visited = HashSet::<NodeIndex>::new();
+        let mut edges = Vec::<(NodeIndex, NodeIndex, E)>::new();
+
+        // traverse via bfs, remove edges as we go
+        let mut queue = VecDeque::from([vertex]);
+        while let Some(vertex) = queue.pop_front() {
+            visited.insert(vertex);
+            let incoming_walker = graph.neighbors_directed(vertex, Incoming).detach();
+            let outgoing_walker = graph.neighbors_directed(vertex, Outgoing).detach();
+            add_to_queue(vertex, &mut visited, &mut edges, graph, &mut queue, incoming_walker);
+            add_to_queue(vertex, &mut visited, &mut edges, graph, &mut queue, outgoing_walker);
+        }
+
+        edges
+}
+
+fn add_to_queue<V, E>(
+    vertex: NodeIndex, 
+    visited: &HashSet<NodeIndex>, 
+    edges: &mut Vec<(NodeIndex, NodeIndex, E)>, 
+    graph: &mut StableDiGraph<V, E>, 
+    queue: &mut VecDeque<NodeIndex>, 
+    mut walker: WalkNeighbors<u32>) 
+{
+    while let Some((e, n)) = walker.next(&graph) {
+        if !visited.contains(&n) {
+            let edge_weight = graph.remove_edge(e).unwrap();
+            edges.push((vertex, n, edge_weight));
+            queue.push_back(n);
+        }
+    }
+}
+
 // todo: Refactor this into trait
 pub(crate) fn iterate(dir: IterDir, length: usize) -> impl Iterator<Item = usize> {
     let (mut start, step) = match dir {
