@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
@@ -85,7 +85,14 @@ fn calculate_coordinates(graph: MinimalCrossings, vertex_spacing: usize) -> Layo
         }
     }
 
-    // min max width
+    // remove all dummies
+    let dummies = marked.node_indices().filter(|v| marked[*v].is_dummy).collect::<HashSet<_>>();
+    for l in &mut layouts {
+        for d in &dummies {
+            l.remove(d);
+        }
+    }
+    
     // determine minimum and maximum coordinate of each layout, plus the width
     let min_max: Vec<(isize, isize, isize)> = layouts.iter()
                                                  .map(|c| {
