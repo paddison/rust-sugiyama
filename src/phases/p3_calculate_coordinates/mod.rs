@@ -17,7 +17,7 @@ pub struct Vertex {
     pub(crate) id: usize,
     rank: usize,
     pos: usize,
-    is_dummy: bool,
+    pub(crate)is_dummy: bool,
     root: NodeIndex,
     align: NodeIndex,
     shift: isize,

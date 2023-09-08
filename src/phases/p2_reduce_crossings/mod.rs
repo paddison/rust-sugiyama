@@ -6,6 +6,7 @@ use std::ops::{Deref, DerefMut};
 
 use petgraph::Direction::{Incoming, Outgoing};
 use petgraph::stable_graph::{StableDiGraph, NodeIndex};
+use petgraph::visit::IntoNeighborsDirected;
 
 use crate::{impl_slack, util};
 use crate::util::{IterDir, radix_sort};
@@ -21,10 +22,7 @@ use super::p3_calculate_coordinates::{MinimalCrossings, Vertex as VertexP3, Edge
 pub struct Vertex {
     id: usize,
     rank: usize,
-    pos: usize,
     is_dummy: bool,
-    upper_neighbors: Vec<NodeIndex>, // store positions of neighbors on adjacent ranks, since we need to acces them very often
-    lower_neighbors: Vec<NodeIndex>
 }
 
 impl Vertex {
@@ -32,10 +30,15 @@ impl Vertex {
         Self {
             id: 0,
             rank,
-            pos: 0,
             is_dummy: false,
-            upper_neighbors: Vec::new(),
-            lower_neighbors: Vec::new(),
+        }
+    }
+
+    fn new_dummy(rank: usize) -> Self {
+        Self {
+            id: 0,
+            rank,
+            is_dummy: true,
         }
     }
 }
@@ -45,10 +48,7 @@ impl Default for Vertex {
         Self {
             id: 0,
             rank: 0,
-            pos: 0,
             is_dummy: false,
-            upper_neighbors: Vec::new(),
-            lower_neighbors: Vec::new(),
         }
     }
 }
@@ -61,7 +61,7 @@ impl Ranked for Vertex {
 
 impl From<P1Vertex> for Vertex {
     fn from(vertex: P1Vertex) -> Self {
-        Vertex { id: vertex.id, rank: vertex.rank as usize, pos: 0, is_dummy: false, upper_neighbors: Vec::new(), lower_neighbors: Vec::new() }
+        Vertex { id: vertex.id, rank: vertex.rank as usize, is_dummy: false }
     }
 }
 
@@ -203,7 +203,7 @@ impl_slack!(InsertDummyVertices, Vertex, Edge);
 impl InsertDummyVertices {
     pub fn prepare_for_initial_ordering(mut self) -> ReduceCrossings {
         self.insert_dummy_vertices();
-        self.fill_in_neighbors();
+        //self.fill_in_neighbors();
 
         ReduceCrossings { graph: self.graph }
     }
@@ -217,7 +217,8 @@ impl InsertDummyVertices {
                 self.graph.remove_edge(edge);
                 for rank in (self.graph[tail].rank + 1)..self.graph[head].rank {
                     // usize usize::MAX id as reserved value for a dummy vertex
-                    let d = Vertex::new(rank);
+                    let mut d = Vertex::new(rank);
+                    d.is_dummy = true;
                     let new = self.graph.add_node(d);
                     self.graph.add_edge(tail, new, Edge);
                     tail = new;
@@ -226,7 +227,7 @@ impl InsertDummyVertices {
             }
         }
     }
-
+/* 
     fn fill_in_neighbors(&mut self) {
         for v in self.graph.node_indices().collect::<Vec<_>>() {
             let Vertex { rank, .. } = self.graph[v];
@@ -246,6 +247,7 @@ impl InsertDummyVertices {
             }
         }
     }
+    */
 }
 
 impl From<FeasibleTree> for InsertDummyVertices {
@@ -280,7 +282,7 @@ impl ReduceCrossings {
         // self.reduce_crossings(max_iterations, min_improvement, IterDir::Backward);
         // move upwards for crossing reduction
         let Self { graph } = self;
-        let g = graph.map(|v, w| VertexP3::new(w.id, v, w.rank, w.pos, w.is_dummy), |_, _| EdgeP3::new());
+        let g = graph.map(|v, w| VertexP3::new(w.id, v, w.rank, *order.positions.get(&v).unwrap(), w.is_dummy), |_, _| EdgeP3::new());
         MinimalCrossings::new(order._inner, g)
     }
 
@@ -310,9 +312,6 @@ impl ReduceCrossings {
             .for_each(|v| dfs(v, &mut order, &self.graph, &mut visited));
 
         // fill in initial position
-        order.iter().for_each(|r| 
-            r.iter().enumerate().for_each(|(pos, v)| self.graph[*v].pos = pos)
-        );
         Order::new(order)
     }
 
@@ -326,7 +325,6 @@ impl ReduceCrossings {
             let crossings = order.crossings(&self);
             if crossings < best_crossings {
                 best_crossings = crossings;
-                println!("bc: {best_crossings}");
                 best = order.clone();
                 last_best = 0; 
             } else {
@@ -358,12 +356,12 @@ impl ReduceCrossings {
 
     fn median_value(&self, vertex: NodeIndex, move_down: bool, positions: &HashMap<NodeIndex, usize>) -> usize {
         let neighbors = if move_down { 
-            &self.graph[vertex].upper_neighbors 
+            self.graph.neighbors_directed(vertex, Incoming) 
         } else { 
-            &self.graph[vertex].lower_neighbors 
+            self.graph.neighbors_directed(vertex, Outgoing) 
         };
-        let mut adjacent = neighbors.iter()
-            .map(|n| *positions.get(n).unwrap())
+        let mut adjacent = neighbors
+            .map(|n| *positions.get(&n).unwrap())
             .collect::<Vec<_>>();
 
         adjacent.sort();
