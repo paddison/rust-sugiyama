@@ -69,7 +69,7 @@ fn minimize_crossings(graph: InsertDummyVertices) -> MinimalCrossings {
 fn calculate_coordinates(graph: MinimalCrossings, vertex_spacing: usize) -> Layout {
     let y_coordinates = graph.layers.iter()
         .enumerate()
-        .map(|(rank, row)| row.iter().map(move |v| (*v, rank as isize * vertex_spacing as isize)))
+        .map(|(rank, row)| row.iter().map(move |v| (*v, rank as isize * vertex_spacing as isize * -1)))
         .flatten()
         .collect::<HashMap<NodeIndex, isize>>(); 
     let mut layouts = Vec::new();
@@ -139,6 +139,7 @@ fn calculate_coordinates(graph: MinimalCrossings, vertex_spacing: usize) -> Layo
     let width = marked.layers.iter().map(|l| l.len()).max().unwrap_or(0);
     let height = marked.layers.len();
     let layout = final_layout.into_iter()
+        .filter(|(v, _)| !marked[*v].is_dummy )
         .map(|(v, x)| (
             (v.index(), marked[v].id), 
             (x, *y_coordinates.get(&v).unwrap()), 
@@ -215,6 +216,13 @@ mod check_visuals {
                 (3, 5), (3, 6), (3, 7), (3, 8), (4, 5), (4, 6), (4, 7), (4, 8),
                 (5, 9), (6, 9), (7, 9), (8, 9)
         ];
+        let layout = build_layout_from_edges(&edges, 1, 10); 
+        println!("{:?}", layout);
+    }
+
+    #[test]
+    fn check_coords() {
+        let edges = [(1, 3), (1, 6), (1, 7), (3, 5), (5, 4), (4, 2), (6, 2), (7, 2)];
         let layout = build_layout_from_edges(&edges, 1, 10); 
         println!("{:?}", layout);
     }
