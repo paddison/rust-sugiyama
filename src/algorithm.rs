@@ -4,8 +4,8 @@ use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
 use crate::{phases::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir}, p1_layering::{start, Vertex, Edge}, p2_reduce_crossings::InsertDummyVertices}, util::into_weakly_connected_components};
 
-type Layouts = Vec<(Vec<(usize, (isize, isize))>, usize, usize)>;
-type Layout = (Vec<(usize, (isize, isize))>, usize, usize);
+type Layouts = Vec<(Vec<((usize, usize), (isize, isize))>, usize, usize)>;
+type Layout = (Vec<((usize, usize), (isize, isize))>, usize, usize);
 
 pub fn build_layout_from_edges(edges: &[(u32, u32)], minimum_length: u32, vertex_spacing: usize) -> Layouts {
     let mut graph = StableDiGraph::<Vertex, Edge>::from_edges(edges);
@@ -137,7 +137,7 @@ fn calculate_coordinates(graph: MinimalCrossings, vertex_spacing: usize) -> Layo
     let height = marked.layers.len();
     let layout = final_layout.into_iter()
         .map(|(v, x)| (
-            marked[v].id, 
+            (v.index(), marked[v].id), 
             (x, *y_coordinates.get(&v).unwrap()), 
             ))
         .collect::<Vec<_>>();
