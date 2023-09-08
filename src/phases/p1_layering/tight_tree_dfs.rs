@@ -54,8 +54,8 @@ impl TightTreeDFS {
                 visited.insert(edge);
                 if self.edges.contains(&edge) {
                     node_count += self.tight_tree(ranked, other, visited);
-                } else if !self.vertices.contains(&other) && ranked.slack(edge) == 0 {
-                    self.vertices.insert(other);
+                } else if  ranked.slack(edge) == 0 {
+                    //self.vertices.insert(other);
                     self.edges.insert(edge);
                     node_count += self.tight_tree(ranked, other, visited);
                 }

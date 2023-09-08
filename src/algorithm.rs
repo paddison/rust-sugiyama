@@ -205,6 +205,12 @@ mod benchmark {
 
 #[cfg(test)]
 mod check_visuals {
+    use std::default;
+
+    use petgraph::stable_graph::StableDiGraph;
+
+    use crate::{phases::p1_layering::{Vertex, Edge}, algorithm::{build_layout_from_graph, build_layout}, util::into_weakly_connected_components};
+
     use super::build_layout_from_edges;
     
     #[test]
@@ -222,8 +228,20 @@ mod check_visuals {
 
     #[test]
     fn check_coords() {
-        let edges = [(1, 3), (1, 6), (1, 7), (3, 5), (5, 4), (4, 2), (6, 2), (7, 2)];
-        let layout = build_layout_from_edges(&edges, 1, 10); 
+        let mut graph = StableDiGraph::<Vertex, Edge>::new();
+        let _0 = graph.add_node(Vertex::from_id(0));
+        let _1 = graph.add_node(Vertex::from_id(1));
+        let _2 = graph.add_node(Vertex::from_id(2));
+        let _3 = graph.add_node(Vertex::from_id(3));
+        let _4 = graph.add_node(Vertex::from_id(4));
+        graph.add_edge(_1, _0, Edge::default());
+        graph.add_edge(_2, _1, Edge::default());
+        graph.add_edge(_3, _0, Edge::default());
+        graph.add_edge(_4, _0, Edge::default());
+        let edges = [(1, 0), (2, 1), (3, 0), (4, 0)];
+        let layout = into_weakly_connected_components(graph).into_iter()
+        .map(|graph| build_layout(graph, 1, 10))
+        .collect::<Vec<_>>();
         println!("{:?}", layout);
     }
 

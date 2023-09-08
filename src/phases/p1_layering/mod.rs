@@ -136,8 +136,13 @@ impl InitialRanks {
         let num_nodes = self.graph.node_count();
         let mut nodes = self.graph.node_indices().collect::<Vec<_>>().into_iter();
         let mut dfs = TightTreeDFS::new();
-
+        //while dfs.vertices().len() < num_nodes {
+         //   dfs.tight_tree(&self, nodes.next().unwrap(), &mut HashSet::new());
         while dfs.tight_tree(&self, nodes.next().unwrap(), &mut HashSet::new()) < num_nodes {
+            for n in self.graph.node_identifiers() {
+                println!("{:?}", self.graph[n]);
+            }
+            println!("");
             let edge = self.find_non_tight_edge(&dfs);
             let (_, head) = self.graph.edge_endpoints(edge).unwrap();
             let mut delta = self.slack(edge);
@@ -151,6 +156,9 @@ impl InitialRanks {
 
         self.mark_tree_edges(dfs);
 
+        for n in self.graph.node_identifiers() {
+            println!("{:?}", self.graph[n]);
+        }
         TightTree { graph: self.graph, minimum_length: self.minimum_length }
     }
 
