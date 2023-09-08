@@ -308,7 +308,6 @@ impl ReduceCrossings {
 
         // build initial order via dfs
         self.graph.node_indices()
-            .filter(|v| self.graph[*v].rank == 0)
             .for_each(|v| dfs(v, &mut order, &self.graph, &mut visited));
 
         // fill in initial position
