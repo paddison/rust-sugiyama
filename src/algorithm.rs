@@ -21,13 +21,16 @@ pub fn build_layout_from_edges(edges: &[(u32, u32)], minimum_length: u32, vertex
 
 pub fn build_layout_from_vertices_and_edges(vertices: &[u32], edges: &[(u32, u32)], minimum_length: u32, vertex_spacing: usize) -> Layouts {
     // add all edges
-    let mut graph = StableDiGraph::<Vertex, Edge>::from_edges(edges);
+    
+    let mut graph = StableDiGraph::<Vertex, Edge>::new();
     
     // add all vertices which have no edges
     for v in vertices {
-        if !graph.contains_node((*v).into()) {
-            graph.add_node(Vertex::from_id(*v as usize));
-        }
+        graph.add_node(Vertex::from_id(*v as usize));
+    }
+
+    for (from, to) in edges {
+        graph.add_edge(NodeIndex::from(*from), NodeIndex::from(*to), Edge::default());
     }
 
     // initialize vertex ids to NodeIndex
