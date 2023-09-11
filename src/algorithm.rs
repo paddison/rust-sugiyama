@@ -252,4 +252,17 @@ mod check_visuals {
         println!("{:?}", layout);
     }
 
+    #[test]
+    fn check_coords_2() {
+        let mut graph = StableDiGraph::<Vertex, Edge>::from_edges([(0, 1), (0, 2), (0, 3), (1, 4), (4, 5), (5, 6), (2, 6), (3, 6), (3, 7), (3, 8), (3, 9)]);
+        for n in graph.node_indices().collect::<Vec<_>>() {
+            graph[n].id = n.index()
+        }
+
+        let layout = into_weakly_connected_components(graph).into_iter()
+        .map(|graph| build_layout(graph, 1, 10))
+        .collect::<Vec<_>>();
+        println!("{:?}", layout);
+    }
+
 }
