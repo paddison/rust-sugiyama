@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use petgraph::stable_graph::{NodeIndex, StableDiGraph};
+use petgraph::{stable_graph::{NodeIndex, StableDiGraph}, graph::Node};
 
-use crate::{phases::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir}, p1_layering::{start, Vertex, Edge}, p2_reduce_crossings::InsertDummyVertices}, util::into_weakly_connected_components};
+use crate::{phases::{p3_calculate_coordinates::{MinimalCrossings, VDir, HDir, MarkedTypeOneConflicts}, p1_layering::{start, Vertex, Edge}, p2_reduce_crossings::InsertDummyVertices}, util::into_weakly_connected_components};
 
 type Layouts = Vec<(Vec<((usize, usize), (isize, isize))>, usize, usize)>;
 type Layout = (Vec<((usize, usize), (isize, isize))>, usize, usize);
@@ -62,6 +62,10 @@ fn rank(graph: StableDiGraph<Vertex, Edge>, minimum_length: u32) -> InsertDummyV
 
 fn minimize_crossings(graph: InsertDummyVertices) -> MinimalCrossings {
     graph.prepare_for_initial_ordering().ordering()
+}
+            
+fn squeeze_layout(layout: &mut HashMap<NodeIndex, isize>, marked: MarkedTypeOneConflicts) {
+    // remove all dummies from layout and move nodes to the right
 }
 
 // TODO: Put this in p3 module
