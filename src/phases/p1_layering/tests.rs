@@ -324,18 +324,18 @@ mod update_tree {
 
     #[test]
     fn update_cutvalues_updated_correctly() {
-        let (mut graph, _, _, removed_edge, ..) = GraphBuilder::new(&EXAMPLE_GRAPH)
-            .with_tree_edges(&EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE)
+        let (mut graph, ..) = GraphBuilder::new(&EXAMPLE_GRAPH)
+            .with_tree_edges(&EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE)
             .with_cut_values(&CUT_VALUES_EXAMPLE_GRAPH_NEG_CUT_VALUE)
             .with_least_common_ancestor(0)
-            .with_connecting_path(&[(4, 6), (6, 7), (3, 7), (2, 3), (1, 2), (0, 1)])
-            .with_removed_edge(6, 7)
             .build();
 
         init_low_lim(&mut graph);
 
         let swap_edge = graph.find_edge(0.into(), 4.into()).unwrap();
+        let removed_edge = graph.find_edge(6.into(), 7.into()).unwrap();
         graph[swap_edge].is_tree_edge = true;
+        graph[removed_edge].is_tree_edge = false;
         update_cutvalues(&mut graph, removed_edge, swap_edge);
         let edges = EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE;
 
@@ -350,16 +350,18 @@ mod update_tree {
 
     #[test]
     fn update_cutvalues_only_tree_edges_have_cut_values() {
-        let (mut graph, _, _, removed_edge, ..)= GraphBuilder::new(&EXAMPLE_GRAPH)
-            .with_tree_edges(&EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE)
+        let (mut graph, ..)= GraphBuilder::new(&EXAMPLE_GRAPH)
+            .with_tree_edges(&EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE)
             .with_cut_values(&CUT_VALUES_EXAMPLE_GRAPH_NEG_CUT_VALUE)
             .with_least_common_ancestor(0)
-            .with_connecting_path(&[(4, 6), (6, 7), (3, 7), (2, 3), (1, 2), (0, 1)])
-            .with_removed_edge(6, 7)
             .build();
 
+        init_low_lim(&mut graph);
+
         let swap_edge = graph.find_edge(0.into(), 4.into()).unwrap();
+        let removed_edge = graph.find_edge(6.into(), 7.into()).unwrap();
         graph[swap_edge].is_tree_edge = true;
+        graph[removed_edge].is_tree_edge = false;
         update_cutvalues(&mut graph, removed_edge, swap_edge);
 
         for e in graph.edge_weights() {
@@ -446,67 +448,59 @@ mod update_tree {
     }
 }
 
-// mod integration {
+mod integration {
 
-//     use petgraph::stable_graph::StableDiGraph;
+    use petgraph::stable_graph::StableDiGraph;
 
-//     use crate::phases::p1_layering::{Vertex, Edge};
+    use crate::phases::p1_layering::{Vertex, Edge, slack, rank};
 
-//     use super::{EXAMPLE_GRAPH, GraphBuilder};
+    use super::{EXAMPLE_GRAPH, GraphBuilder};
 
-//     fn is_correct(actual: StableDiGraph<Vertex, Edge>) -> bool {
-//         // all cut values must be positive,
-//         0 <= actual.graph().edge_indices()
-//             .filter(|e| actual.graph[*e].is_tree_edge)
-//             .filter_map(|e| actual.graph[e].cut_value)
-//             .min()
-//             .unwrap_or(0)
-//         &&
-//         // tree must be tight
-//         0 == actual.graph.edge_indices()
-//             .filter(|e| actual.graph[*e].is_tree_edge)
-//             .map(|e| actual.slack(e))
-//             .max()
-//             .unwrap()
-//         &&
-//         // minimum rank must be 0
-//         0 == actual.graph.node_weights()
-//             .map(|w| w.rank)
-//             .min()
-//             .unwrap()
-//     }
+    fn is_correct(graph: StableDiGraph<Vertex, Edge>, minimum_length: i32) -> bool {
+        // all cut values must be positive,
+        0 <= graph.edge_indices()
+            .filter(|e| graph[*e].is_tree_edge)
+            .filter_map(|e| graph[e].cut_value)
+            .min()
+            .unwrap_or(0)
+        &&
+        // tree must be tight
+        0 == graph.edge_indices()
+            .filter(|e| graph[*e].is_tree_edge)
+            .map(|e| slack(&graph, e, minimum_length))
+            .max()
+            .unwrap()
+        &&
+        // minimum rank must be 0
+        0 == graph.node_weights()
+            .map(|w| w.rank)
+            .min()
+            .unwrap()
+    }
 
-//     #[test]
-//     fn run_algorithm_example_graph() {
-//         let graph = GraphBuilder::new(&EXAMPLE_GRAPH).build();
-//         let actual = graph.init_rank().make_tight().init_cutvalues().init_low_lim().rank();
-//         assert!(is_correct(actual));
-//     }
+    #[test]
+    fn run_algorithm_example_graph() {
+        let (mut graph, ..) = GraphBuilder::new(&EXAMPLE_GRAPH).build();
+        rank(&mut graph, 1);
+        assert!(is_correct(graph, 1));
+    }
 
-//     #[test]
-//     fn run_algorithm_tree_500_nodes_three_edges_per_node() {
-//         use graph_generator::GraphLayout;
-//         let edges = GraphLayout::new_from_num_nodes(500, 3).build_edges().into_iter().map(|(t, h)| (t as u32, h as u32)).collect::<Vec<_>>();
-//         let actual = GraphBuilder::new(&edges).build()
-//             .init_rank()
-//             .make_tight()
-//             .init_cutvalues()
-//             .init_low_lim()
-//             .rank();
-//         assert!(is_correct(actual));
-//     }
+    #[test]
+    fn run_algorithm_tree_500_nodes_three_edges_per_node() {
+        use graph_generator::GraphLayout;
+        let edges = GraphLayout::new_from_num_nodes(500, 3).build_edges().into_iter().map(|(t, h)| (t as u32, h as u32)).collect::<Vec<_>>();
+        let (mut graph, ..) = GraphBuilder::new(&edges).build();
+        rank(&mut graph, 1);
+        assert!(is_correct(graph, 1));
+    }
 
-//     #[test]
-//     fn run_algorithm_random_graph_300_nodes() {
-//         use graph_generator::RandomLayout;
-//         let edges = RandomLayout::new(1000).build_edges().into_iter().map(|(t, h)| (t as u32, h as u32)).collect::<Vec<_>>();
-//         println!("built random layout");
-//         let actual = GraphBuilder::new(&edges).build()
-//             .init_rank()
-//             .make_tight()
-//             .init_cutvalues()
-//             .init_low_lim()
-//             .rank();
-//         assert!(is_correct(actual));
-//     }
-// }
+    #[test]
+    fn run_algorithm_random_graph_1000_nodes() {
+        use graph_generator::RandomLayout;
+        let edges = RandomLayout::new(1000).build_edges().into_iter().map(|(t, h)| (t as u32, h as u32)).collect::<Vec<_>>();
+        println!("built random layout");
+        let (mut graph, ..) = GraphBuilder::new(&edges).build();
+        rank(&mut graph, 1);
+        assert!(is_correct(graph, 1));
+    }
+}
