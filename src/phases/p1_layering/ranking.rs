@@ -1,6 +1,6 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, VecDeque};
 
-use petgraph::{stable_graph::{StableDiGraph, NodeIndex, EdgeIndex}, visit::{EdgeRef, IntoEdgeReferences}, Direction::{Incoming, Outgoing}};
+use petgraph::{stable_graph::{StableDiGraph, NodeIndex, EdgeIndex}, visit::{EdgeRef, IntoEdgeReferences}, Direction::{Incoming, Outgoing, self}};
 
 use super::{Vertex, Edge, slack, cut_values::init_cutvalues, low_lim::init_low_lim};
 
@@ -24,6 +24,18 @@ pub(super) fn feasible_tree(graph: &mut StableDiGraph<Vertex, Edge>, minimum_len
 
     init_cutvalues(graph);
     init_low_lim(graph);
+}
+
+pub(super) fn update_ranks(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
+    let node = graph.node_indices().next().unwrap();
+    let mut visited = HashSet::from([node]);
+    graph[node].rank = 0;
+    let mut queue = VecDeque::from([node]);
+
+    while let Some(parent) = queue.pop_front() {
+        update_neighbor_ranks(graph, parent, Outgoing, 1, &mut queue, &mut visited, minimum_length);
+        update_neighbor_ranks(graph, parent, Incoming, -1, &mut queue, &mut visited, minimum_length);
+    }
 }
 
 fn tight_tree(graph: &mut StableDiGraph<Vertex, Edge>, vertex: NodeIndex, visited: &mut HashSet<EdgeIndex>, minimum_length: i32) -> usize {
@@ -68,7 +80,7 @@ fn init_rank(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
     }
 }
 
-pub(super) fn is_incident_edge(graph: &StableDiGraph<Vertex, Edge>, edge: &EdgeIndex, ) -> bool {
+fn is_incident_edge(graph: &StableDiGraph<Vertex, Edge>, edge: &EdgeIndex, ) -> bool {
     let (tail, head)  = graph.edge_endpoints(*edge).unwrap();
     graph[tail].is_tree_vertex ^ graph[head].is_tree_vertex
 }
@@ -87,6 +99,19 @@ fn tighten_edge(graph: &mut StableDiGraph<Vertex, Edge>, delta: i32) {
     }
 }
 
+
+fn update_neighbor_ranks(graph: &mut StableDiGraph<Vertex, Edge>, parent: NodeIndex, direction: Direction, coefficient: i32, queue: &mut VecDeque<NodeIndex>,  visited: &mut HashSet<NodeIndex>, minimum_length: i32) {
+    let mut walker = graph.neighbors_directed(parent, direction).detach();
+    while let Some((edge, other)) = walker.next(graph) {
+        if !graph[edge].is_tree_edge || visited.contains(&other) {
+            continue;
+        }
+        graph[other].rank = graph[parent].rank + minimum_length * coefficient;
+        queue.push_back(other);
+        visited.insert(other);
+    }
+}
+
 #[cfg(test)]
 mod tests {
 
@@ -94,9 +119,9 @@ mod tests {
 
     use petgraph::Direction::{Incoming, Outgoing};
 
-    use crate::phases::p1_layering::{feasible_tree::{feasible_tree, tight_tree}, tests::EXAMPLE_GRAPH_NON_TIGHT_INITIAL_RANKING, slack};
+    use crate::phases::p1_layering::{ranking::{feasible_tree, tight_tree}, tests::{EXAMPLE_GRAPH_NON_TIGHT_INITIAL_RANKING, EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE}, slack};
 
-    use super::{super::tests::{ GraphBuilder, EXAMPLE_GRAPH }, init_rank};
+    use super::{super::tests::{ GraphBuilder, EXAMPLE_GRAPH }, init_rank, update_ranks};
 
     #[test]
     fn test_initial_ranking_correct_order() {
@@ -211,6 +236,32 @@ mod tests {
             if graph[edge].is_tree_edge {
                 assert_eq!(slack(&graph, edge, minimum_length), 0);
             }
+        }
+    }
+
+    #[test]
+    fn update_ranks_example_graph() {
+        let (mut graph, minimum_length, ..) = GraphBuilder::new(&EXAMPLE_GRAPH)
+            .with_tree_edges(&EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE)
+            .with_ranks(&[
+                (0, 0),
+                (1, 1),
+                (2, 2),
+                (3, 3),
+                (4, 2),
+                (5, 2),
+                (6, 3),
+                (7, 4),
+            ])
+            .build();
+
+        let expected = [(0, 0), (1, 1), (2, 2), (3, 3), (4, 1), (5, 1), (6, 2), (7, 4)];
+        update_ranks(&mut graph, minimum_length);
+            
+        for id in graph.node_indices() {
+            let rank = graph[id].rank;
+            let id = id.index();
+            assert_eq!(expected[id], (id, rank));
         }
     }
 }

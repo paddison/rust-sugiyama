@@ -2,19 +2,16 @@
 mod tight_tree_dfs;
 mod cut_values;
 mod low_lim;
-mod feasible_tree;
+mod ranking;
 #[cfg(test)]
 pub(crate) mod tests;
 
-use std::collections::{HashSet, VecDeque};
-
-use petgraph::Direction::{*, self};
 use petgraph::stable_graph::{StableDiGraph, NodeIndex, EdgeIndex};
 use petgraph::visit::IntoNodeIdentifiers;
 
-use self::cut_values::{update_cutvalues, remove_outdated_cut_values};
+use self::cut_values::update_cutvalues;
 use self::low_lim::update_low_lim;
-use self::feasible_tree::feasible_tree;
+use self::ranking::{feasible_tree, update_ranks};
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) struct Vertex {
@@ -153,29 +150,5 @@ fn normalize(graph: &mut StableDiGraph<Vertex, Edge>) {
     let min_rank = graph.node_identifiers().map(|v| graph[v].rank).min().unwrap();
     for v in graph.node_weights_mut() {
         v.rank -= min_rank;
-    }
-}
-
-fn update_ranks(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
-    let node = graph.node_identifiers().next().unwrap();
-    let mut visited = HashSet::from([node]);
-    graph[node].rank = 0;
-    let mut queue = VecDeque::from([node]);
-
-    while let Some(parent) = queue.pop_front() {
-        update_neighbor_ranks(graph, parent, Outgoing, 1, &mut queue, &mut visited, minimum_length);
-        update_neighbor_ranks(graph, parent, Incoming, -1, &mut queue, &mut visited, minimum_length);
-    }
-}
-
-fn update_neighbor_ranks(graph: &mut StableDiGraph<Vertex, Edge>, parent: NodeIndex, direction: Direction, coefficient: i32, queue: &mut VecDeque<NodeIndex>,  visited: &mut HashSet<NodeIndex>, minimum_length: i32) {
-    let mut walker = graph.neighbors_directed(parent, direction).detach();
-    while let Some((edge, other)) = walker.next(graph) {
-        if !graph[edge].is_tree_edge || visited.contains(&other) {
-            continue;
-        }
-        graph[other].rank = graph[parent].rank + minimum_length * coefficient;
-        queue.push_back(other);
-        visited.insert(other);
     }
 }

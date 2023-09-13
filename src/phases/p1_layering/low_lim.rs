@@ -39,7 +39,7 @@ fn dfs_low_lim(graph: &mut StableDiGraph<Vertex, Edge>, next: NodeIndex, parent:
 mod tests {
     use petgraph::stable_graph::NodeIndex;
 
-    use crate::phases::p1_layering::{Vertex, low_lim::init_low_lim};
+    use crate::phases::p1_layering::{Vertex, low_lim::{init_low_lim, update_low_lim}, tests::{LOW_LIM_GRAPH_AFTER_UPDATE, LOW_LIM_GRAPH_LOW_LIM_VALUES, EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE, EXAMPLE_GRAPH_LOW_LIM_VALUES_NEG_CUT_VALUE}};
 
     use super::super::tests::{LOW_LIM_GRAPH, GraphBuilder, EXAMPLE_GRAPH, EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE};
 
@@ -104,5 +104,53 @@ mod tests {
         assert_eq!(graph[NodeIndex::from(7)].low, 1);
         assert_eq!(graph[NodeIndex::from(7)].lim, 4);
         assert_eq!(graph[NodeIndex::from(7)].parent, Some(3.into()));
+    }
+    
+    #[test]
+    fn update_low_lim_low_lim_graph() {
+        let (mut graph, .., least_common_ancestor) = GraphBuilder::new(&LOW_LIM_GRAPH_AFTER_UPDATE)
+            .with_tree_edges(&LOW_LIM_GRAPH_AFTER_UPDATE)
+            .with_low_lim_values(&LOW_LIM_GRAPH_LOW_LIM_VALUES)
+            .with_least_common_ancestor(4)
+            .build();
+
+        update_low_lim(&mut graph, least_common_ancestor); 
+        let v4 = graph[NodeIndex::from(4)];
+        let v5 = graph[NodeIndex::from(5)];
+        let v6 = graph[NodeIndex::from(6)];
+        let v7 = graph[NodeIndex::from(7)];
+        let v8 = graph[NodeIndex::from(8)];
+        assert_eq!(v4, Vertex::new(4, 8, Some(0.into()), true));
+        assert_eq!(v5, Vertex::new(4, 4, Some(6.into()), true));
+        assert_eq!(v6, Vertex::new(4, 5, Some(7.into()), true));
+        assert_eq!(v7, Vertex::new(4, 6, Some(4.into()), true));
+        assert_eq!(v8, Vertex::new(7, 7, Some(4.into()), true));
+    }
+
+    #[test]
+    fn update_low_lim_example_graph() {
+        let (mut graph, .., least_common_ancestor) = GraphBuilder::new(&EXAMPLE_GRAPH)
+            .with_tree_edges(&EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE)
+            .with_low_lim_values(&EXAMPLE_GRAPH_LOW_LIM_VALUES_NEG_CUT_VALUE)
+            .with_least_common_ancestor(0)
+            .build();
+
+        update_low_lim(&mut graph, least_common_ancestor);
+        let v0 = graph[NodeIndex::from(0)];
+        let v1 = graph[NodeIndex::from(1)];
+        let v2 = graph[NodeIndex::from(2)];
+        let v3 = graph[NodeIndex::from(3)];
+        let v4 = graph[NodeIndex::from(4)];
+        let v5 = graph[NodeIndex::from(5)];
+        let v6 = graph[NodeIndex::from(6)];
+        let v7 = graph[NodeIndex::from(7)];
+        assert_eq!(v0, Vertex::new(1, 8, None, true));
+        assert_eq!(v1, Vertex::new(1, 4, Some(0.into()), true));
+        assert_eq!(v2, Vertex::new(1, 3, Some(1.into()), true));
+        assert_eq!(v3, Vertex::new(1, 2, Some(2.into()), true));
+        assert_eq!(v4, Vertex::new(5, 7, Some(0.into()), true));
+        assert_eq!(v5, Vertex::new(5, 5, Some(6.into()), true));
+        assert_eq!(v6, Vertex::new(5, 6, Some(4.into()), true));
+        assert_eq!(v7, Vertex::new(1, 1, Some(3.into()), true));
     }
 }

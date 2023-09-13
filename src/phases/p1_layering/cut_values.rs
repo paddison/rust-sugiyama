@@ -103,7 +103,7 @@ fn get_neighborhood_info(graph: &StableDiGraph<Vertex, Edge>, vertex: NodeIndex,
     )
 }
 
-pub(super) fn remove_outdated_cut_values(graph: &mut StableDiGraph<Vertex, Edge>, swap_edge: EdgeIndex, removed_edge: EdgeIndex) -> NodeIndex {
+fn remove_outdated_cut_values(graph: &mut StableDiGraph<Vertex, Edge>, swap_edge: EdgeIndex, removed_edge: EdgeIndex) -> NodeIndex {
     graph[removed_edge].cut_value = None;
     let (mut w, mut x)  = graph.edge_endpoints(swap_edge).unwrap();
     if graph[w].lim > graph[x].lim {
@@ -143,7 +143,9 @@ pub(super) fn remove_outdated_cut_values(graph: &mut StableDiGraph<Vertex, Edge>
 #[cfg(test)]
 mod tests {
 
-    use crate::phases::p1_layering::{tests::{EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE, EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE, GraphBuilder, EXAMPLE_GRAPH}, cut_values::init_cutvalues};
+    use petgraph::stable_graph::NodeIndex;
+
+    use crate::phases::p1_layering::{tests::{EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE, EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE, GraphBuilder, EXAMPLE_GRAPH, CUT_VALUES_EXAMPLE_GRAPH_NEG_CUT_VALUE, LOW_LIM_GRAPH, LOW_LIM_GRAPH_LOW_LIM_VALUES}, cut_values::{init_cutvalues, update_cutvalues, remove_outdated_cut_values}, low_lim::init_low_lim, Edge};
 
 
     #[test]
@@ -176,5 +178,105 @@ mod tests {
         assert_eq!(graph[graph.find_edge(edges[4].0.into(), edges[4].1.into()).unwrap()].cut_value, Some(2));
         assert_eq!(graph[graph.find_edge(edges[5].0.into(), edges[5].1.into()).unwrap()].cut_value, Some(1));
         assert_eq!(graph[graph.find_edge(edges[6].0.into(), edges[6].1.into()).unwrap()].cut_value, Some(0));
+    }
+
+    #[test]
+    fn remove_outdated_cut_values_low_lim_graph() {
+        let (mut graph, ..) = GraphBuilder::new(&LOW_LIM_GRAPH)
+            .with_tree_edges(&LOW_LIM_GRAPH)
+            .with_low_lim_values(&LOW_LIM_GRAPH_LOW_LIM_VALUES)
+            .build();
+
+        init_cutvalues(&mut graph);
+
+        let tail = 6.into();
+        let head = 8.into();
+        let edge = graph.add_edge(tail, head, Edge::default());
+        let actual_lca = remove_outdated_cut_values(&mut graph, edge, edge);
+        let expected_path = [(5, 6), (4, 5), (4, 8)].into_iter().map(|(t, h)| graph.find_edge(t.into(), h.into()).unwrap()).collect::<Vec<_>>();
+        for edge in graph.edge_indices() {
+            if expected_path.contains(&edge) {
+                assert!(graph[edge].cut_value.is_none());
+            } else if graph[edge].is_tree_edge {
+                assert!(graph[edge].cut_value.is_some())
+            }
+        }
+        let expected_lca = NodeIndex::from(4_u32);
+        assert_eq!(actual_lca, expected_lca);
+    }
+
+    #[test]
+    fn remove_outdated_cut_values_low_lim_graph_lca_is_root() {
+        let (mut graph, ..) = GraphBuilder::new(&LOW_LIM_GRAPH)
+            .with_tree_edges(&LOW_LIM_GRAPH)
+            .with_low_lim_values(&LOW_LIM_GRAPH_LOW_LIM_VALUES)
+            .build();
+    
+        init_cutvalues(&mut graph);
+
+        let tail = 3.into();
+        let head = 8.into();
+        let edge = graph.add_edge(tail, head, Edge::default());
+        let actual_lca = remove_outdated_cut_values(&mut graph, edge, edge);
+        let expected_path = [(1, 3), (0, 1), (4, 8), (0, 4)].into_iter().map(|(t, h)| graph.find_edge(t.into(), h.into()).unwrap()).collect::<Vec<_>>();
+        for edge in graph.edge_indices() {
+            if expected_path.contains(&edge) {
+                assert!(graph[edge].cut_value.is_none());
+            } else if graph[edge].is_tree_edge {
+                assert!(graph[edge].cut_value.is_some())
+            }
+        }
+        let expected_lca = NodeIndex::from(0_u32);
+        assert_eq!(actual_lca, expected_lca);
+    }
+    #[test]
+    fn update_cutvalues_updated_correctly() {
+        let (mut graph, ..) = GraphBuilder::new(&EXAMPLE_GRAPH)
+            .with_tree_edges(&EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE)
+            .with_cut_values(&CUT_VALUES_EXAMPLE_GRAPH_NEG_CUT_VALUE)
+            .with_least_common_ancestor(0)
+            .build();
+
+        init_low_lim(&mut graph);
+
+        let swap_edge = graph.find_edge(0.into(), 4.into()).unwrap();
+        let removed_edge = graph.find_edge(6.into(), 7.into()).unwrap();
+        graph[swap_edge].is_tree_edge = true;
+        graph[removed_edge].is_tree_edge = false;
+        update_cutvalues(&mut graph, removed_edge, swap_edge);
+        let edges = EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE;
+
+        assert_eq!(graph[graph.find_edge(edges[0].0.into(), edges[0].1.into()).unwrap()].cut_value, Some(2));
+        assert_eq!(graph[graph.find_edge(edges[1].0.into(), edges[1].1.into()).unwrap()].cut_value, Some(1));
+        assert_eq!(graph[graph.find_edge(edges[2].0.into(), edges[2].1.into()).unwrap()].cut_value, Some(2));
+        assert_eq!(graph[graph.find_edge(edges[3].0.into(), edges[3].1.into()).unwrap()].cut_value, Some(2));
+        assert_eq!(graph[graph.find_edge(edges[4].0.into(), edges[4].1.into()).unwrap()].cut_value, Some(2));
+        assert_eq!(graph[graph.find_edge(edges[5].0.into(), edges[5].1.into()).unwrap()].cut_value, Some(1));
+        assert_eq!(graph[graph.find_edge(edges[6].0.into(), edges[6].1.into()).unwrap()].cut_value, Some(0));
+    }
+
+    #[test]
+    fn update_cutvalues_only_tree_edges_have_cut_values() {
+        let (mut graph, ..)= GraphBuilder::new(&EXAMPLE_GRAPH)
+            .with_tree_edges(&EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE)
+            .with_cut_values(&CUT_VALUES_EXAMPLE_GRAPH_NEG_CUT_VALUE)
+            .with_least_common_ancestor(0)
+            .build();
+
+        init_low_lim(&mut graph);
+
+        let swap_edge = graph.find_edge(0.into(), 4.into()).unwrap();
+        let removed_edge = graph.find_edge(6.into(), 7.into()).unwrap();
+        graph[swap_edge].is_tree_edge = true;
+        graph[removed_edge].is_tree_edge = false;
+        update_cutvalues(&mut graph, removed_edge, swap_edge);
+
+        for e in graph.edge_weights() {
+            if e.is_tree_edge {
+                assert!(e.cut_value.is_some());
+            } else {
+                assert!(e.cut_value.is_none());
+            }
+        }
     }
 }
