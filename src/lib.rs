@@ -1,10 +1,10 @@
-use petgraph::stable_graph::StableDiGraph;
+use petgraph::stable_graph::{StableDiGraph, NodeIndex};
 
 mod algorithm;
 mod util;
 
 type Layout = (Vec<(usize, (isize, isize))>, usize, usize);
-type Layouts = Vec<(Vec<(usize, (isize, isize))>, usize, usize)>;
+type Layouts<T> = Vec<(Vec<(T, (isize, isize))>, usize, usize)>;
 
 #[derive(Clone, Copy)]
 struct Config {
@@ -12,13 +12,22 @@ struct Config {
     vertex_spacing: usize,
 }
 
-pub fn build_layout_from_edges(edges: &[(u32, u32)], minimum_length: u32, vertex_spacing: usize) -> Layouts {
+pub fn build_layout_from_edges(edges: &[(u32, u32)], minimum_length: u32, vertex_spacing: usize) -> Layouts<usize> {
     let config = Config { minimum_length, vertex_spacing };
     algorithm::build_layout_from_edges(edges, config)
 }
 
-pub fn build_layout_from_graph<T, E>(_graph: &StableDiGraph<T, E>) {
-    unimplemented!();
+pub fn build_layout_from_graph<T, E>(graph: &StableDiGraph<T, E>, minimum_length: u32, vertex_spacing: usize) -> Layouts<NodeIndex> {
+    let config = Config{ minimum_length, vertex_spacing };
+    algorithm::build_layout_from_graph(graph, config).into_iter()
+        .map(|(l, w, h)| 
+            (
+                l.into_iter().map(|(id, coords)| (NodeIndex::from(id as u32), coords)).collect(),
+                w,
+                h
+            )
+        )
+        .collect()
 }
 
 #[cfg(test)]
