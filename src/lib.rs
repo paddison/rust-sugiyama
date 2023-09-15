@@ -66,6 +66,36 @@ mod benchmark {
         let _ = build_layout_from_edges(&edges, 1, 10);
         println!("{n} nodes, {e} edges per node: {}ms", start.elapsed().as_millis());
     }
+
+    #[test]
+    fn l_2000_2() {
+        let n = 2000;
+        let e = 2;
+        let edges = graph_generator::GraphLayout::new_from_num_nodes(n, e).build_edges();
+        let start = std::time::Instant::now();
+        let _ = build_layout_from_edges(&edges, 1, 10);
+        println!("{n} nodes, {e} edges per node: {}ms", start.elapsed().as_millis());
+    }
+
+    #[test]
+    fn l_4000_2() {
+        let n = 4000;
+        let e = 2;
+        let edges = graph_generator::GraphLayout::new_from_num_nodes(n, e).build_edges();
+        let start = std::time::Instant::now();
+        let _ = build_layout_from_edges(&edges, 1, 10);
+        println!("{n} nodes, {e} edges per node: {}ms", start.elapsed().as_millis());
+    }
+
+    #[test]
+    fn l_8000_2() {
+        let n = 8000;
+        let e = 2;
+        let edges = graph_generator::GraphLayout::new_from_num_nodes(n, e).build_edges();
+        let start = std::time::Instant::now();
+        let _ = build_layout_from_edges(&edges, 1, 10);
+        println!("{n} nodes, {e} edges per node: {}ms", start.elapsed().as_millis());
+    }
 }
 
 #[cfg(test)]
