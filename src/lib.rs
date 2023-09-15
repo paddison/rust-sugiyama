@@ -60,7 +60,7 @@ mod benchmark {
 
     #[test]
     fn r_4000() {
-        let edges = graph_generator::RandomLayout::new(2000).build_edges();
+        let edges = graph_generator::RandomLayout::new(4000).build_edges();
         let start = std::time::Instant::now();
         let _ = build_layout_from_edges(&edges, 1, 10);
         println!("Random 4000 edges: {}ms", start.elapsed().as_millis());
