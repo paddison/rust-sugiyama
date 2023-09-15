@@ -120,7 +120,7 @@ mod tests {
 
     use petgraph::Direction::{Incoming, Outgoing};
 
-    use crate::phases::p1_layering::{ranking::{feasible_tree, tight_tree}, tests::{EXAMPLE_GRAPH_NON_TIGHT_INITIAL_RANKING, EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE}, slack};
+    use crate::algorithm::p1_layering::{ranking::{feasible_tree, tight_tree}, tests::{EXAMPLE_GRAPH_NON_TIGHT_INITIAL_RANKING, EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE}, slack};
 
     use super::{super::tests::{ GraphBuilder, EXAMPLE_GRAPH }, init_rank, update_ranks};
 

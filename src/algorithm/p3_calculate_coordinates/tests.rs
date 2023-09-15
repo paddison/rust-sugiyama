@@ -1,6 +1,6 @@
 use petgraph::stable_graph::{StableDiGraph, NodeIndex};
 
-use crate::phases::p3_calculate_coordinates::{mark_type_1_conflicts, create_vertical_alignments};
+use crate::algorithm::p3_calculate_coordinates::{mark_type_1_conflicts, create_vertical_alignments};
 
 use super::{Vertex, Edge, init_for_alignment};
 

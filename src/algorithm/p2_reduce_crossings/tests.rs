@@ -87,7 +87,7 @@ impl GraphBuilder {
 #[cfg(test)]
 mod insert_dummy_vertices {
 
-    use crate::phases::p2_reduce_crossings::{tests::{ONE_DUMMY, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS}, insert_dummy_vertices};
+    use crate::algorithm::p2_reduce_crossings::{tests::{ONE_DUMMY, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS}, insert_dummy_vertices};
 
     use super::{ONE_DUMMY_RANKS, GraphBuilder};
 
@@ -127,7 +127,7 @@ mod insert_dummy_vertices {
 }
 
 mod init_order {
-    use crate::phases::p2_reduce_crossings::insert_dummy_vertices;
+    use crate::algorithm::p2_reduce_crossings::insert_dummy_vertices;
 
     use super::{GraphBuilder, ONE_DUMMY, ONE_DUMMY_RANKS, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS};
 
@@ -176,7 +176,7 @@ mod init_order {
 #[cfg(test)]
 mod order {
     use petgraph::stable_graph::StableDiGraph;
-    use crate::phases::p2_reduce_crossings::Order;
+    use crate::algorithm::p2_reduce_crossings::Order;
 
     static ORDER_TWO_CROSSINGS: [(u32, u32); 3] = [
         (0, 4), (1, 3), (2, 3)

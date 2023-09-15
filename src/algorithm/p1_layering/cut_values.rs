@@ -145,7 +145,7 @@ mod tests {
 
     use petgraph::stable_graph::NodeIndex;
 
-    use crate::phases::p1_layering::{tests::{EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE, EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE, GraphBuilder, EXAMPLE_GRAPH, CUT_VALUES_EXAMPLE_GRAPH_NEG_CUT_VALUE, LOW_LIM_GRAPH, LOW_LIM_GRAPH_LOW_LIM_VALUES}, cut_values::{init_cutvalues, update_cutvalues, remove_outdated_cut_values}, low_lim::init_low_lim, Edge};
+    use crate::algorithm::p1_layering::{tests::{EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE, EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE, GraphBuilder, EXAMPLE_GRAPH, CUT_VALUES_EXAMPLE_GRAPH_NEG_CUT_VALUE, LOW_LIM_GRAPH, LOW_LIM_GRAPH_LOW_LIM_VALUES}, cut_values::{init_cutvalues, update_cutvalues, remove_outdated_cut_values}, low_lim::init_low_lim, Edge};
 
 
     #[test]

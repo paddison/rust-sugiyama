@@ -39,7 +39,7 @@ fn dfs_low_lim(graph: &mut StableDiGraph<Vertex, Edge>, next: NodeIndex, parent:
 mod tests {
     use petgraph::stable_graph::NodeIndex;
 
-    use crate::phases::p1_layering::{Vertex, low_lim::{init_low_lim, update_low_lim}, tests::{LOW_LIM_GRAPH_AFTER_UPDATE, LOW_LIM_GRAPH_LOW_LIM_VALUES, EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE, EXAMPLE_GRAPH_LOW_LIM_VALUES_NEG_CUT_VALUE}};
+    use crate::algorithm::p1_layering::{Vertex, low_lim::{init_low_lim, update_low_lim}, tests::{LOW_LIM_GRAPH_AFTER_UPDATE, LOW_LIM_GRAPH_LOW_LIM_VALUES, EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE, EXAMPLE_GRAPH_LOW_LIM_VALUES_NEG_CUT_VALUE}};
 
     use super::super::tests::{LOW_LIM_GRAPH, GraphBuilder, EXAMPLE_GRAPH, EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE};
 

@@ -1,6 +1,6 @@
 use petgraph::stable_graph::{StableDiGraph, NodeIndex, EdgeIndex};
 
-use crate::phases::p1_layering::{cut_values::init_cutvalues, low_lim::init_low_lim, leave_edge, is_head_to_tail, enter_edge};
+use crate::algorithm::p1_layering::{cut_values::init_cutvalues, low_lim::init_low_lim, leave_edge, is_head_to_tail, enter_edge};
 
 use super::{Vertex, Edge};
 
@@ -266,7 +266,7 @@ mod integration {
 
     use petgraph::stable_graph::StableDiGraph;
 
-    use crate::phases::p1_layering::{Vertex, Edge, slack, rank};
+    use crate::algorithm::p1_layering::{Vertex, Edge, slack, rank};
 
     use super::{EXAMPLE_GRAPH, GraphBuilder};
 

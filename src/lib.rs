@@ -1,6 +1,6 @@
 use petgraph::stable_graph::StableDiGraph;
 
-mod phases;
+mod algorithm;
 mod util;
 
 type Layout = (Vec<(usize, (isize, isize))>, usize, usize);
@@ -14,7 +14,7 @@ struct Config {
 
 pub fn build_layout_from_edges(edges: &[(u32, u32)], minimum_length: u32, vertex_spacing: usize) -> Layouts {
     let config = Config { minimum_length, vertex_spacing };
-    phases::build_layout_from_edges(edges, config)
+    algorithm::build_layout_from_edges(edges, config)
 }
 
 pub fn build_layout_from_graph<T, E>(_graph: &StableDiGraph<T, E>) {
