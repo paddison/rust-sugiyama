@@ -118,12 +118,6 @@ fn start(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layouts<usiz
     into_weakly_connected_components(graph).into_iter().map(|g| build_layout(g, config)).collect()
 }
 
-fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layout {
-    execute_phase_1(&mut graph, config.minimum_length as i32);
-    let layers = execute_phase_2(&mut graph, config.minimum_length as i32);
-    execute_phase_3(&mut graph, layers, config.vertex_spacing)
-}
-
 fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
     for id in graph.node_indices().collect::<Vec<_>>() {
         graph[id].id = id.index();
@@ -131,6 +125,12 @@ fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
         graph[id].align = id;
         graph[id].sink = id;
     }
+}
+
+fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layout {
+    execute_phase_1(&mut graph, config.minimum_length as i32);
+    let layers = execute_phase_2(&mut graph, config.minimum_length as i32);
+    execute_phase_3(&mut graph, layers, config.vertex_spacing)
 }
 
 fn execute_phase_1(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {

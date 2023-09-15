@@ -11,64 +11,6 @@ use crate::util;
 use crate::util::{IterDir, radix_sort};
 
 use super::{Vertex, Edge, slack};
-// use crate::phases::p1_layering::Vertex as P1Vertex;
-// use crate::phases::p1_layering::Edge as P1Edge;
-
-
-// #[derive(Debug, Clone, Eq, PartialEq)]
-// pub struct Vertex {
-//     id: usize,
-//     rank: usize,
-//     is_dummy: bool,
-// }
-
-// impl Vertex {
-//     fn new(rank: usize) -> Self {
-//         Self {
-//             id: 0,
-//             rank,
-//             is_dummy: false,
-//         }
-//     }
-
-//     fn new_dummy(rank: usize) -> Self {
-//         Self {
-//             id: 0,
-//             rank,
-//             is_dummy: true,
-//         }
-//     }
-// }
-
-// impl Default for Vertex {
-//     fn default() -> Self {
-//         Self {
-//             id: 0,
-//             rank: 0,
-//             is_dummy: false,
-//         }
-//     }
-// }
-
-// impl From<P1Vertex> for Vertex {
-//     fn from(vertex: P1Vertex) -> Self {
-//         Vertex { id: vertex.id, rank: vertex.rank as usize, is_dummy: false }
-//     }
-// }
-
-// pub struct Edge;
-
-// impl From<P1Edge> for Edge {
-//     fn from(_: P1Edge) -> Self {
-//         Self
-//     }
-// }
-
-// impl Default for Edge {
-//     fn default() -> Self {
-//         Edge
-//     }
-// }
 
 // later test if its better to access neighbors via graph or to store them separately
 #[derive(Clone)]

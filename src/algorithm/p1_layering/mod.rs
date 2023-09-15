@@ -14,64 +14,6 @@ use self::ranking::{feasible_tree, update_ranks};
 
 use super::{Vertex, Edge};
 
-// #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-// pub(crate) struct Vertex {
-//     pub(crate) id: usize,
-//     pub(crate) rank: i32,
-//     low: u32,
-//     lim: u32,
-//     parent: Option<NodeIndex>,
-//     is_tree_vertex: bool,
-// }
-
-// impl Vertex {
-//     #[cfg(test)]
-//     fn new(low: u32, lim: u32, parent: Option<NodeIndex>, is_tree_vertex: bool) -> Self {
-//         Self {
-//             id: 0,
-//             rank: 0,
-//             low,
-//             lim,
-//             parent,
-//             is_tree_vertex,
-//         }
-//     }
-
-//     pub(crate) fn from_id(id: usize) -> Self {
-//         Self { id, rank: 0, low: 0, lim: 0, parent: None, is_tree_vertex: false }
-//     }
-// }
-
-// impl Default for Vertex {
-//     fn default() -> Self {
-//         Self {
-//             id: 0,
-//             rank: 0,
-//             low: 0,
-//             lim: 0,
-//             parent: None,
-//             is_tree_vertex: false,
-//         }
-//     }
-// }
-
-// #[derive(Clone, Copy)]
-// pub(crate) struct Edge {
-//     weight: i32,
-//     cut_value: Option<i32>,
-//     is_tree_edge: bool,
-// }
-
-// impl Default for Edge {
-//     fn default() -> Self {
-//         Self {
-//             weight: 1,
-//             cut_value: None,   
-//             is_tree_edge: false,
-//         }
-//     }
-// }
-
 struct NeighborhoodInfo {
     cut_value_sum: i32,
     tree_edge_weight_sum: i32,
