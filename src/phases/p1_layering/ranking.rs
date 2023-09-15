@@ -1,6 +1,6 @@
 use std::collections::{HashSet, VecDeque};
 
-use petgraph::{stable_graph::{StableDiGraph, NodeIndex, EdgeIndex}, visit::{EdgeRef, IntoEdgeReferences}, Direction::{Incoming, Outgoing, self}};
+use petgraph::{stable_graph::{StableDiGraph, NodeIndex, EdgeIndex}, Direction::{Incoming, Outgoing, self}};
 
 use super::{Vertex, Edge, slack, cut_values::init_cutvalues, low_lim::init_low_lim};
 
@@ -8,9 +8,9 @@ use super::{Vertex, Edge, slack, cut_values::init_cutvalues, low_lim::init_low_l
 pub(super) fn feasible_tree(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
     init_rank(graph, minimum_length);
 
-    let mut nodes = graph.node_indices().collect::<Vec<_>>().into_iter();
+    let tree_root = graph.node_indices().next().unwrap();
 
-    while tight_tree(graph, nodes.next().unwrap(), &mut HashSet::new(), minimum_length) < graph.node_count() {
+    while tight_tree(graph, tree_root, &mut HashSet::new(), minimum_length) < graph.node_count() {
         let edge = find_non_tight_edge(graph, minimum_length);
         let (_, head) = graph.edge_endpoints(edge).unwrap();
         let mut delta = slack(graph, edge, minimum_length);
@@ -38,6 +38,7 @@ pub(super) fn update_ranks(graph: &mut StableDiGraph<Vertex, Edge>, minimum_leng
     }
 }
 
+// TODO: verify this is correct
 fn tight_tree(graph: &mut StableDiGraph<Vertex, Edge>, vertex: NodeIndex, visited: &mut HashSet<EdgeIndex>, minimum_length: i32) -> usize {
     // start from topmost nodes.
     // then for each topmost node add nodes to tree until done. Then continue with next node until no more nodes are found.

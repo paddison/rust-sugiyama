@@ -1,89 +1,87 @@
 #[cfg(test)]
 mod tests;
 
-use std::collections::{HashMap, HashSet};
-use std::ops::{Deref, DerefMut};
+use std::collections::HashMap;
 
 use petgraph::Direction::Incoming;
 use petgraph::stable_graph::{StableDiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 
-use crate::algorithm::Layouts;
+use super::{Vertex, Edge};
 /// Reprents a Layered Graph, in which the number of crossings of edges between
 /// Vertices has been minimized. This implies that the order of vertices will not change
 /// in the following steps of the algorithm.
 /// 
 /// It's then used to mark all type 1 conflicts (a crossing between an inner segment and a non-inner segment)
-#[derive(Clone, Copy)]
-pub struct Vertex {
-    pub(crate) id: usize,
-    rank: usize,
-    pos: usize,
-    is_dummy: bool,
-    root: NodeIndex,
-    align: NodeIndex,
-    shift: isize,
-    sink: NodeIndex,
-}
+// #[derive(Clone, Copy)]
+// pub struct Vertex {
+//     pub(crate) id: usize,
+//     rank: usize,
+//     pos: usize,
+//     is_dummy: bool,
+//     root: NodeIndex,
+//     align: NodeIndex,
+//     shift: isize,
+//     sink: NodeIndex,
+// }
 
-impl Default for Vertex {
-    fn default() -> Self {
-        Self {
-            id: 0,
-            rank: usize::default(),
-            pos: usize::default(),
-            is_dummy: false,
-            root: 0.into(),
-            align: 0.into(),
-            shift: isize::MAX,
-            sink: 0.into(),
-        }
-    }
-}
+// impl Default for Vertex {
+//     fn default() -> Self {
+//         Self {
+//             id: 0,
+//             rank: usize::default(),
+//             pos: usize::default(),
+//             is_dummy: false,
+//             root: 0.into(),
+//             align: 0.into(),
+//             shift: isize::MAX,
+//             sink: 0.into(),
+//         }
+//     }
+// }
 
-impl Vertex {
-    pub fn new(id: usize, align_root_sink: NodeIndex, rank: usize, pos: usize, is_dummy: bool) -> Self {
-        Self {
-            id,
-            rank,
-            pos,
-            is_dummy,      
-            root: align_root_sink,
-            align: align_root_sink,
-            shift: isize::MAX,
-            sink: align_root_sink,
-        }
-    }
-}
+// impl Vertex {
+//     pub fn new(id: usize, align_root_sink: NodeIndex, rank: usize, pos: usize, is_dummy: bool) -> Self {
+//         Self {
+//             id,
+//             rank,
+//             pos,
+//             is_dummy,      
+//             root: align_root_sink,
+//             align: align_root_sink,
+//             shift: isize::MAX,
+//             sink: align_root_sink,
+//         }
+//     }
+// }
 
-#[derive(Clone, Copy)]
-pub struct Edge {
-    has_type_1_conflict: bool
-}
+// #[derive(Clone, Copy)]
+// pub struct Edge {
+//     has_type_1_conflict: bool
+// }
 
-impl Edge {
-    pub(crate) fn new() -> Self {
-        Self { has_type_1_conflict: false }
-    }
-}
+// impl Edge {
+//     pub(crate) fn new() -> Self {
+//         Self { has_type_1_conflict: false }
+//     }
+// }
 
-impl Default for Edge {
-    fn default() -> Self {
-        Self {
-            has_type_1_conflict: false,
-        }
-    }
-}
+// impl Default for Edge {
+//     fn default() -> Self {
+//         Self {
+//             has_type_1_conflict: false,
+//         }
+//     }
+// }
 
-pub(crate) fn calculate_x_coordinates(graph: &mut StableDiGraph<Vertex, Edge>, layers: &mut [Vec<NodeIndex>], vertex_spacing: usize) -> Vec<HashMap<NodeIndex, isize>> {
+pub(super) fn calculate_x_coordinates(graph: &mut StableDiGraph<Vertex, Edge>, layers: &mut [Vec<NodeIndex>], vertex_spacing: usize) -> Vec<HashMap<NodeIndex, isize>> {
     let mut layouts = Vec::new();
     mark_type_1_conflicts(graph, layers);
     // calculate the coordinates for each direction
     for _ in [VDir::Down, VDir::Up] {
         for h_dir in [HDir::Right, HDir::Left] {
-            let mut graph = graph.clone();
-            create_vertical_alignments(&mut graph, layers);
-            let mut layout = do_horizontal_compaction(&mut graph, layers, vertex_spacing);
+            create_vertical_alignments(graph, layers);
+            let mut layout = do_horizontal_compaction(graph, layers, vertex_spacing);
 
             // flip x_coordinates if we went from right to left
             if let HDir::Left = h_dir {
@@ -95,6 +93,7 @@ pub(crate) fn calculate_x_coordinates(graph: &mut StableDiGraph<Vertex, Edge>, l
             for row in layers.iter_mut() {
                 row.reverse();
             }
+            // reset root, align and sink values
         }
         // rotate the graph
         graph.reverse();
@@ -103,7 +102,7 @@ pub(crate) fn calculate_x_coordinates(graph: &mut StableDiGraph<Vertex, Edge>, l
     layouts
 }
 
-pub(crate) fn calculate_y_coordinates(layers: &mut [Vec<NodeIndex>], vertex_spacing: usize) -> HashMap<NodeIndex, isize> {
+pub(crate) fn calculate_y_coordinates(layers: &[Vec<NodeIndex>], vertex_spacing: usize) -> HashMap<NodeIndex, isize> {
     layers.iter()
         .enumerate()
         .map(|(rank, row)| row.iter().map(move |v| (*v, rank as isize * vertex_spacing as isize * -1)))
@@ -207,18 +206,25 @@ fn mark_type_1_conflicts(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<
     }
 }
 
+pub(super) fn init_for_alignment(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<NodeIndex>]) {
+    for (rank, row) in layers.iter().enumerate() {
+        for (pos, v) in row.iter().enumerate() {
+            let weight: &mut Vertex = &mut graph[*v]; 
+            weight.rank = rank as i32;
+            weight.pos = pos;
+            weight.shift = isize::MAX;
+            weight.align = *v;
+            weight.root = *v;
+            weight.sink = *v;
+        }
+    }
+}
+
 // TODO: Change this so the graph gets rotated outside of the function
 /// Aligns the graph in so called blocks, which are used in the next step 
 /// to determine the x-coordinate of a vertex.
 fn create_vertical_alignments(graph: &mut StableDiGraph<Vertex, Edge>, layers: &mut [Vec<NodeIndex>]) {
-    for (rank, row) in layers.iter().enumerate() {
-        for (pos, v) in row.iter().enumerate() {
-            let weight: &mut Vertex = &mut graph[*v]; 
-            weight.rank = rank;
-            weight.pos = pos;
-        }
-    }
-
+    init_for_alignment(graph, layers);
     for i in 0..layers.len() {
         let mut r = -1;
 
@@ -250,14 +256,7 @@ fn create_vertical_alignments(graph: &mut StableDiGraph<Vertex, Edge>, layers: &
 }
 
 fn do_horizontal_compaction(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<NodeIndex>], vertex_spacing: usize) -> HashMap<NodeIndex, isize> {
-    let mut x_coordinates = HashMap::new();
-    // place blocks
-    for id in graph.node_indices().collect::<Vec<_>>() {
-        if graph[id].root == id {
-            place_block(graph, layers, id, &mut x_coordinates, vertex_spacing as isize);
-        }
-    }
-
+    let mut x_coordinates = place_blocks(graph, layers, vertex_spacing as isize);
     // calculate class shifts 
     for i in 0..layers.len() { 
         let mut v = layers[i][0];
@@ -299,6 +298,14 @@ fn do_horizontal_compaction(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[V
     x_coordinates
 }
 
+fn place_blocks(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<NodeIndex>], vertex_spacing: isize) -> HashMap<NodeIndex, isize> {
+    let mut x_coordinates = HashMap::new();
+    // place blocks
+    for root in graph.node_indices().filter(|v| graph[*v].root == *v).collect::<Vec<_>>() {
+        place_block(graph, layers, root, &mut x_coordinates, vertex_spacing);
+    }
+    x_coordinates
+}
 fn place_block(
     graph: &mut StableDiGraph<Vertex, Edge>,
     layers: &[Vec<NodeIndex>],
@@ -338,7 +345,7 @@ fn place_block(
 }
 
 fn pred(vertex: Vertex, layers: &[Vec<NodeIndex>]) -> NodeIndex {
-    layers[vertex.rank][vertex.pos - 1]
+    layers[vertex.rank as usize][vertex.pos - 1]
 }
 /// Represents a layered graph whose vertices have been aligned in blocks.
 /// A root is the highest node in a block, depending on the direction.

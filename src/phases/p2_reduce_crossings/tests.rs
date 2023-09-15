@@ -56,7 +56,7 @@ impl GraphBuilder {
     fn new_from_edges_with_ranking(edges: &[(u32, u32)], ranks: &[(u32, u32)]) -> Self {
         let mut graph = StableDiGraph::<Vertex, Edge>::from_edges(edges);
         for (v, rank) in ranks {
-            graph[NodeIndex::from(*v)].rank = *rank as usize;
+            graph[NodeIndex::from(*v)].rank = *rank as i32;
         }
         
         Self {

@@ -12,63 +12,65 @@ use self::cut_values::update_cutvalues;
 use self::low_lim::update_low_lim;
 use self::ranking::{feasible_tree, update_ranks};
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
-pub(crate) struct Vertex {
-    pub(crate) id: usize,
-    pub(crate) rank: i32,
-    low: u32,
-    lim: u32,
-    parent: Option<NodeIndex>,
-    is_tree_vertex: bool,
-}
+use super::{Vertex, Edge};
 
-impl Vertex {
-    #[cfg(test)]
-    fn new(low: u32, lim: u32, parent: Option<NodeIndex>, is_tree_vertex: bool) -> Self {
-        Self {
-            id: 0,
-            rank: 0,
-            low,
-            lim,
-            parent,
-            is_tree_vertex,
-        }
-    }
+// #[derive(Debug, Clone, Copy, Eq, PartialEq)]
+// pub(crate) struct Vertex {
+//     pub(crate) id: usize,
+//     pub(crate) rank: i32,
+//     low: u32,
+//     lim: u32,
+//     parent: Option<NodeIndex>,
+//     is_tree_vertex: bool,
+// }
 
-    pub(crate) fn from_id(id: usize) -> Self {
-        Self { id, rank: 0, low: 0, lim: 0, parent: None, is_tree_vertex: false }
-    }
-}
+// impl Vertex {
+//     #[cfg(test)]
+//     fn new(low: u32, lim: u32, parent: Option<NodeIndex>, is_tree_vertex: bool) -> Self {
+//         Self {
+//             id: 0,
+//             rank: 0,
+//             low,
+//             lim,
+//             parent,
+//             is_tree_vertex,
+//         }
+//     }
 
-impl Default for Vertex {
-    fn default() -> Self {
-        Self {
-            id: 0,
-            rank: 0,
-            low: 0,
-            lim: 0,
-            parent: None,
-            is_tree_vertex: false,
-        }
-    }
-}
+//     pub(crate) fn from_id(id: usize) -> Self {
+//         Self { id, rank: 0, low: 0, lim: 0, parent: None, is_tree_vertex: false }
+//     }
+// }
 
-#[derive(Clone, Copy)]
-pub(crate) struct Edge {
-    weight: i32,
-    cut_value: Option<i32>,
-    is_tree_edge: bool,
-}
+// impl Default for Vertex {
+//     fn default() -> Self {
+//         Self {
+//             id: 0,
+//             rank: 0,
+//             low: 0,
+//             lim: 0,
+//             parent: None,
+//             is_tree_vertex: false,
+//         }
+//     }
+// }
 
-impl Default for Edge {
-    fn default() -> Self {
-        Self {
-            weight: 1,
-            cut_value: None,   
-            is_tree_edge: false,
-        }
-    }
-}
+// #[derive(Clone, Copy)]
+// pub(crate) struct Edge {
+//     weight: i32,
+//     cut_value: Option<i32>,
+//     is_tree_edge: bool,
+// }
+
+// impl Default for Edge {
+//     fn default() -> Self {
+//         Self {
+//             weight: 1,
+//             cut_value: None,   
+//             is_tree_edge: false,
+//         }
+//     }
+// }
 
 struct NeighborhoodInfo {
     cut_value_sum: i32,
@@ -77,12 +79,7 @@ struct NeighborhoodInfo {
     missing: Option<NodeIndex>,
 }
 
-fn slack(graph: &StableDiGraph<Vertex, Edge>, edge: EdgeIndex, minimum_length: i32) -> i32 {
-    let (tail, head) = graph.edge_endpoints(edge).unwrap();
-    graph[head].rank - graph[tail].rank - minimum_length
-}
-
-pub(crate) fn rank(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
+pub(super) fn rank(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
     feasible_tree(graph, minimum_length);
     while let Some(removed_edge) = leave_edge(graph) {
         // swap edges and calculate cut value
@@ -93,6 +90,11 @@ pub(crate) fn rank(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32)
     // don't balance ranks since we want maximum width to 
     // give indication about number of parallel processes running
     normalize(graph);
+}
+
+fn slack(graph: &StableDiGraph<Vertex, Edge>, edge: EdgeIndex, minimum_length: i32) -> i32 {
+    let (tail, head) = graph.edge_endpoints(edge).unwrap();
+    graph[head].rank - graph[tail].rank - minimum_length
 }
 
 fn leave_edge(graph: &StableDiGraph<Vertex, Edge>) -> Option<EdgeIndex> {
@@ -123,15 +125,6 @@ fn enter_edge(graph: &mut StableDiGraph<Vertex, Edge>, edge: EdgeIndex, minimum_
         .unwrap()
 }
 
-fn is_head_to_tail(graph: &StableDiGraph<Vertex, Edge>, edge: EdgeIndex, u: Vertex, is_root_in_head: bool) -> bool {
-    // edge needs to go from head to tail. e.g. tail neads to be in head component, and head in tail component
-    let (tail, head) = graph.edge_endpoints(edge).map(|(t, h)| (graph[t], graph[h])).unwrap();
-    // check if head is in tail component
-    is_root_in_head == (u.low <= head.lim && head.lim <= u.lim) &&
-    // check if tail is in head component
-    is_root_in_head != (u.low <= tail.lim && tail.lim <= u.lim)
-}
-
 fn exchange(graph: &mut StableDiGraph<Vertex, Edge>, removed_edge: EdgeIndex, swap_edge: EdgeIndex, minimum_length: i32) {
     // swap edges 
     graph[removed_edge].is_tree_edge = false;
@@ -143,11 +136,18 @@ fn exchange(graph: &mut StableDiGraph<Vertex, Edge>, removed_edge: EdgeIndex, sw
     update_ranks(graph, minimum_length);
 }
 
-// TODO: change this to reset cut values as we go along
-
 fn normalize(graph: &mut StableDiGraph<Vertex, Edge>) {
     let min_rank = graph.node_identifiers().map(|v| graph[v].rank).min().unwrap();
     for v in graph.node_weights_mut() {
         v.rank -= min_rank;
     }
+}
+
+fn is_head_to_tail(graph: &StableDiGraph<Vertex, Edge>, edge: EdgeIndex, u: Vertex, is_root_in_head: bool) -> bool {
+    // edge needs to go from head to tail. e.g. tail neads to be in head component, and head in tail component
+    let (tail, head) = graph.edge_endpoints(edge).map(|(t, h)| (graph[t], graph[h])).unwrap();
+    // check if head is in tail component
+    is_root_in_head == (u.low <= head.lim && head.lim <= u.lim) &&
+    // check if tail is in head component
+    is_root_in_head != (u.low <= tail.lim && tail.lim <= u.lim)
 }

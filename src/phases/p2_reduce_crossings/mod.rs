@@ -5,68 +5,70 @@ use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 
 use petgraph::Direction::{Incoming, Outgoing};
-use petgraph::stable_graph::{StableDiGraph, NodeIndex, EdgeIndex};
+use petgraph::stable_graph::{StableDiGraph, NodeIndex};
 
 use crate::util;
 use crate::util::{IterDir, radix_sort};
-use crate::phases::p1_layering::Vertex as P1Vertex;
-use crate::phases::p1_layering::Edge as P1Edge;
+
+use super::{Vertex, Edge, slack};
+// use crate::phases::p1_layering::Vertex as P1Vertex;
+// use crate::phases::p1_layering::Edge as P1Edge;
 
 
-#[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Vertex {
-    id: usize,
-    rank: usize,
-    is_dummy: bool,
-}
+// #[derive(Debug, Clone, Eq, PartialEq)]
+// pub struct Vertex {
+//     id: usize,
+//     rank: usize,
+//     is_dummy: bool,
+// }
 
-impl Vertex {
-    fn new(rank: usize) -> Self {
-        Self {
-            id: 0,
-            rank,
-            is_dummy: false,
-        }
-    }
+// impl Vertex {
+//     fn new(rank: usize) -> Self {
+//         Self {
+//             id: 0,
+//             rank,
+//             is_dummy: false,
+//         }
+//     }
 
-    fn new_dummy(rank: usize) -> Self {
-        Self {
-            id: 0,
-            rank,
-            is_dummy: true,
-        }
-    }
-}
+//     fn new_dummy(rank: usize) -> Self {
+//         Self {
+//             id: 0,
+//             rank,
+//             is_dummy: true,
+//         }
+//     }
+// }
 
-impl Default for Vertex {
-    fn default() -> Self {
-        Self {
-            id: 0,
-            rank: 0,
-            is_dummy: false,
-        }
-    }
-}
+// impl Default for Vertex {
+//     fn default() -> Self {
+//         Self {
+//             id: 0,
+//             rank: 0,
+//             is_dummy: false,
+//         }
+//     }
+// }
 
-impl From<P1Vertex> for Vertex {
-    fn from(vertex: P1Vertex) -> Self {
-        Vertex { id: vertex.id, rank: vertex.rank as usize, is_dummy: false }
-    }
-}
+// impl From<P1Vertex> for Vertex {
+//     fn from(vertex: P1Vertex) -> Self {
+//         Vertex { id: vertex.id, rank: vertex.rank as usize, is_dummy: false }
+//     }
+// }
 
-pub struct Edge;
+// pub struct Edge;
 
-impl From<P1Edge> for Edge {
-    fn from(_: P1Edge) -> Self {
-        Self
-    }
-}
+// impl From<P1Edge> for Edge {
+//     fn from(_: P1Edge) -> Self {
+//         Self
+//     }
+// }
 
-impl Default for Edge {
-    fn default() -> Self {
-        Edge
-    }
-}
+// impl Default for Edge {
+//     fn default() -> Self {
+//         Edge
+//     }
+// }
 
 // later test if its better to access neighbors via graph or to store them separately
 #[derive(Clone)]
@@ -180,12 +182,7 @@ impl DerefMut for Order {
     }
 }
 
-fn slack(graph: &StableDiGraph<Vertex, Edge>, edge: EdgeIndex, minimum_length: i32) -> usize {
-    let (tail, head) = graph.edge_endpoints(edge).unwrap();
-    graph[head].rank - graph[tail].rank - minimum_length as usize
-}
-
-fn insert_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
+pub(super) fn insert_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
     // find all edges that have slack of greater than 0.
     // and insert dummy vertices
     for edge in graph.edge_indices().collect::<Vec<_>>() {
@@ -195,22 +192,26 @@ fn insert_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length
             graph.remove_edge(edge);
             for rank in (graph[tail].rank + 1)..graph[head].rank {
                 // usize usize::MAX id as reserved value for a dummy vertex
-                let mut d = Vertex::new(rank);
+                let mut d = Vertex::default();
                 d.is_dummy = true;
                 let new = graph.add_node(d);
-                graph.add_edge(tail, new, Edge);
+                graph[new].align = new;
+                graph[new].root = new;
+                graph[new].sink = new;
+                graph[new].rank = rank;
+                graph.add_edge(tail, new, Edge::default());
                 tail = new;
             }
-            graph.add_edge(tail, head, Edge); // add last dummy edge connecting to the head
+            graph.add_edge(tail, head, Edge::default()); // add last dummy edge connecting to the head
         }
     }
 }
 
 // TODO: Maybe write store all upper neighbors on vertex directly
-pub fn ordering(graph: &StableDiGraph<Vertex, Edge>) {
+pub(super) fn ordering(graph: &mut StableDiGraph<Vertex, Edge>) -> Vec<Vec<NodeIndex>> {
     let order = init_order(graph);
     // move downwards for crossing reduction
-    let order = reduce_crossings_bilayer_sweep(graph, order);
+    reduce_crossings_bilayer_sweep(graph, order)._inner
 }
 
 fn init_order(graph: &StableDiGraph<Vertex, Edge>) -> Order {
@@ -285,7 +286,9 @@ fn median_value(graph: &StableDiGraph<Vertex, Edge>, vertex: NodeIndex, move_dow
     } else { 
         graph.neighbors_directed(vertex, Outgoing) 
     };
+    // Only look at direct neighbors
     let mut adjacent = neighbors
+        .filter(|n| graph[vertex].rank.abs_diff(graph[*n].rank) == 1)
         .map(|n| *positions.get(&n).unwrap())
         .collect::<Vec<_>>();
 
