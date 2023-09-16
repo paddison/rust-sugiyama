@@ -20,7 +20,7 @@ They will divide the graph into its connected components and calculate the coord
 ### build_layout_from_edges
 This takes a `&[u32, u32]` slice and calculates the x and y coordinates, the height of the graph, and the width.
 
-```
+```rust
 from rust_sugiyama import build_layout_from_edges;
 
 let edges = [
@@ -42,7 +42,7 @@ for (layout, width, height) in layouts {
 Takes as input a `&StableDiGraph<V, E>` and calculates the x and y coordinates, the height and width of the graph.
 `NodeIndices` are preserved between layouts and map directly to the input graph.
 
-```
+```rust
 let mut g: StableDiGraph<String, usize> = StableDiGraph::new();
 
 let rick = g.add_node("Rick".to_string());
