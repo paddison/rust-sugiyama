@@ -58,7 +58,7 @@ g.add_edge(jerry, summer, 1);
 g.add_edge(beth, morty, 1);
 g.add_edge(jerry, morty, 1);
 
-let layouts = build_layout_from_edges(&edges, 1, 10)
+let layouts = build_layout_from_edges(&g, 1, 10)
     .into_iter()
     .map(|(layout, width, height)| {
         let mut new_layout = HashMap::new();
@@ -70,7 +70,7 @@ let layouts = build_layout_from_edges(&edges, 1, 10)
     .collect::<Vec<_>>(); 
 
 for (layout, width, height) in layouts {
-    println!("Coordinates: {:?}", layouts);
+    println!("Coordinates: {:?}", layout);
     println!("width: {width}, height: {height}");
 }
 ```
