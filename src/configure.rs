@@ -8,6 +8,7 @@ pub trait IntoCoordinates {}
 
 impl<V, E> IntoCoordinates for StableDiGraph<V, E> {}
 impl IntoCoordinates for &[(u32, u32)] {}
+impl IntoCoordinates for (&[u32], &[(u32, u32)]) {}
 
 pub struct CoordinatesBuilder<Input: IntoCoordinates> {
     config: Config,
@@ -45,7 +46,6 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
     }
 }
 
-
 impl<V, E> CoordinatesBuilder<StableDiGraph<V, E>> {
     pub fn build(self) -> Layouts<NodeIndex> {
         let Self { config , _inner: graph, .. } = self;
@@ -61,8 +61,15 @@ impl<V, E> CoordinatesBuilder<StableDiGraph<V, E>> {
         }
 }
 
-impl<'i> CoordinatesBuilder<&'i [(u32, u32)]> {
+impl CoordinatesBuilder<&[(u32, u32)]> {
 
+    pub fn build(self) -> Layouts<usize> {
+        let Self { config , _inner: graph , ..} = self;
+        algorithm::start(graph, config)
+    }
+}
+
+impl CoordinatesBuilder<(&[u32], &[(u32, u32)])> {
     pub fn build(self) -> Layouts<usize> {
         let Self { config , _inner: graph , ..} = self;
         algorithm::start(graph, config)

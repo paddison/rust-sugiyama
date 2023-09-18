@@ -7,7 +7,7 @@ use petgraph::Direction::Incoming;
 use petgraph::stable_graph::{StableDiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 
-use super::{Vertex, Edge};
+use super::{Vertex, Edge, slack};
 
 pub(super) fn create_layouts(graph: &mut StableDiGraph<Vertex, Edge>, layers: &mut [Vec<NodeIndex>], vertex_spacing: usize) -> Vec<HashMap<NodeIndex, isize>> {
     let mut layouts = Vec::new();
@@ -159,7 +159,10 @@ fn create_vertical_alignments(graph: &mut StableDiGraph<Vertex, Edge>, layers: &
 
         for k in 0..layers[i].len() {
             let v = layers[i][k];
-            let mut edges = graph.edges_directed(v, Incoming).map(|e| (e.id(), e.source())).collect::<Vec<_>>();
+            let mut edges = graph.edges_directed(v, Incoming)
+                .filter(|e| slack(graph, e.id(), 1) == 0)
+                .map(|e| (e.id(), e.source()))
+                .collect::<Vec<_>>();
             if edges.len() == 0 {
                 continue;
             }

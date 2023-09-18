@@ -41,7 +41,7 @@ pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>) -> CoordinatesBuilder<Stabl
     CoordinatesBuilder::new(graph)
 }
 
-pub fn from_vertices_and_edges(vertices: &[u32], edges: &[(u32, u32)]) -> CoordinatesBuilder<StableDiGraph<usize, usize>> {
+pub fn from_vertices_and_edges<'a>(vertices: &'a [u32], edges: &'a [(u32, u32)]) -> CoordinatesBuilder<(&'a [u32], &'a [(u32, u32)])> {
     let mut graph = StableDiGraph::new();
     let mut id_map = HashMap::new();
     for v in vertices {
