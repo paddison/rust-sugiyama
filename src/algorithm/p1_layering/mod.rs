@@ -5,7 +5,7 @@ mod ranking;
 #[cfg(test)]
 pub(crate) mod tests;
 
-use petgraph::stable_graph::{StableDiGraph, NodeIndex, EdgeIndex};
+use petgraph::stable_graph::{StableDiGraph, EdgeIndex};
 use petgraph::visit::IntoNodeIdentifiers;
 
 use self::cut_values::update_cutvalues;

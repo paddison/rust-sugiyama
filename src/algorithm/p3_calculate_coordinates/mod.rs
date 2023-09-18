@@ -9,12 +9,13 @@ use petgraph::visit::EdgeRef;
 
 use super::{Vertex, Edge};
 
-pub(super) fn calculate_x_coordinates(graph: &mut StableDiGraph<Vertex, Edge>, layers: &mut [Vec<NodeIndex>], vertex_spacing: usize) -> Vec<HashMap<NodeIndex, isize>> {
+pub(super) fn create_layouts(graph: &mut StableDiGraph<Vertex, Edge>, layers: &mut [Vec<NodeIndex>], vertex_spacing: usize) -> Vec<HashMap<NodeIndex, isize>> {
     let mut layouts = Vec::new();
     mark_type_1_conflicts(graph, layers);
     // calculate the coordinates for each direction
     for _ in [VDir::Down, VDir::Up] {
         for h_dir in [HDir::Right, HDir::Left] {
+            reset_alignment(graph, layers);
             create_vertical_alignments(graph, layers);
             let mut layout = do_horizontal_compaction(graph, layers, vertex_spacing);
 
@@ -34,15 +35,9 @@ pub(super) fn calculate_x_coordinates(graph: &mut StableDiGraph<Vertex, Edge>, l
         graph.reverse();
         layers.reverse();
     }
+    // do this one last time, so ranks are in original order
+    reset_alignment(graph, layers);
     layouts
-}
-
-pub(crate) fn calculate_y_coordinates(layers: &[Vec<NodeIndex>], vertex_spacing: usize) -> HashMap<NodeIndex, isize> {
-    layers.iter()
-        .enumerate()
-        .map(|(rank, row)| row.iter().map(move |v| (*v, rank as isize * vertex_spacing as isize * -1)))
-        .flatten()
-        .collect::<HashMap<NodeIndex, isize>>() 
 }
 
 pub(crate) fn align_to_smallest_width_layout(aligned_layouts: &mut[HashMap<NodeIndex, isize>]) {
@@ -73,7 +68,7 @@ pub(crate) fn align_to_smallest_width_layout(aligned_layouts: &mut[HashMap<NodeI
     }
 }
 
-pub(crate) fn set_to_average_median(aligned_layouts: Vec<HashMap<NodeIndex, isize>>) -> Vec<(NodeIndex, isize)> {
+pub(crate) fn calculate_relative_coords(aligned_layouts: Vec<HashMap<NodeIndex, isize>>) -> Vec<(NodeIndex, isize)> {
     // sort all 4 coordinates per vertex in ascending order
     let mut sorted_layouts = HashMap::new();
     for k in aligned_layouts.get(0).unwrap().keys() {
@@ -141,7 +136,7 @@ fn mark_type_1_conflicts(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<
     }
 }
 
-pub(super) fn init_for_alignment(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<NodeIndex>]) {
+pub(super) fn reset_alignment(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<NodeIndex>]) {
     for (rank, row) in layers.iter().enumerate() {
         for (pos, v) in row.iter().enumerate() {
             let weight: &mut Vertex = &mut graph[*v]; 
@@ -159,7 +154,6 @@ pub(super) fn init_for_alignment(graph: &mut StableDiGraph<Vertex, Edge>, layers
 /// Aligns the graph in so called blocks, which are used in the next step 
 /// to determine the x-coordinate of a vertex.
 fn create_vertical_alignments(graph: &mut StableDiGraph<Vertex, Edge>, layers: &mut [Vec<NodeIndex>]) {
-    init_for_alignment(graph, layers);
     for i in 0..layers.len() {
         let mut r = -1;
 

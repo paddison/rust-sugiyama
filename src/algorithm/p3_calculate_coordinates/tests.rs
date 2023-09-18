@@ -2,7 +2,7 @@ use petgraph::stable_graph::{StableDiGraph, NodeIndex};
 
 use crate::algorithm::p3_calculate_coordinates::{mark_type_1_conflicts, create_vertical_alignments};
 
-use super::{Vertex, Edge, init_for_alignment};
+use super::{Vertex, Edge, reset_alignment};
 
 fn create_test_layout() -> (StableDiGraph<Vertex, Edge>, Vec<Vec<NodeIndex>>) {
     let edges: [(u32, u32); 30] = [(0, 2), (0, 6), (0, 18), (1, 16), (1, 17), 
@@ -51,7 +51,7 @@ fn alignment_down_right() {
     mark_type_1_conflicts(&mut g, &l);
 
     // down right means no rotation
-    init_for_alignment(&mut g, &l);
+    reset_alignment(&mut g, &l);
     create_vertical_alignments(&mut g, &mut l); 
     // verify roots
     assert_eq!(g[NodeIndex::from(0)].root, 0.into());
@@ -116,7 +116,7 @@ fn alignment_down_left() {
     mark_type_1_conflicts(&mut g, &l);
     // down left means reverse each layer
     l.iter_mut().for_each(|l| l.reverse());
-    init_for_alignment(&mut g, &l);
+    reset_alignment(&mut g, &l);
     create_vertical_alignments(&mut g, &mut l); 
     
     
@@ -156,7 +156,7 @@ fn alignment_up_right() {
     // up right means reverse the edges of the graph and the ranks in the layer
     g.reverse();
     l.reverse();
-    init_for_alignment(&mut g, &l);
+    reset_alignment(&mut g, &l);
     create_vertical_alignments(&mut g, &mut l); 
 
     for n in [13, 10] { assert_eq!(g[NodeIndex::from(n)].root, 13.into()) }
@@ -182,7 +182,7 @@ fn alignment_up_left() {
     g.reverse();
     l.reverse();
     l.iter_mut().for_each(|l| l.reverse());
-    init_for_alignment(&mut g, &l);
+    reset_alignment(&mut g, &l);
     create_vertical_alignments(&mut g, &mut l); 
 
     for n in [15, 25, 9] { assert_eq!(g[NodeIndex::from(n)].root, 15.into()) }

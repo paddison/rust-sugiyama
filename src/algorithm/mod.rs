@@ -146,11 +146,10 @@ fn execute_phase_2(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32)
 fn execute_phase_3(graph: &mut StableDiGraph<Vertex, Edge>, mut layers: Vec<Vec<NodeIndex>>, vertex_spacing: usize) -> Layout {
     let width = layers.iter().map(|l| l.len()).max().unwrap_or(0);
     let height = layers.len();
-    let mut aligned_layouts = p3::calculate_x_coordinates(graph, &mut layers, vertex_spacing);
-    let y_coordinates = p3::calculate_y_coordinates(&layers, vertex_spacing);
+    let mut layouts = p3::create_layouts(graph, &mut layers, vertex_spacing);
 
-    p3::align_to_smallest_width_layout(&mut aligned_layouts);
-    let mut x_coordinates = p3::set_to_average_median(aligned_layouts);
+    p3::align_to_smallest_width_layout(&mut layouts);
+    let mut x_coordinates = p3::calculate_relative_coords(layouts);
     // determine the smallest x-coordinate
     let min = x_coordinates.iter().min_by(|a, b| a.1.cmp(&b.1)).unwrap().1;
 
@@ -163,10 +162,8 @@ fn execute_phase_3(graph: &mut StableDiGraph<Vertex, Edge>, mut layers: Vec<Vec<
     (
         x_coordinates.into_iter()
             .filter(|(v, _)| !graph[*v].is_dummy )
-            .map(|(v, x)| (
-                graph[v].id, 
-                (x, *y_coordinates.get(&v).unwrap()), 
-                ))
+            // calculate y coordinate
+            .map(|(v, x)| (graph[v].id, (x, graph[v].rank as isize * vertex_spacing as isize * -1))) 
             .collect::<Vec<_>>(),
         width,
         height
