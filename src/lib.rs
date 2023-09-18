@@ -12,7 +12,7 @@ type Layouts<T> = Vec<(Vec<(T, (isize, isize))>, usize, usize)>;
 pub struct Config {
     minimum_length: u32,
     vertex_spacing: usize,
-    root_vertices_on_first_level: bool,
+    root_vertices_on_top: bool,
 }
 
 impl Default for Config {
@@ -20,7 +20,7 @@ impl Default for Config {
         Self {
             minimum_length: 1,
             vertex_spacing: 10,
-            root_vertices_on_first_level: false,
+            root_vertices_on_top: false,
         }
     }
 }
@@ -143,10 +143,31 @@ mod check_visuals {
     }
 
     #[test]
-    fn check_coords() {
+    fn root_vertices_on_top_enabled() {
+        let edges = [(1, 0), (2, 1), (3, 0), (4, 0)];
+        let layout = from_edges(&edges).root_vertices_on_top(true).build();
+        for (id, (_, y)) in layout[0].0.clone() {
+            if id == 2 || id == 3 || id == 4 {
+                assert_eq!(y, 0);
+            } else {
+                assert_ne!(y, 0);
+            }
+        }
+    }
+
+    #[test]
+    fn root_vertices_on_top_disabled() {
         let edges = [(1, 0), (2, 1), (3, 0), (4, 0)];
         let layout = from_edges(&edges).build();
-        println!("{:?}", layout);
+        for (id, (_, y)) in layout[0].0.clone() {
+            if id == 2 {
+                assert_eq!(y, 0);
+            } else if id == 3 || id == 4 || id == 1 {
+                assert_eq!(y, -10);
+            } else {
+                assert_eq!(y, -20)
+            }
+        }
     }
 
     #[test]

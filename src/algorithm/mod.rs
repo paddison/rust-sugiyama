@@ -129,13 +129,14 @@ fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
 }
 
 fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layout {
-    execute_phase_1(&mut graph, config.minimum_length as i32);
+    execute_phase_1(&mut graph, config.minimum_length as i32, config.root_vertices_on_top);
     let layers = execute_phase_2(&mut graph, config.minimum_length as i32);
     execute_phase_3(&mut graph, layers, config.vertex_spacing)
 }
 
-fn execute_phase_1(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
+fn execute_phase_1(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32, root_vertices_on_top_level: bool) {
     p1::rank(graph, minimum_length);
+    if root_vertices_on_top_level { p1::move_roots_to_top(graph); }
 }
 
 fn execute_phase_2(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) -> Vec<Vec<NodeIndex>> {

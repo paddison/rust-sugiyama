@@ -23,8 +23,8 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         self
     }
 
-    pub fn root_vertices_on_first_level(mut self, v: bool) -> Self {
-        self.config.root_vertices_on_first_level = v;
+    pub fn root_vertices_on_top(mut self, v: bool) -> Self {
+        self.config.root_vertices_on_top = v;
         self
     }
 }
