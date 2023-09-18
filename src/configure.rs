@@ -27,6 +27,11 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         self.config.root_vertices_on_top = v;
         self
     }
+
+    pub fn no_dummy_vertices(mut self, v: bool) -> Self {
+        self.config.no_dummy_vertices = v;
+        self
+    }
 }
 
 

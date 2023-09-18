@@ -13,6 +13,7 @@ pub struct Config {
     minimum_length: u32,
     vertex_spacing: usize,
     root_vertices_on_top: bool,
+    no_dummy_vertices: bool,
 }
 
 impl Default for Config {
@@ -21,6 +22,7 @@ impl Default for Config {
             minimum_length: 1,
             vertex_spacing: 10,
             root_vertices_on_top: false,
+            no_dummy_vertices: false,
         }
     }
 }

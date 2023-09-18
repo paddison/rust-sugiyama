@@ -130,7 +130,7 @@ fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
 
 fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layout {
     execute_phase_1(&mut graph, config.minimum_length as i32, config.root_vertices_on_top);
-    let layers = execute_phase_2(&mut graph, config.minimum_length as i32);
+    let layers = execute_phase_2(&mut graph, config.minimum_length as i32, config.no_dummy_vertices);
     execute_phase_3(&mut graph, layers, config.vertex_spacing)
 }
 
@@ -139,8 +139,10 @@ fn execute_phase_1(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32,
     if root_vertices_on_top_level { p1::move_roots_to_top(graph); }
 }
 
-fn execute_phase_2(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) -> Vec<Vec<NodeIndex>> {
-    p2::insert_dummy_vertices(graph, minimum_length);
+fn execute_phase_2(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32, no_dummy_vertices: bool) -> Vec<Vec<NodeIndex>> {
+    if !no_dummy_vertices {
+        p2::insert_dummy_vertices(graph, minimum_length);
+    }
     p2::ordering(graph)
 }
 
