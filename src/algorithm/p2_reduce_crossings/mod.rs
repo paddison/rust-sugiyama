@@ -72,6 +72,7 @@ impl Order {
         let edge_endpoint_positions = north.iter()
             .map(|v| radix_sort(
                 graph.neighbors_directed(*v, Outgoing)
+                            .filter(|n| graph[*v].rank.abs_diff(graph[*n].rank) == 1)
                             .filter_map(|n| self.positions.get(&n))
                             .copied()
                             .collect(), key_length)

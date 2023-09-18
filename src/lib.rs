@@ -135,8 +135,24 @@ mod benchmark {
 
 #[cfg(test)]
 mod check_visuals {
+    use crate::from_vertices_and_edges;
+
     use super::from_edges;
     
+    #[test]
+    fn test_no_dummies() {
+        let vertices = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+        let edges = [
+            (1, 2), (1, 3), (2, 5), (2, 16), 
+            (4, 5), (4, 6), (4, 7), (6, 17), 
+            (6, 3), (6, 18), (8, 3), (8, 9), 
+            (8, 10), (9, 16), (9, 7), (9, 19), 
+            (11, 7), (11, 12), (11, 13), (12, 18), 
+            (12, 10), (12, 20), (14, 10), (14, 15), 
+            (15, 19), (15, 13)
+        ];
+        let layout = from_vertices_and_edges(&vertices, &edges).no_dummy_vertices(true).root_vertices_on_top(true).build();
+    }
     #[test]
     fn verify_looks_good() {
         // NOTE: This test might fail eventually, since the order of lements in a row canot be guaranteed;
