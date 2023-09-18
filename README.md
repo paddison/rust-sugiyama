@@ -16,12 +16,13 @@ Finally, the implementation for coordinate assignment follows the algorithm prov
 
 Currently, there are two options to create a layout, both take as input a minimum edge length and a minimum spacing between the vertices.
 They will divide the graph into its connected components and calculate the coordinates seperately for each component.
+The API is implemented via the builder pattern, where a user may specify values like the minimum spacing between vertices etc.
 
 ### build_layout_from_edges
 This takes a `&[u32, u32]` slice and calculates the x and y coordinates, the height of the graph, and the width.
 
 ```rust
-from rust_sugiyama import build_layout_from_edges;
+use rust_sugiyama::from_edges;
 
 let edges = [
     (0, 1), 
@@ -31,7 +32,11 @@ let edges = [
     (5, 7), (5, 8), (6, 7), (6, 8), 
     (7, 9), (8, 9)
 ];
-let layouts = build_layout_from_edges(&edges, 1, 10);
+let 
+let layouts = from_edges(&edges)
+    .vertex_spacing(20)
+    .build();
+
 for (layout, width, height) in layouts {
     println!("Coordinates: {:?}", layouts);
     println!("width: {width}, height: {height}");
@@ -43,6 +48,7 @@ Takes as input a `&StableDiGraph<V, E>` and calculates the x and y coordinates, 
 `NodeIndices` are preserved between layouts and map directly to the input graph.
 
 ```rust
+use rust_sugiuama::from_graph;
 let mut g: StableDiGraph<String, usize> = StableDiGraph::new();
 
 let rick = g.add_node("Rick".to_string());
@@ -58,7 +64,7 @@ g.add_edge(jerry, summer, 1);
 g.add_edge(beth, morty, 1);
 g.add_edge(jerry, morty, 1);
 
-let layouts = build_layout_from_edges(&g, 1, 10)
+let layouts = from_graph(&g).build();
     .into_iter()
     .map(|(layout, width, height)| {
         let mut new_layout = HashMap::new();

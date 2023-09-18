@@ -3,7 +3,8 @@ use petgraph::stable_graph::{NodeIndex, StableDiGraph, EdgeIndex};
 use p1_layering as p1;
 use p2_reduce_crossings as p2;
 use p3_calculate_coordinates as p3;
-use crate::{Config, util::into_weakly_connected_components, Layouts, Layout};
+use crate::{util::into_weakly_connected_components, Layouts, Layout};
+use crate::Config;
 
 mod p1_layering;
 mod p2_reduce_crossings;
