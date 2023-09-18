@@ -2,8 +2,14 @@ use std::collections::VecDeque;
 
 use petgraph::{stable_graph::{StableDiGraph, EdgeIndex, NodeIndex}, Direction::{Incoming, Outgoing, self}, visit::EdgeRef};
 
-use super::{Vertex, Edge, NeighborhoodInfo};
+use super::{Vertex, Edge};
 
+struct NeighborhoodInfo {
+    cut_value_sum: i32,
+    tree_edge_weight_sum: i32,
+    non_tree_edge_weight_sum: i32,
+    missing: Option<NodeIndex>,
+}
 
 pub(super) fn init_cutvalues(graph: &mut StableDiGraph<Vertex, Edge>) {
     // TODO: check if it is faster to collect tree edges or to do unecessary iterations

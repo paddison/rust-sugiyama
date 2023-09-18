@@ -14,13 +14,6 @@ use self::ranking::{feasible_tree, update_ranks};
 
 use super::{Vertex, Edge, slack};
 
-struct NeighborhoodInfo {
-    cut_value_sum: i32,
-    tree_edge_weight_sum: i32,
-    non_tree_edge_weight_sum: i32,
-    missing: Option<NodeIndex>,
-}
-
 pub(super) fn rank(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
     feasible_tree(graph, minimum_length);
     while let Some(removed_edge) = leave_edge(graph) {
