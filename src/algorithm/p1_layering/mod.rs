@@ -12,7 +12,7 @@ use self::cut_values::update_cutvalues;
 use self::low_lim::update_low_lim;
 use self::ranking::{feasible_tree, update_ranks};
 
-use super::{Vertex, Edge};
+use super::{Vertex, Edge, slack};
 
 struct NeighborhoodInfo {
     cut_value_sum: i32,
@@ -32,11 +32,6 @@ pub(super) fn rank(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32)
     // don't balance ranks since we want maximum width to 
     // give indication about number of parallel processes running
     normalize(graph);
-}
-
-fn slack(graph: &StableDiGraph<Vertex, Edge>, edge: EdgeIndex, minimum_length: i32) -> i32 {
-    let (tail, head) = graph.edge_endpoints(edge).unwrap();
-    graph[head].rank - graph[tail].rank - minimum_length
 }
 
 fn leave_edge(graph: &StableDiGraph<Vertex, Edge>) -> Option<EdgeIndex> {

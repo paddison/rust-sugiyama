@@ -100,7 +100,7 @@ fn into_weakly_connected_components_two_components() {
 }
 
 // todo: Refactor this into trait
-pub(crate) fn iterate(dir: IterDir, length: usize) -> impl Iterator<Item = usize> {
+pub(super) fn iterate(dir: IterDir, length: usize) -> impl Iterator<Item = usize> {
     let (mut start, step) = match dir {
         IterDir::Forward => (usize::MAX, 1), // up corresponds to left to right
         IterDir::Backward => (length, usize::MAX),
@@ -112,13 +112,13 @@ pub(crate) fn iterate(dir: IterDir, length: usize) -> impl Iterator<Item = usize
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub(crate) enum IterDir {
+pub(super) enum IterDir {
     Forward,
     Backward,
 }
 
 // TODO: implement this with binary and see if it is faster
-pub(crate) fn radix_sort(mut input: Vec<usize>, key_length: usize) -> Vec<usize> {
+pub(super) fn radix_sort(mut input: Vec<usize>, key_length: usize) -> Vec<usize> {
     let mut output = vec![0; input.len()];
 
     let mut key = 1;
