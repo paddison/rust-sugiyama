@@ -1,4 +1,8 @@
+use std::collections::HashMap;
+
 use configure::CoordinatesBuilder;
+use algorithm::{Vertex, Edge};
+
 use petgraph::stable_graph::StableDiGraph;
 
 mod algorithm;
@@ -26,11 +30,28 @@ impl Default for Config {
 }
 
 pub fn from_edges(edges: &[(u32, u32)]) -> CoordinatesBuilder<&[(u32, u32)]> {
-    CoordinatesBuilder::build_layout_from_edges(edges)
+    let graph = StableDiGraph::from_edges(edges);
+    CoordinatesBuilder::new(graph)
 }
 
-pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>) -> CoordinatesBuilder<&StableDiGraph<V, E>> {
-    CoordinatesBuilder::build_layout_from_graph(graph)
+pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>) -> CoordinatesBuilder<StableDiGraph<V, E>> {
+    let graph = graph.map(|id, _| Vertex::new(id.index()), |_, _| Edge::default());
+    CoordinatesBuilder::new(graph)
+}
+
+pub fn from_vertices_and_edges(vertices: &[u32], edges: &[(u32, u32)]) -> CoordinatesBuilder<StableDiGraph<usize, usize>> {
+    let mut graph = StableDiGraph::new();
+    let mut id_map = HashMap::new();
+    for v in vertices {
+        let id = graph.add_node(Vertex::new(*v as usize));
+        id_map.insert(*v, id);
+    }
+
+    for (tail, head) in edges {
+        graph.add_edge(*id_map.get(tail).unwrap(), *id_map.get(head).unwrap(), Edge::default());
+    }
+
+    CoordinatesBuilder::new(graph)
 }
 
 #[cfg(test)]

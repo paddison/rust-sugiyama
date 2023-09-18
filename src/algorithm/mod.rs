@@ -11,7 +11,7 @@ mod p2_reduce_crossings;
 mod p3_calculate_coordinates;
 
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
-struct Vertex {
+pub(super) struct Vertex {
     id: usize,
     rank: i32,
     pos: usize,
@@ -27,6 +27,12 @@ struct Vertex {
 }
 
 impl Vertex {
+    pub(super) fn new(id: usize) -> Self {
+        let mut v = Self::default();
+        v.id = id;
+        v
+    }
+
     #[cfg(test)]
     fn new_test_p1(low: u32, lim: u32, parent: Option<NodeIndex>, is_tree_vertex: bool) -> Self {
         Self {
@@ -84,7 +90,7 @@ impl Default for Vertex {
 }
 
 #[derive(Clone, Copy)]
-struct Edge {
+pub(super) struct Edge {
     weight: i32,
     cut_value: Option<i32>,
     is_tree_edge: bool,
@@ -114,9 +120,13 @@ pub(super) fn build_layout_from_graph<T, E>(graph: &StableDiGraph<T, E>, config:
     start(algo_graph, config)
 }
 
-fn start(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layouts<usize> {
+pub(super) fn start(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layouts<usize> {
     init_graph(&mut graph);
     into_weakly_connected_components(graph).into_iter().map(|g| build_layout(g, config)).collect()
+}
+
+pub(super) fn map_input_graph<V, E>(graph: &StableDiGraph<V, E>) -> StableDiGraph<Vertex, Edge> {
+    graph.map(|_, _,| Vertex::default() , |_, _| Edge::default())
 }
 
 fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
