@@ -162,9 +162,11 @@ pub(super) fn insert_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, min
 
 // TODO: Maybe write store all upper neighbors on vertex directly
 pub(super) fn ordering(graph: &mut StableDiGraph<Vertex, Edge>) -> Vec<Vec<NodeIndex>> {
-    let order = init_order(graph);
+    let mut order = init_order(graph);
+    println!("c: {}", order.crossings(graph));
     // move downwards for crossing reduction
-    reduce_crossings_bilayer_sweep(graph, order)._inner
+    let order = reduce_crossings_bilayer_sweep(graph, order);
+    order._inner
 }
 
 fn init_order(graph: &StableDiGraph<Vertex, Edge>) -> Order {
@@ -196,7 +198,17 @@ fn init_order(graph: &StableDiGraph<Vertex, Edge>) -> Order {
         .node_indices()
         .for_each(|v| dfs(v, &mut order, &graph, &mut visited));
 
-    // fill in initial position
+    // order[0].swap(1, 2);
+    // order[0].swap(3, 4);
+    // order[2].swap(2, 0);
+    // order[2].swap(4, 5);
+    // order[2].swap(6, 7);
+    // order[2].swap(8, 9);
+    // order[2].swap(0, 1);
+    // order[2].swap(2, 3);
+    // order[2].swap(4, 5);
+    // order[2].swap(6, 7);
+    // order[2].swap(8, 9);
     Order::new(order)
 }
 
@@ -207,6 +219,7 @@ fn reduce_crossings_bilayer_sweep(graph: &StableDiGraph<Vertex, Edge>, mut order
     for i in 0.. {
         order = wmedian(graph, i % 2 == 0, &order);
         let crossings = order.crossings(graph);
+        println!("c: {crossings}");
         if crossings < best_crossings {
             best_crossings = crossings;
             best = order.clone();
@@ -222,15 +235,19 @@ fn reduce_crossings_bilayer_sweep(graph: &StableDiGraph<Vertex, Edge>, mut order
 }
 
 fn wmedian(graph: &StableDiGraph<Vertex, Edge>, move_down: bool, current: &Order) -> Order {
-    let dir = if move_down {
-        IterDir::Forward
-    } else {
-        IterDir::Backward
-    };
     let mut o = vec![Vec::new(); current.max_rank()];
-    let mut positions = HashMap::new();
+    let mut positions = current.positions.clone();
+    let dir: Vec<usize> = if move_down {
+        o[0] = current._inner[0].clone();
+        (1..current.max_rank()).collect()
+    } else {
+        o[current.max_rank() - 1] = current._inner[current.max_rank() - 1].clone();
+        (0..current.max_rank() - 1).collect()
+    };
 
-    for rank in util::iterate(dir, current.max_rank()) {
+
+    for rank in dir {
+        println!("r: {rank}");
         o[rank] = current[rank].clone();
         //println!("{:?}", self.order[rank]);
         o[rank].sort_by(|a, b| {
@@ -285,18 +302,18 @@ fn barycenter(
     move_down: bool,
     positions: &HashMap<NodeIndex, usize>,
 ) -> f64 {
-    let neighbors = if move_down {
-        graph.neighbors_directed(vertex, Incoming)
+    let neighbors: Vec<_> = if move_down {
+        graph.neighbors_directed(vertex, Incoming).collect()
     } else {
-        graph.neighbors_directed(vertex, Outgoing)
+        graph.neighbors_directed(vertex, Outgoing).collect()
     };
 
-    if neighbors.size_hint().0 == 0 {
+    if neighbors.len() == 0 {
         return 0.;
     }
 
     // Only look at direct neighbors
-    let adjacent = neighbors
+    let adjacent = neighbors.into_iter()
         .filter(|n| graph[vertex].rank.abs_diff(graph[*n].rank) == 1)
         .map(|n| *positions.get(&n).unwrap())
         .collect::<Vec<usize>>();

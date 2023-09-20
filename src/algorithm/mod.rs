@@ -70,6 +70,13 @@ impl Vertex {
             sink: align_root_sink,
         }
     }
+
+    #[cfg(test)]
+    pub fn new_with_rank(rank: i32) -> Self {
+        let mut v = Self::default();
+        v.rank = rank;
+        v
+    }
 }
 
 impl Default for Vertex {
@@ -190,6 +197,9 @@ fn execute_phase_3(
     mut layers: Vec<Vec<NodeIndex>>,
     vertex_spacing: usize,
 ) -> Layout {
+    for l in &layers {
+        println!("{l:?}");
+    }
     let width = layers.iter().map(|l| l.len()).max().unwrap_or(0);
     let height = layers.len();
     let mut layouts = p3::create_layouts(graph, &mut layers, vertex_spacing);

@@ -265,6 +265,8 @@ fn enter_edge_find_edge() {
 mod integration {
 
     use petgraph::stable_graph::StableDiGraph;
+    use crate::{Config, LayeringType};
+    use crate::algorithm::build_layout;
     use crate::algorithm::p1::ranking::print_ranks;
 
     use crate::algorithm::p1_layering::{Vertex, Edge, slack, rank};
@@ -340,11 +342,14 @@ mod integration {
         ];
 
         let (mut graph, ..) = GraphBuilder::new(&edges).build();
-        feasible_tree(&mut graph, 1);
-        insert_dummy_vertices(&mut graph, 1);
-        for l in ordering(&mut graph) {
-            println!("{:?}", l.iter().map(|n| n.index()).collect::<Vec<_>>());
-        }
+        // // feasible_tree(&mut graph, 1);
+        // // insert_dummy_vertices(&mut graph, 1);
+        // // for l in ordering(&mut graph) {
+        // //     println!("{:?}", l.iter().map(|n| n.index()).collect::<Vec<_>>());
+        // }
+        let mut cfg = Config::default();
+        cfg.layering_type = LayeringType::Up;
+        build_layout(graph, cfg);
         //for v in graph.node_indices() {
         //    print!("{}: {}, ", v.index(), graph[v].rank);
         //}
