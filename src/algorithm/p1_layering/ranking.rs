@@ -4,9 +4,19 @@ use petgraph::{stable_graph::{StableDiGraph, NodeIndex, EdgeIndex}, Direction::{
 
 use super::{Vertex, Edge, slack, cut_values::init_cutvalues, low_lim::init_low_lim};
 
+pub(crate) fn print_ranks(graph: &StableDiGraph<Vertex, Edge>) {
+    for (i, v) in graph.node_indices().enumerate() {
+        if i != 0 && i % 5 == 0 {
+            println!("");
+        }
+        print!("{}: {},\t ", v.index(), graph[v].rank);
+    }
+    println!("\n");
+}
 
 pub(super) fn feasible_tree(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
     init_rank(graph, minimum_length);
+    print_ranks(graph);
 
     let tree_root = graph.node_indices().next().unwrap();
 
@@ -20,6 +30,7 @@ pub(super) fn feasible_tree(graph: &mut StableDiGraph<Vertex, Edge>, minimum_len
         }
 
         tighten_edge(graph, delta);
+        print_ranks(graph);
     }
 
     init_cutvalues(graph);

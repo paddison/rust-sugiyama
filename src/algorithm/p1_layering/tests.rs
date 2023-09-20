@@ -265,8 +265,12 @@ fn enter_edge_find_edge() {
 mod integration {
 
     use petgraph::stable_graph::StableDiGraph;
+    use crate::algorithm::p1::ranking::print_ranks;
 
     use crate::algorithm::p1_layering::{Vertex, Edge, slack, rank};
+    use crate::algorithm::p1_layering::ranking::feasible_tree;
+    use crate::algorithm::p2::insert_dummy_vertices;
+    use crate::algorithm::p2_reduce_crossings::ordering;
 
     use super::{EXAMPLE_GRAPH, GraphBuilder};
 
@@ -302,7 +306,11 @@ mod integration {
     #[test]
     fn run_algorithm_tree_500_nodes_three_edges_per_node() {
         use graph_generator::GraphLayout;
-        let edges = GraphLayout::new_from_num_nodes(500, 3).build_edges().into_iter().map(|(t, h)| (t as u32, h as u32)).collect::<Vec<_>>();
+        let edges = GraphLayout::new_from_num_nodes(500, 3)
+            .build_edges()
+            .into_iter()
+            .map(|(t, h)| (t as u32, h as u32))
+            .collect::<Vec<_>>();
         let (mut graph, ..) = GraphBuilder::new(&edges).build();
         rank(&mut graph, 1);
         assert!(is_correct(graph, 1));
@@ -311,10 +319,34 @@ mod integration {
     #[test]
     fn run_algorithm_random_graph_1000_nodes() {
         use graph_generator::RandomLayout;
-        let edges = RandomLayout::new(1000).build_edges().into_iter().map(|(t, h)| (t as u32, h as u32)).collect::<Vec<_>>();
+        let edges = RandomLayout::new(1000)
+            .build_edges()
+            .into_iter()
+            .map(|(t, h)| (t as u32, h as u32))
+            .collect::<Vec<_>>();
         println!("built random layout");
         let (mut graph, ..) = GraphBuilder::new(&edges).build();
         rank(&mut graph, 1);
         assert!(is_correct(graph, 1));
+    }
+
+    #[test]
+    fn db_nmpi_hlrs() {
+        let edges = [
+            (0, 5), (0, 11), (1, 10), (1, 6), (1, 12),
+            (2, 11), (2, 7), (2, 13), (3, 12), (3, 8), (3, 14), (4, 13), (4, 9),
+            (5, 10), (5, 16), (6, 15), (6, 11), (6, 17),
+            (7, 16), (7, 12), (7, 18), (8, 17), (8, 13), (8, 19), (9, 18), (9, 14)
+        ];
+
+        let (mut graph, ..) = GraphBuilder::new(&edges).build();
+        feasible_tree(&mut graph, 1);
+        insert_dummy_vertices(&mut graph, 1);
+        for l in ordering(&mut graph) {
+            println!("{:?}", l.iter().map(|n| n.index()).collect::<Vec<_>>());
+        }
+        //for v in graph.node_indices() {
+        //    print!("{}: {}, ", v.index(), graph[v].rank);
+        //}
     }
 }
