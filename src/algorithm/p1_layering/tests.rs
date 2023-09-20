@@ -349,6 +349,7 @@ mod integration {
         // }
         let mut cfg = Config::default();
         cfg.layering_type = LayeringType::Up;
+        cfg.no_dummy_vertices = true;
         build_layout(graph, cfg);
         //for v in graph.node_indices() {
         //    print!("{}: {}, ", v.index(), graph[v].rank);

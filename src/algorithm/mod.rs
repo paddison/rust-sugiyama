@@ -186,9 +186,9 @@ fn execute_phase_2(
     no_dummy_vertices: bool,
 ) -> Vec<Vec<NodeIndex>> {
     p2::insert_dummy_vertices(graph, minimum_length);
-    let order = p2::ordering(graph);
+    let mut order = p2::ordering(graph);
     if no_dummy_vertices {
-        p2::remove_dummy_vertices(graph);
+        p2::remove_dummy_vertices(graph, &mut order);
     }
     order
 }

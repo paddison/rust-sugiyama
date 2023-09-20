@@ -161,7 +161,7 @@ pub(super) fn insert_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, min
     }
 }
 
-pub(super) fn remove_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>) {
+pub(super) fn remove_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, order: &mut[Vec<NodeIndex>]) {
     // go through all nodes in topological order
     // see if any outgoing neighbors are dummies
     // follow them until the other non dummy node is found
@@ -171,18 +171,26 @@ pub(super) fn remove_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>) {
     for v in vertices {
         let mut edges = Vec::new();
         for mut n in graph.neighbors_directed(v, Outgoing) {
-            while graph[n].is_dummy {
-                let dummy_neighbors = graph.neighbors_directed(n, Outgoing).collect::<Vec<_>>();
-                assert_eq!(dummy_neighbors.len(), 1);
-                n = dummy_neighbors[0];
+            if graph[n].is_dummy {
+                while graph[n].is_dummy {
+                    let dummy_neighbors = graph.neighbors_directed(n, Outgoing).collect::<Vec<_>>();
+                    assert_eq!(dummy_neighbors.len(), 1);
+                    n = dummy_neighbors[0];
+                }
+                edges.push((v, n));
             }
-            edges.push((v, n));
         }
         for (tail, head) in edges {
             graph.add_edge(tail, head, Edge::default());
         }
     }
-
+    // remove from order
+    for mut l in order {
+        *l = l.into_iter()
+            .filter(|v| !graph[**v].is_dummy)
+            .map(|v| *v)
+            .collect();
+    }
     graph.retain_nodes(|g, v| !g[v].is_dummy);
 }
 
