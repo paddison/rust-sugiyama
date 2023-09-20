@@ -170,7 +170,7 @@ fn execute_phase_1(
         LayeringType::Up => move_vertices_up(graph, minimum_length),
         _ => p1::rank(graph, minimum_length),
     }
-    p1::rank(graph, minimum_length);
+    //p1::rank(graph, minimum_length);
 }
 
 fn execute_phase_2(
