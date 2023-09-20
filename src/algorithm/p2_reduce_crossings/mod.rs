@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 
+use petgraph::algo::toposort;
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use petgraph::Direction::{Incoming, Outgoing};
 
@@ -160,6 +161,31 @@ pub(super) fn insert_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, min
     }
 }
 
+pub(super) fn remove_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>) {
+    // go through all nodes in topological order
+    // see if any outgoing neighbors are dummies
+    // follow them until the other non dummy node is found
+    // insert old edge
+    // remove all dummy nodes
+    let vertices = toposort(&*graph, None).unwrap();
+    for v in vertices {
+        let mut edges = Vec::new();
+        for mut n in graph.neighbors_directed(v, Outgoing) {
+            while graph[n].is_dummy {
+                let dummy_neighbors = graph.neighbors_directed(n, Outgoing).collect::<Vec<_>>();
+                assert_eq!(dummy_neighbors.len(), 1);
+                n = dummy_neighbors[0];
+            }
+            edges.push((v, n));
+        }
+        for (tail, head) in edges {
+            graph.add_edge(tail, head, Edge::default());
+        }
+    }
+
+    graph.retain_nodes(|g, v| !g[v].is_dummy);
+}
+
 // TODO: Maybe write store all upper neighbors on vertex directly
 pub(super) fn ordering(graph: &mut StableDiGraph<Vertex, Edge>) -> Vec<Vec<NodeIndex>> {
     let mut order = init_order(graph);
@@ -245,7 +271,6 @@ fn wmedian(graph: &StableDiGraph<Vertex, Edge>, move_down: bool, current: &Order
         (0..current.max_rank() - 1).collect()
     };
 
-
     for rank in dir {
         println!("r: {rank}");
         o[rank] = current[rank].clone();
@@ -313,7 +338,8 @@ fn barycenter(
     }
 
     // Only look at direct neighbors
-    let adjacent = neighbors.into_iter()
+    let adjacent = neighbors
+        .into_iter()
         .filter(|n| graph[vertex].rank.abs_diff(graph[*n].rank) == 1)
         .map(|n| *positions.get(&n).unwrap())
         .collect::<Vec<usize>>();
