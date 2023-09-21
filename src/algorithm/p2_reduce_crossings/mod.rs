@@ -161,7 +161,10 @@ pub(super) fn insert_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, min
     }
 }
 
-pub(super) fn remove_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, order: &mut[Vec<NodeIndex>]) {
+pub(super) fn remove_dummy_vertices(
+    graph: &mut StableDiGraph<Vertex, Edge>,
+    order: &mut [Vec<NodeIndex>],
+) {
     // go through all nodes in topological order
     // see if any outgoing neighbors are dummies
     // follow them until the other non dummy node is found
@@ -186,7 +189,8 @@ pub(super) fn remove_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, ord
     }
     // remove from order
     for mut l in order {
-        *l = l.into_iter()
+        *l = l
+            .into_iter()
             .filter(|v| !graph[**v].is_dummy)
             .map(|v| *v)
             .collect();
@@ -251,10 +255,10 @@ fn reduce_crossings_bilayer_sweep(graph: &StableDiGraph<Vertex, Edge>, mut order
     let mut last_best = 0;
     let mut best = order.clone();
     for i in 0.. {
-        order = wmedian(graph, i % 2 == 0, &order);
+        order = wmedian(graph, i % 2 == 0, &best);
         let crossings = order.crossings(graph);
-        println!("c: {crossings}");
         if crossings < best_crossings {
+            println!("c: {crossings}");
             best_crossings = crossings;
             best = order.clone();
             last_best = 0;
