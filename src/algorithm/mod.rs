@@ -185,6 +185,15 @@ fn execute_phase_2(
     minimum_length: i32,
     no_dummy_vertices: bool,
 ) -> Vec<Vec<NodeIndex>> {
+    // build layer to test them
+    let mut test_layers =
+        vec![vec![]; graph.node_weights().map(|w| w.rank as usize).max().unwrap() + 1];
+    for v in graph.node_indices() {
+        test_layers[graph[v].rank as usize].push(v);
+    }
+    for l in test_layers {
+        println!("{l:?}");
+    }
     p2::insert_dummy_vertices(graph, minimum_length);
     let mut order = p2::ordering(graph);
     if no_dummy_vertices {
@@ -200,8 +209,9 @@ fn execute_phase_3(
     vertex_spacing: usize,
 ) -> Layout {
     for l in &layers {
-        let l = l.iter().map(|v| graph[*v].id).collect::<Vec<_>>();
+        let id = l.iter().map(|v| graph[*v].id).collect::<Vec<_>>();
         println!("{l:?}");
+        println!("{id:?}");
     }
     let width = layers.iter().map(|l| l.len()).max().unwrap_or(0);
     let height = layers.len();

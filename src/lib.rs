@@ -54,6 +54,7 @@ pub fn from_vertices_and_edges<'a>(
     vertices: &'a [u32],
     edges: &'a [(u32, u32)],
 ) -> CoordinatesBuilder<(&'a [u32], &'a [(u32, u32)])> {
+    println!("from v and e");
     let mut graph = StableDiGraph::new();
     let mut id_map = HashMap::new();
     for v in vertices {

@@ -407,10 +407,32 @@ mod integration {
     #[test]
     fn db_nmpi_hlrs() {
         let edges = [
-            (0, 5), (0, 11), (2, 11), (2, 7), (2, 13), (1, 10), (1, 6), (1, 12),
-            (4, 13), (4, 9), (3, 12), (3, 8), (3, 14), 
-            (5, 10), (5, 16), (6, 15), (6, 11), (6, 17),
-            (7, 16), (7, 12), (7, 18), (8, 17), (8, 13), (8, 19), (9, 18), (9, 14)
+            (0, 5),
+            (0, 11),
+            (2, 11),
+            (2, 7),
+            (2, 13),
+            (1, 10),
+            (1, 6),
+            (1, 12),
+            (4, 13),
+            (4, 9),
+            (3, 12),
+            (3, 8),
+            (3, 14),
+            (5, 10),
+            (5, 16),
+            (6, 15),
+            (6, 11),
+            (6, 17),
+            (7, 16),
+            (7, 12),
+            (7, 18),
+            (8, 17),
+            (8, 13),
+            (8, 19),
+            (9, 18),
+            (9, 14),
         ];
 
         let (mut graph, ..) = GraphBuilder::new(&edges).build();
@@ -422,7 +444,8 @@ mod integration {
         let mut cfg = Config::default();
         cfg.layering_type = LayeringType::Up;
         cfg.no_dummy_vertices = true;
-        build_layout(graph, cfg);
+        crate::algorithm::start(graph, cfg);
+        //build_layout(graph, cfg);
         //for v in graph.node_indices() {
         //    print!("{}: {}, ", v.index(), graph[v].rank);
         //}

@@ -236,17 +236,6 @@ fn init_order(graph: &StableDiGraph<Vertex, Edge>) -> Order {
         .node_indices()
         .for_each(|v| dfs(v, &mut order, &graph, &mut visited));
 
-    // order[0].swap(1, 2);
-    // order[0].swap(3, 4);
-    // order[2].swap(2, 0);
-    // order[2].swap(4, 5);
-    // order[2].swap(6, 7);
-    // order[2].swap(8, 9);
-    // order[2].swap(0, 1);
-    // order[2].swap(2, 3);
-    // order[2].swap(4, 5);
-    // order[2].swap(6, 7);
-    // order[2].swap(8, 9);
     Order::new(order)
 }
 
@@ -258,7 +247,6 @@ fn reduce_crossings_bilayer_sweep(graph: &StableDiGraph<Vertex, Edge>, mut order
         order = wmedian(graph, i % 2 == 0, &best);
         let crossings = order.crossings(graph);
         if crossings < best_crossings {
-            println!("c: {crossings}");
             best_crossings = crossings;
             best = order.clone();
             last_best = 0;
@@ -284,7 +272,6 @@ fn wmedian(graph: &StableDiGraph<Vertex, Edge>, move_down: bool, current: &Order
     };
 
     for rank in dir {
-        println!("r: {rank}");
         o[rank] = current[rank].clone();
         //println!("{:?}", self.order[rank]);
         o[rank].sort_by(|a, b| {
