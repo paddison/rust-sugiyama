@@ -200,6 +200,7 @@ fn execute_phase_3(
     vertex_spacing: usize,
 ) -> Layout {
     for l in &layers {
+        let l = l.iter().map(|v| graph[*v].id).collect::<Vec<_>>();
         println!("{l:?}");
     }
     let width = layers.iter().map(|l| l.len()).max().unwrap_or(0);
