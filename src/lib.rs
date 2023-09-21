@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
+use algorithm::{Edge, Vertex};
 use configure::CoordinatesBuilder;
-use algorithm::{Vertex, Edge};
 
 use petgraph::stable_graph::StableDiGraph;
 
 mod algorithm;
-mod util;
 mod configure;
+mod util;
 
 type Layout = (Vec<(usize, (isize, isize))>, usize, usize);
 type Layouts<T> = Vec<(Vec<(T, (isize, isize))>, usize, usize)>;
@@ -17,6 +17,15 @@ pub struct Config {
     minimum_length: u32,
     vertex_spacing: usize,
     root_vertices_on_top: bool,
+    no_dummy_vertices: bool,
+    layering_type: LayeringType,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum LayeringType {
+    Up,
+    Down,
+    Feasible,
 }
 
 impl Default for Config {
@@ -25,6 +34,8 @@ impl Default for Config {
             minimum_length: 1,
             vertex_spacing: 10,
             root_vertices_on_top: false,
+            no_dummy_vertices: false,
+            layering_type: LayeringType::Feasible,
         }
     }
 }
@@ -39,7 +50,11 @@ pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>) -> CoordinatesBuilder<Stabl
     CoordinatesBuilder::new(graph)
 }
 
-pub fn from_vertices_and_edges(vertices: &[u32], edges: &[(u32, u32)]) -> CoordinatesBuilder<StableDiGraph<usize, usize>> {
+pub fn from_vertices_and_edges<'a>(
+    vertices: &'a [u32],
+    edges: &'a [(u32, u32)],
+) -> CoordinatesBuilder<(&'a [u32], &'a [(u32, u32)])> {
+    println!("from v and e");
     let mut graph = StableDiGraph::new();
     let mut id_map = HashMap::new();
     for v in vertices {
@@ -48,7 +63,11 @@ pub fn from_vertices_and_edges(vertices: &[u32], edges: &[(u32, u32)]) -> Coordi
     }
 
     for (tail, head) in edges {
-        graph.add_edge(*id_map.get(tail).unwrap(), *id_map.get(head).unwrap(), Edge::default());
+        graph.add_edge(
+            *id_map.get(tail).unwrap(),
+            *id_map.get(head).unwrap(),
+            Edge::default(),
+        );
     }
 
     CoordinatesBuilder::new(graph)
@@ -60,7 +79,11 @@ mod benchmark {
 
     #[test]
     fn r_100() {
-        let edges = graph_generator::RandomLayout::new(100).build_edges().into_iter().map(|(r, l)| (r as u32, l as u32)).collect::<Vec<(u32, u32)>>();
+        let edges = graph_generator::RandomLayout::new(100)
+            .build_edges()
+            .into_iter()
+            .map(|(r, l)| (r as u32, l as u32))
+            .collect::<Vec<(u32, u32)>>();
         let start = std::time::Instant::now();
         let _ = from_edges(&edges).build();
         println!("Random 100 edges: {}ms", start.elapsed().as_millis());
@@ -68,7 +91,11 @@ mod benchmark {
 
     #[test]
     fn r_1000() {
-        let edges = graph_generator::RandomLayout::new(1000).build_edges().into_iter().map(|(r, l)| (r as u32, l as u32)).collect::<Vec<(u32, u32)>>();
+        let edges = graph_generator::RandomLayout::new(1000)
+            .build_edges()
+            .into_iter()
+            .map(|(r, l)| (r as u32, l as u32))
+            .collect::<Vec<(u32, u32)>>();
         let start = std::time::Instant::now();
         let _ = from_edges(&edges).build();
         println!("Random 1000 edges: {}ms", start.elapsed().as_millis());
@@ -97,7 +124,10 @@ mod benchmark {
         let edges = graph_generator::GraphLayout::new_from_num_nodes(n, e).build_edges();
         let start = std::time::Instant::now();
         let _ = from_edges(&edges).build();
-        println!("{n} nodes, {e} edges per node: {}ms", start.elapsed().as_millis());
+        println!(
+            "{n} nodes, {e} edges per node: {}ms",
+            start.elapsed().as_millis()
+        );
     }
 
     #[test]
@@ -107,7 +137,10 @@ mod benchmark {
         let edges = graph_generator::GraphLayout::new_from_num_nodes(n, e).build_edges();
         let start = std::time::Instant::now();
         let _ = from_edges(&edges).build();
-        println!("{n} nodes, {e} edges per node: {}ms", start.elapsed().as_millis());
+        println!(
+            "{n} nodes, {e} edges per node: {}ms",
+            start.elapsed().as_millis()
+        );
     }
 
     #[test]
@@ -117,7 +150,10 @@ mod benchmark {
         let edges = graph_generator::GraphLayout::new_from_num_nodes(n, e).build_edges();
         let start = std::time::Instant::now();
         let _ = from_edges(&edges).build();
-        println!("{n} nodes, {e} edges per node: {}ms", start.elapsed().as_millis());
+        println!(
+            "{n} nodes, {e} edges per node: {}ms",
+            start.elapsed().as_millis()
+        );
     }
 
     #[test]
@@ -127,29 +163,83 @@ mod benchmark {
         let edges = graph_generator::GraphLayout::new_from_num_nodes(n, e).build_edges();
         let start = std::time::Instant::now();
         let _ = from_edges(&edges).build();
-        println!("{n} nodes, {e} edges per node: {}ms", start.elapsed().as_millis());
+        println!(
+            "{n} nodes, {e} edges per node: {}ms",
+            start.elapsed().as_millis()
+        );
     }
 }
 
 #[cfg(test)]
 mod check_visuals {
+    use crate::from_vertices_and_edges;
+
     use super::from_edges;
-    
+
+    #[test]
+    fn test_no_dummies() {
+        let vertices = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+        ];
+        let edges = [
+            (1, 2),
+            (1, 3),
+            (2, 5),
+            (2, 16),
+            (4, 5),
+            (4, 6),
+            (4, 7),
+            (6, 17),
+            (6, 3),
+            (6, 18),
+            (8, 3),
+            (8, 9),
+            (8, 10),
+            (9, 16),
+            (9, 7),
+            (9, 19),
+            (11, 7),
+            (11, 12),
+            (11, 13),
+            (12, 18),
+            (12, 10),
+            (12, 20),
+            (14, 10),
+            (14, 15),
+            (15, 19),
+            (15, 13),
+        ];
+        let layout = from_vertices_and_edges(&vertices, &edges)
+            .no_dummy_vertices(true)
+            .root_vertices_on_top(true)
+            .build();
+    }
     #[test]
     fn verify_looks_good() {
         // NOTE: This test might fail eventually, since the order of lements in a row canot be guaranteed;
         let edges = [
-                (0, 1), 
-                (1, 2), 
-                (2, 3), (2, 4), 
-                (3, 5), (3, 6), (3, 7), (3, 8), (4, 5), (4, 6), (4, 7), (4, 8),
-                (5, 9), (6, 9), (7, 9), (8, 9)
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (2, 4),
+            (3, 5),
+            (3, 6),
+            (3, 7),
+            (3, 8),
+            (4, 5),
+            (4, 6),
+            (4, 7),
+            (4, 8),
+            (5, 9),
+            (6, 9),
+            (7, 9),
+            (8, 9),
         ];
-        let (layout, width, height) = &mut from_edges(&edges).build()[0]; 
+        let (layout, width, height) = &mut from_edges(&edges).build()[0];
         layout.sort_by(|a, b| a.0.cmp(&b.0));
 
         assert_eq!(*width, 4);
-        assert_eq!(*height,6);
+        assert_eq!(*height, 6);
         assert_eq!(layout[0], (0, (15, 0)));
         assert_eq!(layout[1], (1, (15, -10)));
         assert_eq!(layout[2], (2, (15, -20)));
@@ -193,9 +283,20 @@ mod check_visuals {
 
     #[test]
     fn check_coords_2() {
-        let edges = [(0, 1), (0, 2), (0, 3), (1, 4), (4, 5), (5, 6), (2, 6), (3, 6), (3, 7), (3, 8), (3, 9)];
+        let edges = [
+            (0, 1),
+            (0, 2),
+            (0, 3),
+            (1, 4),
+            (4, 5),
+            (5, 6),
+            (2, 6),
+            (3, 6),
+            (3, 7),
+            (3, 8),
+            (3, 9),
+        ];
         let layout = from_edges(&edges).build();
         println!("{:?}", layout);
     }
-
 }

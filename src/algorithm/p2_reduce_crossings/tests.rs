@@ -176,7 +176,7 @@ mod init_order {
 #[cfg(test)]
 mod order {
     use petgraph::stable_graph::StableDiGraph;
-    use crate::algorithm::p2_reduce_crossings::Order;
+    use crate::algorithm::{p2_reduce_crossings::Order, Edge, Vertex};
 
     static ORDER_TWO_CROSSINGS: [(u32, u32); 3] = [
         (0, 4), (1, 3), (2, 3)
@@ -200,5 +200,39 @@ mod order {
         ]);
         let graph = StableDiGraph::from_edges(&[(1, 8), (2, 7), (3, 6), (4, 5)]);
         assert_eq!(order.bilayer_cross_count(&graph, 0), 6);
+    }
+
+    #[test]
+    fn twelve_crossings() {
+        let mut g = StableDiGraph::<Vertex, Edge>::new();
+        let n0 = g.add_node(Vertex::new_with_rank(0));
+        let n1 = g.add_node(Vertex::new_with_rank(0));
+        let n2 = g.add_node(Vertex::new_with_rank(0));
+        let n3 = g.add_node(Vertex::new_with_rank(0));
+        let n4 = g.add_node(Vertex::new_with_rank(0));
+        let n5 = g.add_node(Vertex::new_with_rank(0));
+        let s0 = g.add_node(Vertex::new_with_rank(1));
+        let s1 = g.add_node(Vertex::new_with_rank(1));
+        let s2 = g.add_node(Vertex::new_with_rank(1));
+        let s3 = g.add_node(Vertex::new_with_rank(1));
+        let s4 = g.add_node(Vertex::new_with_rank(1));
+
+        g.add_edge(n0, s0, Edge::default());
+        g.add_edge(n1, s1, Edge::default());
+        g.add_edge(n1, s2, Edge::default());
+        g.add_edge(n2, s0, Edge::default());
+        g.add_edge(n2, s3, Edge::default());
+        g.add_edge(n2, s4, Edge::default());
+        g.add_edge(n3, s0, Edge::default());
+        g.add_edge(n3, s3, Edge::default());
+        g.add_edge(n4, s3, Edge::default());
+        g.add_edge(n5, s2, Edge::default());
+        g.add_edge(n5, s4, Edge::default());
+
+        let order = Order::new(vec![
+            vec![n0, n1, n2, n3, n4, n5], 
+            vec![s0, s1, s2, s3, s4],
+        ]);
+        assert_eq!(order.crossings(&g), 12);
     }
 }

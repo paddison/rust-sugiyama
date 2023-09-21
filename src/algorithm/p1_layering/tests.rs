@@ -1,15 +1,48 @@
-use petgraph::stable_graph::{StableDiGraph, NodeIndex, EdgeIndex};
+use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableDiGraph};
 
-use crate::algorithm::p1_layering::{cut_values::init_cutvalues, low_lim::init_low_lim, leave_edge, is_head_to_tail, enter_edge};
+use crate::algorithm::p1_layering::{
+    cut_values::init_cutvalues, enter_edge, is_head_to_tail, leave_edge, low_lim::init_low_lim,
+};
 
-use super::{Vertex, Edge};
+use super::{Edge, Vertex};
 
-pub(crate) static EXAMPLE_GRAPH: [(u32, u32); 9] = [(0, 1), (1, 2), (2, 3), (3, 7), (4, 6), (5, 6), (6, 7), (0, 4), (0, 5)];
-pub(crate) static EXAMPLE_GRAPH_NON_TIGHT_INITIAL_RANKING: [(u32, u32); 7] = [(0, 1), (1, 2), (2, 3), (3, 7), (4, 6), (5, 6), (6, 7)];
-pub(crate) static EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE: [(u32, u32); 7] = [(0, 1), (1, 2), (2, 3), (3, 7), (4, 6), (5, 6), (6, 7)];
-pub(crate) static EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE: [(u32, u32); 7] = [(0, 1), (0, 4), (1, 2), (2, 3), (3, 7), (4, 6), (5, 6)];
-pub(crate) static LOW_LIM_GRAPH: [(u32, u32); 8] = [(0, 1), (1, 2), (1, 3), (0, 4), (4, 5), (5, 6), (4, 7), (4, 8)];
-pub(crate) static LOW_LIM_GRAPH_AFTER_UPDATE: [(u32, u32); 8] = [(0, 1), (1, 2), (1, 3), (0, 4), (5, 6), (4, 7), (4, 8), (6, 7)];
+pub(crate) static EXAMPLE_GRAPH: [(u32, u32); 9] = [
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 7),
+    (4, 6),
+    (5, 6),
+    (6, 7),
+    (0, 4),
+    (0, 5),
+];
+pub(crate) static EXAMPLE_GRAPH_NON_TIGHT_INITIAL_RANKING: [(u32, u32); 7] =
+    [(0, 1), (1, 2), (2, 3), (3, 7), (4, 6), (5, 6), (6, 7)];
+pub(crate) static EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE: [(u32, u32); 7] =
+    [(0, 1), (1, 2), (2, 3), (3, 7), (4, 6), (5, 6), (6, 7)];
+pub(crate) static EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE: [(u32, u32); 7] =
+    [(0, 1), (0, 4), (1, 2), (2, 3), (3, 7), (4, 6), (5, 6)];
+pub(crate) static LOW_LIM_GRAPH: [(u32, u32); 8] = [
+    (0, 1),
+    (1, 2),
+    (1, 3),
+    (0, 4),
+    (4, 5),
+    (5, 6),
+    (4, 7),
+    (4, 8),
+];
+pub(crate) static LOW_LIM_GRAPH_AFTER_UPDATE: [(u32, u32); 8] = [
+    (0, 1),
+    (1, 2),
+    (1, 3),
+    (0, 4),
+    (5, 6),
+    (4, 7),
+    (4, 8),
+    (6, 7),
+];
 pub(crate) static LOW_LIM_GRAPH_LOW_LIM_VALUES: [(u32, u32, u32, Option<u32>); 9] = [
     (0, 1, 9, None),
     (1, 1, 3, Some(0)),
@@ -19,7 +52,7 @@ pub(crate) static LOW_LIM_GRAPH_LOW_LIM_VALUES: [(u32, u32, u32, Option<u32>); 9
     (5, 4, 5, Some(4)),
     (6, 4, 4, Some(5)),
     (7, 6, 6, Some(4)),
-    (8, 7, 7, Some(4))
+    (8, 7, 7, Some(4)),
 ];
 pub(crate) static EXAMPLE_GRAPH_LOW_LIM_VALUES_NEG_CUT_VALUE: [(u32, u32, u32, Option<u32>); 8] = [
     (0, 1, 8, None),
@@ -53,8 +86,8 @@ pub(super) struct GraphBuilder {
 impl GraphBuilder {
     pub(super) fn new(edges: &[(u32, u32)]) -> Self {
         let graph = StableDiGraph::<Vertex, Edge>::from_edges(edges);
-        Self { 
-            graph, 
+        Self {
+            graph,
             minimum_length: 1,
             connecting_path: Vec::new(),
             removed_edge: EdgeIndex::from(0),
@@ -67,27 +100,43 @@ impl GraphBuilder {
         &mut self.minimum_length
     }
 
-    pub(super) fn build(self) -> (StableDiGraph<Vertex, Edge>, i32, Vec<EdgeIndex>, EdgeIndex, NodeIndex) {
-        let Self { 
-            graph, 
-            minimum_length, 
-            connecting_path, 
-            removed_edge, 
-            least_common_ancestor 
+    pub(super) fn build(
+        self,
+    ) -> (
+        StableDiGraph<Vertex, Edge>,
+        i32,
+        Vec<EdgeIndex>,
+        EdgeIndex,
+        NodeIndex,
+    ) {
+        let Self {
+            graph,
+            minimum_length,
+            connecting_path,
+            removed_edge,
+            least_common_ancestor,
         } = self;
-        (graph, minimum_length, connecting_path, removed_edge, least_common_ancestor)
+        (
+            graph,
+            minimum_length,
+            connecting_path,
+            removed_edge,
+            least_common_ancestor,
+        )
     }
 
     // Blanket implementations
-    pub(super) fn with_minimum_length(mut self, minimum_length: u32) -> Self 
-    where Self: Sized 
+    pub(super) fn with_minimum_length(mut self, minimum_length: u32) -> Self
+    where
+        Self: Sized,
     {
         self.minimum_length = minimum_length as i32;
         self
     }
 
-    pub(super) fn with_cut_values(mut self, cut_values: &[(u32, u32, i32)]) -> Self 
-    where Self: Sized
+    pub(super) fn with_cut_values(mut self, cut_values: &[(u32, u32, i32)]) -> Self
+    where
+        Self: Sized,
     {
         for (tail, head, cut_value) in cut_values {
             // ignore any edges that do not exist
@@ -99,25 +148,30 @@ impl GraphBuilder {
         self
     }
 
-    pub(super) fn with_tree_edges(mut self, tree_edges: &[(u32, u32)]) -> Self 
-    where Self: Sized
+    pub(super) fn with_tree_edges(mut self, tree_edges: &[(u32, u32)]) -> Self
+    where
+        Self: Sized,
     {
         for (tail, head) in tree_edges {
             self.graph[NodeIndex::from(*tail)].is_tree_vertex = true;
             self.graph[NodeIndex::from(*head)].is_tree_vertex = true;
-            let edge = self.graph.find_edge((*tail).into(), (*head).into()).expect("Edge not found in tree.");
+            let edge = self
+                .graph
+                .find_edge((*tail).into(), (*head).into())
+                .expect("Edge not found in tree.");
             self.graph[edge].is_tree_edge = true;
         }
         self
     }
 
     /// Add low_lim_values to the graph.
-    /// 
+    ///
     /// Input is given by a slice of (NodeIndex, low, lim, parent).
-    /// 
+    ///
     /// Panics if vertex is not contained in tree.
-    pub(super) fn with_low_lim_values(mut self, low_lim: &[(u32, u32, u32, Option<u32>)]) -> Self 
-    where Self: Sized
+    pub(super) fn with_low_lim_values(mut self, low_lim: &[(u32, u32, u32, Option<u32>)]) -> Self
+    where
+        Self: Sized,
     {
         for (id, low, lim, parent) in low_lim {
             let weight = self.graph.node_weight_mut((*id).into()).unwrap();
@@ -131,9 +185,15 @@ impl GraphBuilder {
 
     #[allow(dead_code)]
     pub(super) fn with_connecting_path(mut self, connecting_path: &[(u32, u32)]) -> Self {
-        self.connecting_path = connecting_path.into_iter()
-                                              .map(|(tail, head)| self.graph.find_edge_undirected((*tail).into(), (*head).into()).unwrap().0)
-                                              .collect::<Vec<_>>();
+        self.connecting_path = connecting_path
+            .into_iter()
+            .map(|(tail, head)| {
+                self.graph
+                    .find_edge_undirected((*tail).into(), (*head).into())
+                    .unwrap()
+                    .0
+            })
+            .collect::<Vec<_>>();
         self
     }
 
@@ -149,9 +209,9 @@ impl GraphBuilder {
     /// Set the ranks, of the vertices.
     /// Used to check if outtdated ranks are updated
     /// correctly after update_ranks is run.
-    /// 
+    ///
     /// Input is  [(NodeIndex, rank)].
-    /// 
+    ///
     /// Panics if node is not part of graph.
     pub(super) fn with_ranks(mut self, ranks: &[(u32, i32)]) -> Self {
         for (n, r) in ranks {
@@ -161,9 +221,9 @@ impl GraphBuilder {
     }
 
     /// Set the least common ancestor, which is the root
-    /// of the path connecting the edge that will be added 
+    /// of the path connecting the edge that will be added
     /// to the graph.
-    /// 
+    ///
     /// Panics if vertex is not part of graph.
     pub(super) fn with_least_common_ancestor(mut self, lca: u32) -> Self {
         assert!(self.graph.contains_node(NodeIndex::from(lca)));
@@ -175,12 +235,12 @@ impl GraphBuilder {
 #[test]
 fn leave_edge_has_negative_cut_value() {
     let (mut graph, ..) = GraphBuilder::new(&EXAMPLE_GRAPH)
-                                                .with_tree_edges(&EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE)
-                                                .build();
-    
+        .with_tree_edges(&EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE)
+        .build();
+
     init_cutvalues(&mut graph);
     init_low_lim(&mut graph);
-    
+
     let leave_edge = leave_edge(&graph);
     assert!(leave_edge.is_some());
     let (tail, head) = graph.edge_endpoints(leave_edge.unwrap()).unwrap();
@@ -191,12 +251,12 @@ fn leave_edge_has_negative_cut_value() {
 #[test]
 fn leave_edge_has_no_negative_cut_value() {
     let (mut graph, ..) = GraphBuilder::new(&EXAMPLE_GRAPH)
-                                                .with_tree_edges(&EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE)
-                                                .build();
-    
+        .with_tree_edges(&EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE)
+        .build();
+
     init_cutvalues(&mut graph);
     init_low_lim(&mut graph);
-    
+
     let leave_edge = leave_edge(&graph);
     assert!(leave_edge.is_none());
 }
@@ -204,7 +264,10 @@ fn leave_edge_has_no_negative_cut_value() {
 #[test]
 fn test_is_head_to_tail_true_root_in_tail() {
     // u is always considered to be the tail of the edge to be swapped
-    let (mut graph, ..) = GraphBuilder::new(&LOW_LIM_GRAPH).with_tree_edges(&LOW_LIM_GRAPH).with_low_lim_values(&LOW_LIM_GRAPH_LOW_LIM_VALUES).build();
+    let (mut graph, ..) = GraphBuilder::new(&LOW_LIM_GRAPH)
+        .with_tree_edges(&LOW_LIM_GRAPH)
+        .with_low_lim_values(&LOW_LIM_GRAPH_LOW_LIM_VALUES)
+        .build();
     let u = 5;
     let u = *graph.node_weight(u.into()).unwrap();
     let tail = 6;
@@ -215,7 +278,10 @@ fn test_is_head_to_tail_true_root_in_tail() {
 
 #[test]
 fn test_is_head_to_tail_true_root_in_head() {
-    let (mut graph, ..) = GraphBuilder::new(&LOW_LIM_GRAPH).with_tree_edges(&LOW_LIM_GRAPH).with_low_lim_values(&LOW_LIM_GRAPH_LOW_LIM_VALUES).build();
+    let (mut graph, ..) = GraphBuilder::new(&LOW_LIM_GRAPH)
+        .with_tree_edges(&LOW_LIM_GRAPH)
+        .with_low_lim_values(&LOW_LIM_GRAPH_LOW_LIM_VALUES)
+        .build();
     let u = 4;
     let u = *graph.node_weight(u.into()).unwrap();
     let tail = 3;
@@ -226,7 +292,10 @@ fn test_is_head_to_tail_true_root_in_head() {
 
 #[test]
 fn test_is_head_to_tail_false_root_in_tail() {
-    let (mut graph, ..) = GraphBuilder::new(&LOW_LIM_GRAPH).with_tree_edges(&LOW_LIM_GRAPH).with_low_lim_values(&LOW_LIM_GRAPH_LOW_LIM_VALUES).build();
+    let (mut graph, ..) = GraphBuilder::new(&LOW_LIM_GRAPH)
+        .with_tree_edges(&LOW_LIM_GRAPH)
+        .with_low_lim_values(&LOW_LIM_GRAPH_LOW_LIM_VALUES)
+        .build();
     let u = 3;
     let u = *graph.node_weight(u.into()).unwrap();
     let tail = 4;
@@ -237,7 +306,10 @@ fn test_is_head_to_tail_false_root_in_tail() {
 
 #[test]
 fn test_is_head_to_tail_false_root_in_head() {
-    let (mut graph, ..) = GraphBuilder::new(&LOW_LIM_GRAPH).with_tree_edges(&LOW_LIM_GRAPH).with_low_lim_values(&LOW_LIM_GRAPH_LOW_LIM_VALUES).build();
+    let (mut graph, ..) = GraphBuilder::new(&LOW_LIM_GRAPH)
+        .with_tree_edges(&LOW_LIM_GRAPH)
+        .with_low_lim_values(&LOW_LIM_GRAPH_LOW_LIM_VALUES)
+        .build();
     let u = 2;
     let u = *graph.node_weight(u.into()).unwrap();
     let tail = 2;
@@ -254,7 +326,7 @@ fn enter_edge_find_edge() {
 
     init_cutvalues(&mut graph);
     init_low_lim(&mut graph);
-    
+
     let leave_edge = leave_edge(&graph).unwrap();
     let enter_edge = enter_edge(&mut graph, leave_edge, 1);
     let (tail, head) = graph.edge_endpoints(enter_edge).unwrap();
@@ -264,11 +336,17 @@ fn enter_edge_find_edge() {
 
 mod integration {
 
+    use crate::algorithm::build_layout;
+    use crate::algorithm::p1::ranking::print_ranks;
+    use crate::{Config, LayeringType};
     use petgraph::stable_graph::StableDiGraph;
 
-    use crate::algorithm::p1_layering::{Vertex, Edge, slack, rank};
+    use crate::algorithm::p1_layering::ranking::feasible_tree;
+    use crate::algorithm::p1_layering::{rank, slack, Edge, Vertex};
+    use crate::algorithm::p2::insert_dummy_vertices;
+    use crate::algorithm::p2_reduce_crossings::ordering;
 
-    use super::{EXAMPLE_GRAPH, GraphBuilder};
+    use super::{GraphBuilder, EXAMPLE_GRAPH};
 
     fn is_correct(graph: StableDiGraph<Vertex, Edge>, minimum_length: i32) -> bool {
         // all cut values must be positive,
@@ -302,7 +380,11 @@ mod integration {
     #[test]
     fn run_algorithm_tree_500_nodes_three_edges_per_node() {
         use graph_generator::GraphLayout;
-        let edges = GraphLayout::new_from_num_nodes(500, 3).build_edges().into_iter().map(|(t, h)| (t as u32, h as u32)).collect::<Vec<_>>();
+        let edges = GraphLayout::new_from_num_nodes(500, 3)
+            .build_edges()
+            .into_iter()
+            .map(|(t, h)| (t as u32, h as u32))
+            .collect::<Vec<_>>();
         let (mut graph, ..) = GraphBuilder::new(&edges).build();
         rank(&mut graph, 1);
         assert!(is_correct(graph, 1));
@@ -311,10 +393,61 @@ mod integration {
     #[test]
     fn run_algorithm_random_graph_1000_nodes() {
         use graph_generator::RandomLayout;
-        let edges = RandomLayout::new(1000).build_edges().into_iter().map(|(t, h)| (t as u32, h as u32)).collect::<Vec<_>>();
+        let edges = RandomLayout::new(1000)
+            .build_edges()
+            .into_iter()
+            .map(|(t, h)| (t as u32, h as u32))
+            .collect::<Vec<_>>();
         println!("built random layout");
         let (mut graph, ..) = GraphBuilder::new(&edges).build();
         rank(&mut graph, 1);
         assert!(is_correct(graph, 1));
+    }
+
+    #[test]
+    fn db_nmpi_hlrs() {
+        let edges = [
+            (0, 5),
+            (0, 11),
+            (2, 11),
+            (2, 7),
+            (2, 13),
+            (1, 10),
+            (1, 6),
+            (1, 12),
+            (4, 13),
+            (4, 9),
+            (3, 12),
+            (3, 8),
+            (3, 14),
+            (5, 10),
+            (5, 16),
+            (6, 15),
+            (6, 11),
+            (6, 17),
+            (7, 16),
+            (7, 12),
+            (7, 18),
+            (8, 17),
+            (8, 13),
+            (8, 19),
+            (9, 18),
+            (9, 14),
+        ];
+
+        let (mut graph, ..) = GraphBuilder::new(&edges).build();
+        // // feasible_tree(&mut graph, 1);
+        // // insert_dummy_vertices(&mut graph, 1);
+        // // for l in ordering(&mut graph) {
+        // //     println!("{:?}", l.iter().map(|n| n.index()).collect::<Vec<_>>());
+        // }
+        let mut cfg = Config::default();
+        cfg.layering_type = LayeringType::Up;
+        cfg.no_dummy_vertices = true;
+        crate::algorithm::start(graph, cfg);
+        //build_layout(graph, cfg);
+        //for v in graph.node_indices() {
+        //    print!("{}: {}, ", v.index(), graph[v].rank);
+        //}
     }
 }

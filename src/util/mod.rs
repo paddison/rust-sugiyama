@@ -1,10 +1,15 @@
-use std::collections::{HashSet, VecDeque, HashMap};
+use std::collections::{HashMap, HashSet, VecDeque};
 
-use petgraph::{stable_graph::{StableDiGraph, NodeIndex}, Direction::{Incoming, Outgoing}};
+use petgraph::{
+    stable_graph::{NodeIndex, StableDiGraph, EdgeIndex},
+    Direction::{Incoming, Outgoing},
+};
 
 /// Takes a graph and breaks it down into its weakly connected components.
 /// A weakly connected component is a list of edges which are connected with each other.
-pub fn into_weakly_connected_components<V, E>(mut graph: StableDiGraph<V, E>) -> Vec<StableDiGraph<V, E>> {
+pub fn into_weakly_connected_components<V: Copy, E: Copy>(
+    mut graph: StableDiGraph<V, E>,
+) -> Vec<StableDiGraph<V, E>> {
     // map graph weights to options so we can take them later while building the subgraphs
     let mut sub_graphs = Vec::new();
 
@@ -22,69 +27,34 @@ pub fn into_weakly_connected_components<V, E>(mut graph: StableDiGraph<V, E>) ->
             continue;
         }
 
-        let sub_graph_raw = determine_sub_graph(vertex, &mut graph);
-        
-        sub_graphs.push(build_sub_graph(sub_graph_raw, &mut graph));
+        let (vertices, edges) = find_component(vertex, &mut graph);
+        let component = graph.filter_map(|n, w| vertices.get(&n).map(|_| *w), |e, w| edges.get(&e).map(|_| *w));
+        graph.retain_nodes(|_, v| !vertices.contains(&v));
+        sub_graphs.push(component);
     }
 
-    return sub_graphs
+    return sub_graphs;
 }
 
-fn build_sub_graph<V, E>(raw_parts: Vec<(NodeIndex, NodeIndex, E)>, graph: &mut StableDiGraph<V, E>) -> StableDiGraph<V, E> {
-        // remove all edges from graph. store references to nodeindices with them.
-        // build new graph:
-        // start with first edge. create a set hashmap to lookup nodeindices 
-        let mut indices = HashMap::<NodeIndex, NodeIndex>::new();
-        let mut sub_graph = StableDiGraph::new();
-        for (from, to, weight) in raw_parts {
-            let sg_from = match indices.get(&from) {
-                Some(id) => *id,
-                None => {
-                    let id = sub_graph.add_node(graph.remove_node(from).unwrap());
-                    indices.insert(from, id);
-                    id
-                }
-            };
-            let sg_to = match indices.get(&to) {
-                Some(id) => *id,
-                None => {
-                    let id = sub_graph.add_node(graph.remove_node(to).unwrap());
-                    indices.insert(to, id);
-                    id
-                }
-            };
-            sub_graph.add_edge(sg_from, sg_to, weight);
-        }
-        sub_graph
-}
+fn find_component<V, E>(vertex: NodeIndex, graph: &StableDiGraph<V, E>, ) -> (HashSet<NodeIndex>, HashSet<EdgeIndex>) {
+    // traverse via dfs
+    let mut edges = HashSet::new();
+    let mut queue = VecDeque::from([vertex]);
+    let mut vertices = HashSet::from([vertex]);
 
-fn determine_sub_graph<V, E>(vertex: NodeIndex, graph: &mut StableDiGraph<V, E>) -> Vec<(NodeIndex, NodeIndex, E)> {
-        let mut visited = HashSet::<NodeIndex>::new();
-        let mut edges = Vec::<(NodeIndex, NodeIndex, E)>::new();
-
-        // traverse via bfs, remove edges as we go
-        let mut queue = VecDeque::from([vertex]);
-        while let Some(vertex) = queue.pop_front() {
-            visited.insert(vertex);
-            let mut incoming_walker = graph.neighbors_directed(vertex, Incoming).detach();
-            let mut outgoing_walker = graph.neighbors_directed(vertex, Outgoing).detach();
-            while let Some((e, n)) = incoming_walker.next(&graph) {
-                if !visited.contains(&n) {
-                    let edge_weight = graph.remove_edge(e).unwrap();
-                    edges.push((n, vertex, edge_weight));
-                    queue.push_back(n);
-                }
+    while let Some(vertex) = queue.pop_front() {
+        let mut neighbors = graph.neighbors_undirected(vertex).detach();
+        while let Some((e, n)) = neighbors.next(graph) {
+            if edges.contains(&e) {
+                continue;
             }
-            while let Some((e, n)) = outgoing_walker.next(&graph) {
-                if !visited.contains(&n) {
-                    let edge_weight = graph.remove_edge(e).unwrap();
-                    edges.push((vertex, n, edge_weight));
-                    queue.push_back(n);
-                }
-            }
+            vertices.insert(n);
+            edges.insert(e);
+            queue.push_front(n);
         }
 
-        edges
+    }
+    (vertices, edges)
 }
 
 #[test]
@@ -95,8 +65,8 @@ fn into_weakly_connected_components_two_components() {
     assert!(sgs[0].contains_edge(0.into(), 1.into()));
     assert!(sgs[0].contains_edge(1.into(), 2.into()));
     assert!(sgs[0].contains_edge(3.into(), 2.into()));
-    assert!(sgs[1].contains_edge(0.into(), 1.into()));
-    assert!(sgs[1].contains_edge(0.into(), 2.into()));
+    assert!(sgs[1].contains_edge(4.into(), 5.into()));
+    assert!(sgs[1].contains_edge(4.into(), 6.into()));
 }
 
 // todo: Refactor this into trait
@@ -106,9 +76,10 @@ pub(super) fn iterate(dir: IterDir, length: usize) -> impl Iterator<Item = usize
         IterDir::Backward => (length, usize::MAX),
     };
     std::iter::repeat_with(move || {
-            start = start.wrapping_add(step);
-            start
-        }).take(length)
+        start = start.wrapping_add(step);
+        start
+    })
+    .take(length)
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -131,7 +102,7 @@ pub(super) fn radix_sort(mut input: Vec<usize>, key_length: usize) -> Vec<usize>
 
 #[inline(always)]
 fn counting_sort(input: &mut [usize], key: usize, output: &mut [usize]) {
-    let mut count = [0; 10]; 
+    let mut count = [0; 10];
     // insert initial counts
     for i in input.iter().map(|n| self::key(key, *n)) {
         count[i] += 1;
