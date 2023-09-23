@@ -57,13 +57,13 @@ pub(crate) fn align_to_smallest_width_layout(aligned_layouts: &mut[HashMap<NodeI
     for (i, layout) in aligned_layouts.iter_mut().enumerate() {
         // if i % 2 == 0, then horizontal direction was left
         let shift = if i % 2 == 0 { 
-            min_max[i].0 as isize - min_max[min_width].0 as isize
+            min_max[i].0 - min_max[min_width].0
         } else { 
-            min_max[min_width].1  as isize - min_max[i].1 as isize 
+            min_max[min_width].1 - min_max[i].1 
         };
         for v in layout.values_mut() {
-            let new = *v as isize + shift;
-            *v = new as isize;
+            let new = *v + shift;
+            *v = new;
         }
     }
 }
@@ -90,7 +90,7 @@ pub(crate) fn calculate_relative_coords(aligned_layouts: Vec<HashMap<NodeIndex, 
 
 fn is_incident_to_inner_segment(graph: &StableDiGraph<Vertex, Edge>, id: NodeIndex) -> bool {
     graph[id].is_dummy &&
-    graph.neighbors_directed(id, Incoming).into_iter().any(|n| graph[n].is_dummy)
+    graph.neighbors_directed(id, Incoming).any(|n| graph[n].is_dummy)
 }
 
 /// Assumes id is incident to inner segment 
@@ -129,7 +129,7 @@ fn mark_type_1_conflicts(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<
                         graph[edge].has_type_1_conflict = true;
                     }
                 }
-                l = l + 1;
+                l += 1;
             }
             left_dummy_index = right_dummy_index;
         }
@@ -154,18 +154,19 @@ pub(super) fn reset_alignment(graph: &mut StableDiGraph<Vertex, Edge>, layers: &
 /// Aligns the graph in so called blocks, which are used in the next step 
 /// to determine the x-coordinate of a vertex.
 fn create_vertical_alignments(graph: &mut StableDiGraph<Vertex, Edge>, layers: &mut [Vec<NodeIndex>]) {
-    for i in 0..layers.len() {
+       for layer in layers {
         let mut r = -1;
 
-        for k in 0..layers[i].len() {
-            let v = layers[i][k];
+        for v in layer.iter().copied() {
             let mut edges = graph.edges_directed(v, Incoming)
                 .filter(|e| slack(graph, e.id(), 1) == 0)
                 .map(|e| (e.id(), e.source()))
                 .collect::<Vec<_>>();
-            if edges.len() == 0 {
+
+            if edges.is_empty() {
                 continue;
             }
+
             edges.sort_by(|e1, e2| graph[e1.1].pos.cmp(&graph[e2.1].pos));
 
             let d = (edges.len() as f64 + 1.) / 2. - 1.; // need to subtract one because indices are zero based
@@ -175,6 +176,7 @@ fn create_vertical_alignments(graph: &mut StableDiGraph<Vertex, Edge>, layers: &
                 if graph[v].align == v {
                     let edge_id = edges[m].0;
                     let median_neighbor = edges[m].1;
+
                     if !graph[edge_id].has_type_1_conflict && r < graph[median_neighbor].pos as isize {
                         graph[median_neighbor].align = v;
                         graph[v].root = graph[median_neighbor].root;

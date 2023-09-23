@@ -11,6 +11,7 @@ mod util;
 
 type Layout = (Vec<(usize, (isize, isize))>, usize, usize);
 type Layouts<T> = Vec<(Vec<(T, (isize, isize))>, usize, usize)>;
+type RawGraph<'a> = (&'a [u32], &'a [(u32, u32)]);
 
 #[derive(Clone, Copy)]
 pub struct Config {
@@ -53,7 +54,7 @@ pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>) -> CoordinatesBuilder<Stabl
 pub fn from_vertices_and_edges<'a>(
     vertices: &'a [u32],
     edges: &'a [(u32, u32)],
-) -> CoordinatesBuilder<(&'a [u32], &'a [(u32, u32)])> {
+) -> CoordinatesBuilder<RawGraph<'a>> {
     println!("from v and e");
     let mut graph = StableDiGraph::new();
     let mut id_map = HashMap::new();
@@ -209,7 +210,7 @@ mod check_visuals {
             (15, 19),
             (15, 13),
         ];
-        let layout = from_vertices_and_edges(&vertices, &edges)
+        let _ = from_vertices_and_edges(&vertices, &edges)
             .no_dummy_vertices(true)
             .root_vertices_on_top(true)
             .build();

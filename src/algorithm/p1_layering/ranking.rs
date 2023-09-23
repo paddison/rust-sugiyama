@@ -10,7 +10,7 @@ use super::{cut_values::init_cutvalues, low_lim::init_low_lim, slack, Edge, Vert
 pub(crate) fn print_ranks(graph: &StableDiGraph<Vertex, Edge>) {
     for (i, v) in graph.node_indices().enumerate() {
         if i != 0 && i % 5 == 0 {
-            println!("");
+            println!();
         }
         print!("{}: {},\t ", v.index(), graph[v].rank);
     }
@@ -95,7 +95,7 @@ fn tight_tree(
     }
 
     let mut neighbors = graph.neighbors_undirected(vertex).detach();
-    while let Some(edge) = neighbors.next_edge(&graph) {
+    while let Some(edge) = neighbors.next_edge(graph) {
         let (tail, head) = graph.edge_endpoints(edge).unwrap();
         let other = if tail == vertex { head } else { tail };
 
@@ -137,7 +137,7 @@ fn is_incident_edge(graph: &StableDiGraph<Vertex, Edge>, edge: &EdgeIndex) -> bo
 fn find_non_tight_edge(graph: &StableDiGraph<Vertex, Edge>, minimum_length: i32) -> EdgeIndex {
     graph
         .edge_indices()
-        .filter(|e| !graph[*e].is_tree_edge && is_incident_edge(&graph, e))
+        .filter(|e| !graph[*e].is_tree_edge && is_incident_edge(graph, e))
         .min_by(|e1, e2| slack(graph, *e1, minimum_length).cmp(&slack(graph, *e2, minimum_length)))
         .unwrap()
 }

@@ -26,7 +26,7 @@ pub fn weakly_connected_components<V: Copy, E: Copy>(
         sub_graphs.push(sub_graph);
     }
 
-    return sub_graphs;
+    sub_graphs
 }
 
 fn find_components<V, E>(graph: &StableDiGraph<V, E>) -> (HashMap<NodeIndex, usize>, usize) {
@@ -70,7 +70,9 @@ fn into_weakly_connected_components_two_components() {
     assert!(sgs[1].contains_edge(4.into(), 6.into()));
 }
 
-// todo: Refactor this into trait
+// TODO: refactor into trait
+// disable warnings, since we might still need this someday
+#[allow(dead_code)]
 pub(super) fn iterate(dir: IterDir, length: usize) -> impl Iterator<Item = usize> {
     let (mut start, step) = match dir {
         IterDir::Forward => (usize::MAX, 1), // up corresponds to left to right
@@ -83,6 +85,7 @@ pub(super) fn iterate(dir: IterDir, length: usize) -> impl Iterator<Item = usize
     .take(length)
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub(super) enum IterDir {
     Forward,
@@ -116,12 +119,10 @@ fn counting_sort(input: &mut [usize], key: usize, output: &mut [usize]) {
 
     for i in (0..input.len()).rev() {
         let k = self::key(key, input[i]);
-        count[k] = count[k] - 1;
+        count[k] -= 1;
         output[count[k]] = input[i];
     }
-    for i in 0..input.len() {
-        input[i] = output[i];
-    }
+    input.copy_from_slice(&output[..input.len()]);
 }
 
 #[inline(always)]
