@@ -87,7 +87,9 @@ impl GraphBuilder {
 #[cfg(test)]
 mod insert_dummy_vertices {
 
-    use crate::algorithm::p2_reduce_crossings::{tests::{ONE_DUMMY, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS}, insert_dummy_vertices};
+    use petgraph::stable_graph::StableDiGraph;
+
+    use crate::{algorithm::p2_reduce_crossings::{tests::{ONE_DUMMY, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS}, insert_dummy_vertices}, configure::CoordinatesBuilder, Config};
 
     use super::{ONE_DUMMY_RANKS, GraphBuilder};
 
@@ -123,6 +125,22 @@ mod insert_dummy_vertices {
         assert_eq!(graph.node_weights().filter(|w| w.is_dummy).count(), 7);
         // one more vertex
         assert_eq!(n_vertices + 7, graph.node_count())
+    }
+
+    #[test]
+    fn bundle_dummy_vertices_ping_graph() {
+        let mut edges = [
+            (1, 2), (1, 4), (1, 5), (1, 3), (2, 4), (2, 5), (3, 9), 
+            (3, 10), (3, 8), (4, 6), (4, 9), (4, 8), (5, 6), (5, 10), (5, 8), 
+            (6, 7), (7, 9), (7, 10), (8, 14), (8, 15), (8, 13), (9, 11), (9, 14), 
+            (9, 13), (10, 11), (10, 15), (10, 13), (11, 12), (12, 14), (12, 15), 
+            (13, 18), (13, 19), (13, 20), (14, 16), (14, 18), (14, 20), (15, 16), 
+            (15, 19), (15, 20), (16, 17), (17, 18), (17, 19), (18, 21), (19, 21),
+        ];
+        for e in &mut edges { e.0 -= 1;  e.1 -= 1;}
+        let g = StableDiGraph::from_edges(&edges);
+        let c = Config::default();
+        crate::algorithm::start(g, c);
     }
 }
 
@@ -176,29 +194,50 @@ mod init_order {
 #[cfg(test)]
 mod order {
     use petgraph::stable_graph::StableDiGraph;
-    use crate::algorithm::{p2_reduce_crossings::Order, Edge, Vertex};
-
-    static ORDER_TWO_CROSSINGS: [(u32, u32); 3] = [
-        (0, 4), (1, 3), (2, 3)
-    ];
+    use crate::algorithm::{p2_reduce_crossings::Order, Edge, Vertex, p2::{barycenter, wmedian}};
 
     #[test]
     fn two_crossings() {
+        let mut graph = StableDiGraph::new();
+        let n0 = graph.add_node(Vertex::new_with_rank(0));
+        let n1 = graph.add_node(Vertex::new_with_rank(0));
+        let n2 = graph.add_node(Vertex::new_with_rank(0));
+        let s0 = graph.add_node(Vertex::new_with_rank(1));
+        let s1 = graph.add_node(Vertex::new_with_rank(1));
+
+        graph.add_edge(n0, s1, Edge::default());
+        graph.add_edge(n1, s0, Edge::default());
+        graph.add_edge(n2, s0, Edge::default());
+
         let order = Order::new(vec![
-            vec![0.into(), 1.into(), 2.into()], 
-            vec![3.into(), 4.into()]
+            vec![n0, n1, n2], 
+            vec![s0, s1],
         ]);
-        let graph = StableDiGraph::from_edges(&ORDER_TWO_CROSSINGS);
         assert_eq!(order.bilayer_cross_count(&graph, 0), 2);
     }
 
     #[test]
     fn four_crossings() {
+        let mut graph = StableDiGraph::new();
+        let n0 = graph.add_node(Vertex::new_with_rank(0));
+        let n1 = graph.add_node(Vertex::new_with_rank(0));
+        let n2 = graph.add_node(Vertex::new_with_rank(0));
+        let n3 = graph.add_node(Vertex::new_with_rank(0));
+        let s0 = graph.add_node(Vertex::new_with_rank(1));
+        let s1 = graph.add_node(Vertex::new_with_rank(1));
+        let s2 = graph.add_node(Vertex::new_with_rank(1));
+        let s3 = graph.add_node(Vertex::new_with_rank(1));
+
+        graph.add_edge(n0, s3, Edge::default());
+        graph.add_edge(n1, s2, Edge::default());
+        graph.add_edge(n2, s1, Edge::default());
+        graph.add_edge(n3, s0, Edge::default());
+
         let order = Order::new(vec![
-            vec![1.into(), 2.into(), 3.into(), 4.into()], 
-            vec![5.into(), 6.into(), 7.into(), 8.into()]
+            vec![n0, n1, n2, n3], 
+            vec![s0, s1, s2, s3],
         ]);
-        let graph = StableDiGraph::from_edges(&[(1, 8), (2, 7), (3, 6), (4, 5)]);
+
         assert_eq!(order.bilayer_cross_count(&graph, 0), 6);
     }
 
@@ -234,5 +273,38 @@ mod order {
             vec![s0, s1, s2, s3, s4],
         ]);
         assert_eq!(order.crossings(&g), 12);
+    }
+
+    #[test]
+    fn test_barycenter() {
+        let mut graph = StableDiGraph::new();
+        let n0 = graph.add_node(Vertex::new_with_rank(0)); // 33
+        let n1 = graph.add_node(Vertex::new_with_rank(0)); // 28
+        let n2 = graph.add_node(Vertex::new_with_rank(0)); // 6
+        let n3 = graph.add_node(Vertex::new_with_rank(0)); // 42
+        let n4 = graph.add_node(Vertex::new_with_rank(0)); // 31
+        let n5 = graph.add_node(Vertex::new_with_rank(0)); // 25
+        let n6 = graph.add_node(Vertex::new_with_rank(0)); // 38
+        let n7 = graph.add_node(Vertex::new_with_rank(0)); // 34
+        let s0 = graph.add_node(Vertex::new_with_rank(1)); // 9
+        let s1 = graph.add_node(Vertex::new_with_rank(1)); // 43
+        let s2 = graph.add_node(Vertex::new_with_rank(1)); // 8
+        let s3 = graph.add_node(Vertex::new_with_rank(1)); // 39
+        let s4 = graph.add_node(Vertex::new_with_rank(1)); // 35
+
+        graph.add_edge(n0, s0, Edge::default());
+        graph.add_edge(n1, s0, Edge::default());
+        graph.add_edge(n2, s0, Edge::default());
+        graph.add_edge(n2, s2, Edge::default());
+        graph.add_edge(n3, s1, Edge::default());
+        graph.add_edge(n4, s2, Edge::default());
+        graph.add_edge(n5, s2, Edge::default());
+        graph.add_edge(n6, s3, Edge::default());
+        graph.add_edge(n7, s4, Edge::default());
+
+        let _inner = vec![vec![n0, n2, n4, n3, n6, n7, n1, n5], vec![s0, s1, s2, s3, s4]];
+        let order = Order::new(_inner);
+        let expected_order = wmedian(&graph, false, &order);
+        assert_eq!(expected_order._inner[0], vec![n0, n1, n2, n3, n4, n5, n6, n7]);
     }
 }

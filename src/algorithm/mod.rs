@@ -98,7 +98,7 @@ impl Default for Vertex {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub(super) struct Edge {
     weight: i32,
     cut_value: Option<i32>,
@@ -192,9 +192,10 @@ fn execute_phase_2(
         test_layers[graph[v].rank as usize].push(v);
     }
     for l in test_layers {
-        println!("{l:?}");
+        //println!("{l:?}");
     }
     p2::insert_dummy_vertices(graph, minimum_length);
+    //p2::bundle_dummy_vertices(graph);
     let mut order = p2::ordering(graph);
     if no_dummy_vertices {
         p2::remove_dummy_vertices(graph, &mut order);
@@ -208,9 +209,13 @@ fn execute_phase_3(
     mut layers: Vec<Vec<NodeIndex>>,
     vertex_spacing: usize,
 ) -> Layout {
+    for n in graph.node_indices().collect::<Vec<_>>() {
+        if graph[n].is_dummy {
+            graph[n].id = n.index();
+        }
+    }
     for l in &layers {
         let id = l.iter().map(|v| graph[*v].id).collect::<Vec<_>>();
-        println!("{l:?}");
         println!("{id:?}");
     }
     let width = layers.iter().map(|l| l.len()).max().unwrap_or(0);

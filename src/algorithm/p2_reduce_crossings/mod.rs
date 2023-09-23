@@ -8,8 +8,8 @@ use petgraph::algo::toposort;
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use petgraph::Direction::{Incoming, Outgoing};
 
-use crate::util;
-use crate::util::{radix_sort, IterDir};
+use crate::util::radix_sort;
+
 
 use super::{slack, Edge, Vertex};
 
@@ -120,6 +120,17 @@ impl Order {
         }
         cross_count
     }
+
+    #[allow(dead_code)]
+    fn print(&self, graph: &StableDiGraph<Vertex, Edge>) {
+        for line in &self._inner {
+            for v in line {
+                let c = if graph[*v].is_dummy { graph[*v].id.to_string() } else { graph[*v].id.to_string() };
+                print!("{v:>2?} ");
+            }
+            println!("");
+        }
+    }
 }
 
 impl Deref for Order {
@@ -161,6 +172,69 @@ pub(super) fn insert_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, min
     }
 }
 
+pub(super) fn bundle_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>) {
+    let mut remove_dummies = Vec::<NodeIndex>::new();
+    let vertices = toposort(&*graph, None).unwrap();
+    for v in &vertices {
+        let v = *v;
+        if graph[v].is_dummy {
+            continue;
+        }
+        let mut w = v;
+        let mut neighbor_dummies: Vec<NodeIndex> = graph.neighbors_directed(v, Outgoing)
+            .filter(|v| graph[*v].is_dummy)
+            .collect();
+        while neighbor_dummies.len() > 1 {
+            // add new dummy vertice and edge 
+            let mut d = Vertex::default();
+            d.is_dummy = true;
+            d.rank = graph[w].rank + 1;
+            let d = graph.add_node(d);
+            graph.add_edge(w, d, Edge::default());
+            w = d;
+            // mark neighbors to delete them
+            remove_dummies.extend_from_slice(&neighbor_dummies);
+            neighbor_dummies = neighbor_dummies.into_iter()
+                .map(|d| graph.neighbors_directed(d, Outgoing)
+                    .filter(|n| graph[*n].is_dummy)
+                )
+                .flatten()
+                .collect(); 
+        }
+    }
+
+    for v in vertices {
+        if graph[v].is_dummy {
+            continue;
+        }
+        let mut w = v;
+        let mut neighbor_dummies: Vec<NodeIndex> = graph.neighbors_directed(v, Incoming)
+            .filter(|v| graph[*v].is_dummy)
+            .collect();
+        while neighbor_dummies.len() > 1 {
+            // add new dummy vertice and edge 
+            let mut d = Vertex::default();
+            d.is_dummy = true;
+            d.rank = graph[w].rank + 1;
+            let d = graph.add_node(d);
+            graph.add_edge(w, d, Edge::default());
+            w = d;
+            // mark neighbors to delete them
+            remove_dummies.extend_from_slice(&neighbor_dummies);
+            neighbor_dummies = neighbor_dummies.into_iter()
+                .map(|d| graph.neighbors_directed(d, Incoming)
+                    .filter(|n| graph[*n].is_dummy)
+                )
+                .flatten()
+                .collect(); 
+        }
+    }
+
+    for dummy in remove_dummies {
+        graph.remove_node(dummy);
+    }
+} 
+
 pub(super) fn remove_dummy_vertices(
     graph: &mut StableDiGraph<Vertex, Edge>,
     order: &mut [Vec<NodeIndex>],
@@ -177,7 +251,7 @@ pub(super) fn remove_dummy_vertices(
             if graph[n].is_dummy {
                 while graph[n].is_dummy {
                     let dummy_neighbors = graph.neighbors_directed(n, Outgoing).collect::<Vec<_>>();
-                    assert_eq!(dummy_neighbors.len(), 1);
+                    //assert_eq!(dummy_neighbors.len(), 1);
                     n = dummy_neighbors[0];
                 }
                 edges.push((v, n));
@@ -188,7 +262,7 @@ pub(super) fn remove_dummy_vertices(
         }
     }
     // remove from order
-    for mut l in order {
+    for l in order {
         *l = l
             .into_iter()
             .filter(|v| !graph[**v].is_dummy)
@@ -200,8 +274,7 @@ pub(super) fn remove_dummy_vertices(
 
 // TODO: Maybe write store all upper neighbors on vertex directly
 pub(super) fn ordering(graph: &mut StableDiGraph<Vertex, Edge>) -> Vec<Vec<NodeIndex>> {
-    let mut order = init_order(graph);
-    println!("c: {}", order.crossings(graph));
+    let order = init_order(graph);
     // move downwards for crossing reduction
     let order = reduce_crossings_bilayer_sweep(graph, order);
     order._inner
@@ -244,8 +317,9 @@ fn reduce_crossings_bilayer_sweep(graph: &StableDiGraph<Vertex, Edge>, mut order
     let mut last_best = 0;
     let mut best = order.clone();
     for i in 0.. {
-        order = wmedian(graph, i % 2 == 0, &best);
+        order = wmedian(graph, i % 2 == 0, &order);
         let crossings = order.crossings(graph);
+        println!("c: {crossings}");
         if crossings < best_crossings {
             best_crossings = crossings;
             best = order.clone();
@@ -254,36 +328,66 @@ fn reduce_crossings_bilayer_sweep(graph: &StableDiGraph<Vertex, Edge>, mut order
             last_best += 1;
         }
         if last_best == 4 {
+            //println!("{:?}", petgraph::dot::Dot::with_config(graph, &[petgraph::dot::Config::NodeIndexLabel, petgraph::dot::Config::EdgeNoLabel]));
             return best;
         }
     }
     best
 }
 
-fn wmedian(graph: &StableDiGraph<Vertex, Edge>, move_down: bool, current: &Order) -> Order {
-    let mut o = vec![Vec::new(); current.max_rank()];
-    let mut positions = current.positions.clone();
+fn wmedian(graph: &StableDiGraph<Vertex, Edge>, move_down: bool, cur_order: &Order) -> Order {
+    let mut new_order = vec![Vec::new(); cur_order.max_rank()];
+    println!("{:?}", cur_order.positions);
+    let mut positions = cur_order.positions.clone();
     let dir: Vec<usize> = if move_down {
-        o[0] = current._inner[0].clone();
-        (1..current.max_rank()).collect()
+        new_order[0] = cur_order._inner[0].clone();
+        (1..cur_order.max_rank()).collect()
     } else {
-        o[current.max_rank() - 1] = current._inner[current.max_rank() - 1].clone();
-        (0..current.max_rank() - 1).collect()
+        new_order[cur_order.max_rank() - 1] = cur_order._inner[cur_order.max_rank() - 1].clone();
+        (0..cur_order.max_rank() - 1).rev().collect()
     };
 
     for rank in dir {
-        o[rank] = current[rank].clone();
-        //println!("{:?}", self.order[rank]);
-        o[rank].sort_by(|a, b| {
+        new_order[rank] = cur_order[rank].clone();
+        new_order[rank].sort_by(|a, b| {
             barycenter(graph, *a, move_down, &positions)
                 .total_cmp(&barycenter(graph, *b, move_down, &positions))
         });
-        o[rank].iter().enumerate().for_each(|(pos, v)| {
+        new_order[rank].iter().enumerate().for_each(|(pos, v)| {
             positions.insert(*v, pos);
         });
     }
 
-    Order::new(o)
+    Order::new(new_order)
+}
+
+fn barycenter(
+    graph: &StableDiGraph<Vertex, Edge>,
+    vertex: NodeIndex,
+    move_down: bool,
+    positions: &HashMap<NodeIndex, usize>,
+) -> f64 {
+    let neighbors: Vec<_> = if move_down {
+        graph.neighbors_directed(vertex, Incoming).collect()
+    } else {
+        graph.neighbors_directed(vertex, Outgoing).collect()
+    };
+
+    if neighbors.len() == 0 {
+        return *positions.get(&vertex).unwrap() as f64;
+    }
+
+    // Only look at direct neighbors
+    let adjacent = neighbors
+        .into_iter()
+        // .filter(|n| graph[vertex].rank.abs_diff(graph[*n].rank) == 1)
+        .map(|n| *positions.get(&n).unwrap())
+        .collect::<Vec<usize>>();
+
+    let bary = adjacent.iter().sum::<usize>() as f64 / adjacent.len() as f64;
+    println!("{vertex:?}: {bary}");
+    bary
+    
 }
 
 fn median_value(
@@ -320,28 +424,4 @@ fn median_value(
     }
 }
 
-fn barycenter(
-    graph: &StableDiGraph<Vertex, Edge>,
-    vertex: NodeIndex,
-    move_down: bool,
-    positions: &HashMap<NodeIndex, usize>,
-) -> f64 {
-    let neighbors: Vec<_> = if move_down {
-        graph.neighbors_directed(vertex, Incoming).collect()
-    } else {
-        graph.neighbors_directed(vertex, Outgoing).collect()
-    };
 
-    if neighbors.len() == 0 {
-        return 0.;
-    }
-
-    // Only look at direct neighbors
-    let adjacent = neighbors
-        .into_iter()
-        .filter(|n| graph[vertex].rank.abs_diff(graph[*n].rank) == 1)
-        .map(|n| *positions.get(&n).unwrap())
-        .collect::<Vec<usize>>();
-
-    adjacent.iter().sum::<usize>() as f64 / adjacent.len() as f64
-}
