@@ -1,6 +1,6 @@
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableDiGraph};
 
-use crate::{util::into_weakly_connected_components, Layout, Layouts};
+use crate::{util::weakly_connected_components, Layout, Layouts};
 use crate::{Config, LayeringType};
 use p1_layering as p1;
 use p2_reduce_crossings as p2;
@@ -134,7 +134,7 @@ pub(super) fn build_layout_from_graph<T, E>(
 
 pub(super) fn start(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layouts<usize> {
     init_graph(&mut graph);
-    into_weakly_connected_components(graph)
+    weakly_connected_components(graph)
         .into_iter()
         .map(|g| build_layout(g, config))
         .collect()
