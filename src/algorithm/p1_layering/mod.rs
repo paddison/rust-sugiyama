@@ -7,7 +7,6 @@ pub(crate) mod tests;
 
 use petgraph::stable_graph::{EdgeIndex, StableDiGraph};
 use petgraph::visit::IntoNodeIdentifiers;
-use petgraph::Direction::Incoming;
 
 use self::cut_values::update_cutvalues;
 use self::low_lim::update_low_lim;
@@ -26,14 +25,6 @@ pub(super) fn rank(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32)
     // don't balance ranks since we want maximum width to
     // give indication about number of parallel processes running
     normalize(graph);
-}
-
-pub(super) fn move_roots_to_top(graph: &mut StableDiGraph<Vertex, Edge>) {
-    for v in graph.node_indices().collect::<Vec<_>>() {
-        if graph.neighbors_directed(v, Incoming).count() == 0 {
-            graph[v].rank = 0;
-        }
-    }
 }
 
 fn leave_edge(graph: &StableDiGraph<Vertex, Edge>) -> Option<EdgeIndex> {

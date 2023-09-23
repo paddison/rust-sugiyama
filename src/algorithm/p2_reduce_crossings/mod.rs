@@ -72,7 +72,7 @@ impl Order {
         }
         let edge_endpoint_positions = north
             .iter()
-            .map(|v| {
+            .flat_map(|v| {
                 radix_sort(
                     graph
                         .neighbors_directed(*v, Outgoing)
@@ -83,7 +83,6 @@ impl Order {
                     key_length,
                 )
             })
-            .flatten()
             .collect::<Vec<_>>();
 
         Self::count_crossings(edge_endpoint_positions, south.len())
@@ -157,8 +156,7 @@ pub(super) fn insert_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, min
             graph.remove_edge(edge);
             for rank in (graph[tail].rank + 1)..graph[head].rank {
                 // usize usize::MAX id as reserved value for a dummy vertex
-                let mut d = Vertex::default();
-                d.is_dummy = true;
+                let d = Vertex{ is_dummy: true, ..Default::default() };
                 let new = graph.add_node(d);
                 graph[new].align = new;
                 graph[new].root = new;
@@ -263,11 +261,7 @@ pub(super) fn remove_dummy_vertices(
     }
     // remove from order
     for l in order {
-        *l = l
-            .into_iter()
-            .filter(|v| !graph[**v].is_dummy)
-            .map(|v| *v)
-            .collect();
+        l.retain(|v| !graph[*v].is_dummy);
     }
     graph.retain_nodes(|g, v| !g[v].is_dummy);
 }
@@ -299,7 +293,7 @@ fn init_order(graph: &StableDiGraph<Vertex, Edge>) -> Order {
     let max_rank = graph
         .node_weights()
         .map(|v| v.rank as usize)
-        .max_by(|r1, r2| r1.cmp(&r2))
+        .max_by(|r1, r2| r1.cmp(r2))
         .expect("Got invalid ranking");
     let mut order = vec![Vec::new(); max_rank + 1];
     let mut visited = HashSet::new();
@@ -307,7 +301,7 @@ fn init_order(graph: &StableDiGraph<Vertex, Edge>) -> Order {
     // build initial order via dfs
     graph
         .node_indices()
-        .for_each(|v| dfs(v, &mut order, &graph, &mut visited));
+        .for_each(|v| dfs(v, &mut order, graph, &mut visited));
 
     Order::new(order)
 }
@@ -390,6 +384,8 @@ fn barycenter(
     
 }
 
+// TODO: add option to config to choose between median and barycenter heuristic
+#[allow(dead_code)]
 fn median_value(
     graph: &StableDiGraph<Vertex, Edge>,
     vertex: NodeIndex,
@@ -423,5 +419,3 @@ fn median_value(
         (adjacent[m - 1] * right + adjacent[m] * left) as f64 / (left + right) as f64
     }
 }
-
-

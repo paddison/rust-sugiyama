@@ -336,15 +336,10 @@ fn enter_edge_find_edge() {
 
 mod integration {
 
-    use crate::algorithm::build_layout;
-    use crate::algorithm::p1::ranking::print_ranks;
     use crate::{Config, LayeringType};
     use petgraph::stable_graph::StableDiGraph;
 
-    use crate::algorithm::p1_layering::ranking::feasible_tree;
     use crate::algorithm::p1_layering::{rank, slack, Edge, Vertex};
-    use crate::algorithm::p2::insert_dummy_vertices;
-    use crate::algorithm::p2_reduce_crossings::ordering;
 
     use super::{GraphBuilder, EXAMPLE_GRAPH};
 
@@ -435,19 +430,10 @@ mod integration {
             (9, 14),
         ];
 
-        let (mut graph, ..) = GraphBuilder::new(&edges).build();
-        // // feasible_tree(&mut graph, 1);
-        // // insert_dummy_vertices(&mut graph, 1);
-        // // for l in ordering(&mut graph) {
-        // //     println!("{:?}", l.iter().map(|n| n.index()).collect::<Vec<_>>());
-        // }
+        let (graph, ..) = GraphBuilder::new(&edges).build();
         let mut cfg = Config::default();
         cfg.layering_type = LayeringType::Up;
         cfg.no_dummy_vertices = true;
         crate::algorithm::start(graph, cfg);
-        //build_layout(graph, cfg);
-        //for v in graph.node_indices() {
-        //    print!("{}: {}, ", v.index(), graph[v].rank);
-        //}
     }
 }

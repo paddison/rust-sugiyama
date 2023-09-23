@@ -1,6 +1,6 @@
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableDiGraph};
 
-use crate::{util::into_weakly_connected_components, Layout, Layouts};
+use crate::{util::weakly_connected_components, Layout, Layouts};
 use crate::{Config, LayeringType};
 use p1_layering as p1;
 use p2_reduce_crossings as p2;
@@ -30,9 +30,7 @@ pub(super) struct Vertex {
 
 impl Vertex {
     pub(super) fn new(id: usize) -> Self {
-        let mut v = Self::default();
-        v.id = id;
-        v
+        Self{ id, ..Default::default() }
     }
 
     #[cfg(test)]
@@ -117,13 +115,13 @@ impl Default for Edge {
     }
 }
 
-pub(super) fn build_layout_from_edges(edges: &[(u32, u32)], config: Config) -> Layouts<usize> {
+pub(super) fn _build_layout_from_edges(edges: &[(u32, u32)], config: Config) -> Layouts<usize> {
     let graph = StableDiGraph::<Vertex, Edge>::from_edges(edges);
     // initialize vertex ids to NodeIndex
     start(graph, config)
 }
 
-pub(super) fn build_layout_from_graph<T, E>(
+pub(super) fn _build_layout_from_graph<T, E>(
     graph: &StableDiGraph<T, E>,
     config: Config,
 ) -> Layouts<usize> {
@@ -134,13 +132,13 @@ pub(super) fn build_layout_from_graph<T, E>(
 
 pub(super) fn start(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layouts<usize> {
     init_graph(&mut graph);
-    into_weakly_connected_components(graph)
+    weakly_connected_components(graph)
         .into_iter()
         .map(|g| build_layout(g, config))
         .collect()
 }
 
-pub(super) fn map_input_graph<V, E>(graph: &StableDiGraph<V, E>) -> StableDiGraph<Vertex, Edge> {
+pub(super) fn _map_input_graph<V, E>(graph: &StableDiGraph<V, E>) -> StableDiGraph<Vertex, Edge> {
     graph.map(|_, _| Vertex::default(), |_, _| Edge::default())
 }
 
@@ -241,7 +239,7 @@ fn execute_phase_3(
             .map(|(v, x)| {
                 (
                     graph[v].id,
-                    (x, graph[v].rank as isize * vertex_spacing as isize * -1),
+                    (x, -(graph[v].rank as isize * vertex_spacing as isize)),
                 )
             })
             .collect::<Vec<_>>(),
