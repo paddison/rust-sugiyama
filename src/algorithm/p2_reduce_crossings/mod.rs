@@ -311,7 +311,8 @@ fn reduce_crossings_bilayer_sweep(graph: &StableDiGraph<Vertex, Edge>, mut order
     let mut last_best = 0;
     let mut best = order.clone();
     for i in 0.. {
-        order = wmedian(graph, i % 2 == 0, &order);
+        order = order_layer(graph, i % 2 == 0, &order);
+
         let crossings = order.crossings(graph);
         println!("c: {crossings}");
         if crossings < best_crossings {
@@ -329,7 +330,26 @@ fn reduce_crossings_bilayer_sweep(graph: &StableDiGraph<Vertex, Edge>, mut order
     best
 }
 
-fn wmedian(graph: &StableDiGraph<Vertex, Edge>, move_down: bool, cur_order: &Order) -> Order {
+fn transpose(graph: &StableDiGraph<Vertex, Edge>, order: &mut Order, move_down: bool) {
+    let mut improved = true;
+
+    while improved {
+        let ranks: Vec<usize> = if move_down {
+            (0..order.max_rank()).collect()
+        } else {
+            (0..order.max_rank()).rev().collect()
+        };
+        for r in ranks {
+            for i in 0..order._inner[r].len() - 1 {
+                let v = order._inner[r][i];
+                let w = order._inner[r][i + 1];
+
+            }
+        }
+    }
+}
+
+fn order_layer(graph: &StableDiGraph<Vertex, Edge>, move_down: bool, cur_order: &Order) -> Order {
     let mut new_order = vec![Vec::new(); cur_order.max_rank()];
     println!("{:?}", cur_order.positions);
     let mut positions = cur_order.positions.clone();
@@ -343,13 +363,20 @@ fn wmedian(graph: &StableDiGraph<Vertex, Edge>, move_down: bool, cur_order: &Ord
 
     for rank in dir {
         new_order[rank] = cur_order[rank].clone();
-        new_order[rank].sort_by(|a, b| {
-            barycenter(graph, *a, move_down, &positions)
-                .total_cmp(&barycenter(graph, *b, move_down, &positions))
-        });
-        new_order[rank].iter().enumerate().for_each(|(pos, v)| {
-            positions.insert(*v, pos);
-        });
+        let barycenters = new_order[rank].iter()
+            .map(|n| (*n, barycenter(graph, *n, move_down, &positions)))
+            .collect::<HashMap<NodeIndex, f64>>();
+
+        new_order[rank]
+            .sort_by(|a, b| 
+                barycenters.get(a).partial_cmp(&barycenters.get(b)).unwrap()
+            );
+
+        new_order[rank].iter()
+            .enumerate()
+            .for_each(|(pos, v)| {
+                positions.insert(*v, pos);
+            });
     }
 
     Order::new(new_order)
@@ -379,7 +406,6 @@ fn barycenter(
         .collect::<Vec<usize>>();
 
     let bary = adjacent.iter().sum::<usize>() as f64 / adjacent.len() as f64;
-    println!("{vertex:?}: {bary}");
     bary
     
 }
