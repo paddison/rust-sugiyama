@@ -17,9 +17,11 @@ type RawGraph<'a> = (&'a [u32], &'a [(u32, u32)]);
 pub struct Config {
     minimum_length: u32,
     vertex_spacing: usize,
-    root_vertices_on_top: bool,
-    no_dummy_vertices: bool,
+    dummy_vertices: bool,
     layering_type: LayeringType,
+    c_minimization: CrossingMinimization,    
+    transpose: bool,
+    dummy_size: f64,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -29,14 +31,22 @@ pub enum LayeringType {
     Feasible,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum CrossingMinimization {
+    Barycenter,
+    Median,
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
             minimum_length: 1,
             vertex_spacing: 10,
-            root_vertices_on_top: false,
-            no_dummy_vertices: false,
+            dummy_vertices: true,
             layering_type: LayeringType::Feasible,
+            c_minimization: CrossingMinimization::Barycenter,
+            transpose: true,
+            dummy_size: 1.0,
         }
     }
 }
@@ -213,8 +223,7 @@ mod check_visuals {
             (15, 13),
         ];
         let _ = from_vertices_and_edges(&vertices, &edges)
-            .no_dummy_vertices(true)
-            .root_vertices_on_top(true)
+            .dummy_vertices(true)
             .build();
     }
     #[test]
@@ -254,19 +263,6 @@ mod check_visuals {
         assert_eq!(layout[8], (8, (30, -40)));
         assert_eq!(layout[9], (9, (15, -50)));
         println!("{:?}", layout);
-    }
-
-    #[test]
-    fn root_vertices_on_top_enabled() {
-        let edges = [(1, 0), (2, 1), (3, 0), (4, 0)];
-        let layout = from_edges(&edges).root_vertices_on_top(true).build();
-        for (id, (_, y)) in layout[0].0.clone() {
-            if id == 2 || id == 3 || id == 4 {
-                assert_eq!(y, 0);
-            } else {
-                assert_ne!(y, 0);
-            }
-        }
     }
 
     #[test]

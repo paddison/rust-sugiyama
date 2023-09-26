@@ -433,7 +433,7 @@ mod integration {
         let (graph, ..) = GraphBuilder::new(&edges).build();
         let mut cfg = Config::default();
         cfg.layering_type = LayeringType::Up;
-        cfg.no_dummy_vertices = true;
+        cfg.dummy_vertices = true;
         crate::algorithm::start(graph, cfg);
     }
 }

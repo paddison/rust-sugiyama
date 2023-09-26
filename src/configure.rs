@@ -4,7 +4,7 @@ use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
 use crate::{
     algorithm::{self, Edge, Vertex},
-    Config, LayeringType, Layouts,
+    Config, LayeringType, Layouts, CrossingMinimization,
 };
 
 pub trait IntoCoordinates {}
@@ -38,18 +38,28 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         self
     }
 
-    pub fn root_vertices_on_top(mut self, v: bool) -> Self {
-        self.config.root_vertices_on_top = v;
-        self
-    }
-
-    pub fn no_dummy_vertices(mut self, v: bool) -> Self {
-        self.config.no_dummy_vertices = v;
+    pub fn dummy_vertices(mut self, v: bool) -> Self {
+        self.config.dummy_vertices = v;
         self
     }
 
     pub fn layering_type(mut self, v: LayeringType) -> Self {
         self.config.layering_type = v;
+        self
+    }
+
+    pub fn crossing_minimization(mut self, v: CrossingMinimization) -> Self {
+        self.config.c_minimization = v;
+        self
+    }
+
+    pub fn transpose(mut self, v: bool) -> Self {
+        self.config.transpose = v;
+        self
+    }
+
+    pub fn dummy_size(mut self, v: f64) -> Self {
+        self.config.dummy_size = v;
         self
     }
 }

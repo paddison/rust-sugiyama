@@ -304,7 +304,7 @@ mod order {
 
         let _inner = vec![vec![n0, n2, n4, n3, n6, n7, n1, n5], vec![s0, s1, s2, s3, s4]];
         let order = Order::new(_inner);
-        let expected_order = order_layer(&graph, false, &order);
+        let expected_order = order_layer(&graph, false, &order, crate::algorithm::p2_reduce_crossings::barycenter);
         assert_eq!(expected_order._inner[0], vec![n0, n1, n2, n3, n4, n5, n6, n7]);
     }
 }

@@ -7,22 +7,23 @@ use petgraph::Direction::Incoming;
 use petgraph::stable_graph::{StableDiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 
-use super::{Vertex, Edge, slack};
+use super::{Vertex, Edge, slack, print_to_console};
 
-pub(super) fn create_layouts(graph: &mut StableDiGraph<Vertex, Edge>, layers: &mut [Vec<NodeIndex>], vertex_spacing: usize) -> Vec<HashMap<NodeIndex, isize>> {
+pub(super) fn create_layouts(graph: &mut StableDiGraph<Vertex, Edge>, layers: &mut [Vec<NodeIndex>], vertex_spacing: usize, dummy_size: f64) -> Vec<HashMap<NodeIndex, isize>> {
     let mut layouts = Vec::new();
     mark_type_1_conflicts(graph, layers);
+    let orig_layers = layers.iter().cloned().collect::<Vec<_>>();
     // calculate the coordinates for each direction
-    for _ in [VDir::Down, VDir::Up] {
+    for v_dir in [VDir::Down, VDir::Up] {
         for h_dir in [HDir::Right, HDir::Left] {
             reset_alignment(graph, layers);
             create_vertical_alignments(graph, layers);
-            let mut layout = do_horizontal_compaction(graph, layers, vertex_spacing);
-
+            let mut layout = do_horizontal_compaction(graph, layers, vertex_spacing, dummy_size);
             // flip x_coordinates if we went from right to left
             if let HDir::Left = h_dir {
                 layout.values_mut().for_each(|x| *x = -*x);
             }
+            print_to_console(v_dir, graph, &orig_layers, layout.clone(), vertex_spacing);
             layouts.push(layout);
 
             // rotate the graph
@@ -70,6 +71,12 @@ pub(crate) fn align_to_smallest_width_layout(aligned_layouts: &mut[HashMap<NodeI
 
 pub(crate) fn calculate_relative_coords(aligned_layouts: Vec<HashMap<NodeIndex, isize>>) -> Vec<(NodeIndex, isize)> {
     // sort all 4 coordinates per vertex in ascending order
+    for l in &aligned_layouts {
+        let mut v = l.iter().collect::<Vec<_>>();
+        v.sort_by(|a, b| a.0.index().cmp(&b.0.index()));
+        // format to NodeIndex: (x, y), width, height
+        // println!("{v:?}\n");
+    }
     let mut sorted_layouts = HashMap::new();
     for k in aligned_layouts.get(0).unwrap().keys() {
         let mut vertex_coordinates = [
@@ -83,9 +90,10 @@ pub(crate) fn calculate_relative_coords(aligned_layouts: Vec<HashMap<NodeIndex, 
     }
 
     // create final layout, by averaging the two median values
+    // try to use something like mean
     sorted_layouts.into_iter()
-                                         .map(|(k, v)| (*k, (v[1] + v[2]) / 2))
-                                         .collect::<Vec<_>>()
+         .map(|(k, v)| (*k, (v[0] + v[1] + v[2] + v[3]) / 4))
+         .collect::<Vec<_>>()
 }
 
 fn is_incident_to_inner_segment(graph: &StableDiGraph<Vertex, Edge>, id: NodeIndex) -> bool {
@@ -189,8 +197,8 @@ fn create_vertical_alignments(graph: &mut StableDiGraph<Vertex, Edge>, layers: &
     }
 }
 
-fn do_horizontal_compaction(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<NodeIndex>], vertex_spacing: usize) -> HashMap<NodeIndex, isize> {
-    let mut x_coordinates = place_blocks(graph, layers, vertex_spacing as isize);
+fn do_horizontal_compaction(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<NodeIndex>], vertex_spacing: usize, dummy_size: f64) -> HashMap<NodeIndex, isize> {
+    let mut x_coordinates = place_blocks(graph, layers, vertex_spacing as isize, dummy_size);
     // calculate class shifts 
     for i in 0..layers.len() { 
         let mut v = layers[i][0];
@@ -213,7 +221,7 @@ fn do_horizontal_compaction(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[V
                         let u = pred(graph[v], layers);
                         let distance_v_u = *x_coordinates.get(&v).unwrap() - (*x_coordinates.get(&u).unwrap() + vertex_spacing as isize);
                         let u_sink = graph[u].sink;
-                        graph[u_sink].shift = graph[graph[u].sink].shift.min(graph[graph[v].sink].shift + distance_v_u);
+                        graph[u_sink].shift = graph[u_sink].shift.min(graph[graph[v].sink].shift + distance_v_u);
                     }
                 }
                 k = graph[v].pos + 1;
@@ -232,11 +240,11 @@ fn do_horizontal_compaction(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[V
     x_coordinates
 }
 
-fn place_blocks(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<NodeIndex>], vertex_spacing: isize) -> HashMap<NodeIndex, isize> {
+fn place_blocks(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<NodeIndex>], vertex_spacing: isize, dummy_size: f64) -> HashMap<NodeIndex, isize> {
     let mut x_coordinates = HashMap::new();
     // place blocks
     for root in graph.node_indices().filter(|v| graph[*v].root == *v).collect::<Vec<_>>() {
-        place_block(graph, layers, root, &mut x_coordinates, vertex_spacing);
+        place_block(graph, layers, root, &mut x_coordinates, vertex_spacing, dummy_size);
     }
     x_coordinates
 }
@@ -245,7 +253,8 @@ fn place_block(
     layers: &[Vec<NodeIndex>],
     root: NodeIndex, 
     x_coordinates: &mut HashMap<NodeIndex, isize>, 
-    vertex_spacing: isize
+    vertex_spacing: isize,
+    dummy_size: f64,
 ) {
     if x_coordinates.get(&root).is_some() {
         return;
@@ -255,13 +264,14 @@ fn place_block(
     loop {
         if graph[w].pos > 0 {
             let u = graph[pred(graph[w], layers)].root;
-            place_block(graph, layers, u, x_coordinates, vertex_spacing);
+            place_block(graph, layers, u, x_coordinates, vertex_spacing, dummy_size);
             // initialize sink of current node to have the same sink as the root
             if graph[root].sink == root { 
                 graph[root].sink = graph[u].sink; 
             }
             if graph[root].sink == graph[u].sink {
-                    x_coordinates.insert(root, *x_coordinates.get(&root).unwrap().max(&(x_coordinates.get(&u).unwrap() + vertex_spacing)));
+                    let vertex_size = if graph[root].is_dummy { vertex_spacing as f64 * dummy_size } else { 0. } as isize;
+                    x_coordinates.insert(root, *x_coordinates.get(&root).unwrap().max(&(x_coordinates.get(&u).unwrap() + vertex_spacing - vertex_size)));
 
                 }
             }

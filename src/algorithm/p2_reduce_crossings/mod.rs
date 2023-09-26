@@ -8,6 +8,7 @@ use petgraph::algo::toposort;
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use petgraph::Direction::{Incoming, Outgoing};
 
+use crate::CrossingMinimization;
 use crate::util::radix_sort;
 
 
@@ -50,6 +51,44 @@ impl Order {
 
     fn max_rank(&self) -> usize {
         self.len()
+    }
+
+    fn exchange(&mut self, a: usize, b: usize, r: usize) {
+        // first update positions, then swap
+        *self.positions.get_mut(&self._inner[r][a]).unwrap() = b;
+        *self.positions.get_mut(&self._inner[r][b]).unwrap() = a;
+        self._inner[r].swap(a, b);
+    }
+
+    fn crossing(&self, v: NodeIndex, w: NodeIndex, graph: &StableDiGraph<Vertex, Edge>, rank: usize, move_down: bool) -> usize {
+        let mut crossings = 0;
+        let dir = if move_down { Incoming } else { Outgoing };
+        if rank > 0 {
+            let mut v_adjacent = graph.neighbors_directed(v, dir).map(|n| *self.positions.get(&n).unwrap()).collect::<Vec<_>>();
+            let mut w_adjacent = graph.neighbors_directed(w, dir).map(|n| *self.positions.get(&n).unwrap()).collect::<Vec<_>>();
+            v_adjacent.sort();
+            w_adjacent.sort();
+            crossings += Self::cross_count(&v_adjacent, &w_adjacent);
+        }
+        crossings
+    }
+
+    fn cross_count(v_adjacent: &[usize], w_adjacent: &[usize]) -> usize {
+        let mut all_crossings = 0;
+        let mut k = 0;
+        for i in v_adjacent {
+            let i = *i;
+            let mut crossings = k;
+            while k < w_adjacent.len() && w_adjacent[k] < i {
+                let j = w_adjacent[k]; 
+                if i > j {             
+                    crossings += 1;    
+                }                      
+                k += 1;                
+            }                          
+            all_crossings += crossings;
+         }          
+       all_crossings
     }
 
     fn crossings(&self, graph: &StableDiGraph<Vertex, Edge>) -> usize {
@@ -267,12 +306,22 @@ pub(super) fn remove_dummy_vertices(
 }
 
 // TODO: Maybe write store all upper neighbors on vertex directly
-pub(super) fn ordering(graph: &mut StableDiGraph<Vertex, Edge>) -> Vec<Vec<NodeIndex>> {
+pub(super) fn ordering(
+    graph: &mut StableDiGraph<Vertex, Edge>,
+    crossing_minimization: CrossingMinimization,
+    transpose: bool,
+) -> Vec<Vec<NodeIndex>> {
     let order = init_order(graph);
     // move downwards for crossing reduction
-    let order = reduce_crossings_bilayer_sweep(graph, order);
+    let cm_method = match crossing_minimization {
+        CrossingMinimization::Barycenter => self::barycenter,
+        CrossingMinimization::Median => self::median,
+    };
+    let order = reduce_crossings_bilayer_sweep(graph, order, cm_method, transpose);
     order._inner
 }
+
+type CMMethod = fn(&StableDiGraph<Vertex, Edge>, NodeIndex, bool, &HashMap<NodeIndex, usize>) -> f64;
 
 fn init_order(graph: &StableDiGraph<Vertex, Edge>) -> Order {
     fn dfs(
@@ -306,16 +355,18 @@ fn init_order(graph: &StableDiGraph<Vertex, Edge>) -> Order {
     Order::new(order)
 }
 
-fn reduce_crossings_bilayer_sweep(graph: &StableDiGraph<Vertex, Edge>, mut order: Order) -> Order {
+fn reduce_crossings_bilayer_sweep(graph: &StableDiGraph<Vertex, Edge>, mut order: Order, cm_method: CMMethod, transpose: bool) -> Order {
     let mut best_crossings = order.crossings(graph);
     let mut last_best = 0;
     let mut best = order.clone();
     for i in 0.. {
-        order = order_layer(graph, i % 2 == 0, &order);
-
+        order = order_layer(graph, i % 2 == 0, &order, cm_method);
+        if transpose {
+            self::transpose(graph, &mut order, i % 2 == 0);
+        }
         let crossings = order.crossings(graph);
-        println!("c: {crossings}");
         if crossings < best_crossings {
+            println!("c: {crossings}");
             best_crossings = crossings;
             best = order.clone();
             last_best = 0;
@@ -334,6 +385,7 @@ fn transpose(graph: &StableDiGraph<Vertex, Edge>, order: &mut Order, move_down: 
     let mut improved = true;
 
     while improved {
+        improved = false;
         let ranks: Vec<usize> = if move_down {
             (0..order.max_rank()).collect()
         } else {
@@ -343,15 +395,19 @@ fn transpose(graph: &StableDiGraph<Vertex, Edge>, order: &mut Order, move_down: 
             for i in 0..order._inner[r].len() - 1 {
                 let v = order._inner[r][i];
                 let w = order._inner[r][i + 1];
-
+                let v_w_crossing = order.crossing(v, w, graph, r, move_down);
+                let w_v_crossing = order.crossing(w, v, graph, r, move_down);
+                if  v_w_crossing > w_v_crossing {
+                    improved = true;
+                    order.exchange(i, i + 1, r);
+                } 
             }
         }
     }
 }
 
-fn order_layer(graph: &StableDiGraph<Vertex, Edge>, move_down: bool, cur_order: &Order) -> Order {
+fn order_layer(graph: &StableDiGraph<Vertex, Edge>, move_down: bool, cur_order: &Order, cm_method: CMMethod) -> Order {
     let mut new_order = vec![Vec::new(); cur_order.max_rank()];
-    println!("{:?}", cur_order.positions);
     let mut positions = cur_order.positions.clone();
     let dir: Vec<usize> = if move_down {
         new_order[0] = cur_order._inner[0].clone();
@@ -363,13 +419,13 @@ fn order_layer(graph: &StableDiGraph<Vertex, Edge>, move_down: bool, cur_order: 
 
     for rank in dir {
         new_order[rank] = cur_order[rank].clone();
-        let barycenters = new_order[rank].iter()
-            .map(|n| (*n, barycenter(graph, *n, move_down, &positions)))
+        let ordering = new_order[rank].iter()
+            .map(|n| (*n, cm_method(graph, *n, move_down, &positions)))
             .collect::<HashMap<NodeIndex, f64>>();
 
         new_order[rank]
             .sort_by(|a, b| 
-                barycenters.get(a).partial_cmp(&barycenters.get(b)).unwrap()
+                ordering.get(a).partial_cmp(&ordering.get(b)).unwrap()
             );
 
         new_order[rank].iter()
@@ -410,9 +466,7 @@ fn barycenter(
     
 }
 
-// TODO: add option to config to choose between median and barycenter heuristic
-#[allow(dead_code)]
-fn median_value(
+fn median(
     graph: &StableDiGraph<Vertex, Edge>,
     vertex: NodeIndex,
     move_down: bool,

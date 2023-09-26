@@ -213,7 +213,7 @@ fn place_blocks() {
     ].into_iter().map(|v| v.into()).collect();
     let block_2: Vec<NodeIndex> = [7, 10, 11, 22, 13, 14].into_iter().map(|v| v.into()).collect();
 
-    let x_coordinates = super::place_blocks(&mut g, &l, 10);
+    let x_coordinates = super::place_blocks(&mut g, &l, 10, 1.);
 
     assert_eq!(x_coordinates.len(), 26);
     for v in block_1 {
