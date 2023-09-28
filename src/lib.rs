@@ -33,10 +33,36 @@ pub enum RankingType {
     Down,
 }
 
+impl TryFrom<String> for RankingType {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.as_str() {
+            "original" => Ok(Self::Original),
+            "minimize" => Ok(Self::MinimizeEdgeLength),
+            "up" => Ok(Self::Up),
+            "down" => Ok(Self::Down),
+            s => Err(format!("invalid value for ranking type: {s}")),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub enum CrossingMinimization {
     Barycenter,
     Median,
+}
+
+impl TryFrom<String> for CrossingMinimization {
+    type Error = String;
+
+    fn try_from(value: String) -> Result<Self, Self::Error> {
+        match value.as_str() {
+            "barycenter" => Ok(Self::Barycenter),
+            "median" => Ok(Self::Median),
+            s => Err(format!("invalid value for crossing minimization: {s}")),
+        }
+    }
 }
 
 impl Default for Config {

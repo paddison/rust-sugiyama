@@ -1,6 +1,6 @@
-use std::marker::PhantomData;
+use std::{env, marker::PhantomData};
 
-use log::trace;
+use log::{error, trace};
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
 use crate::{
@@ -8,11 +8,31 @@ use crate::{
     Config, CrossingMinimization, Layouts, RankingType,
 };
 
+static ENV_MINIMUM_LENGTH: &str = "RUST_GRAPH_MIN_LEN";
+static ENV_VERTEX_SPACING: &str = "RUST_GRAPH_V_SPACING";
+static ENV_DUMMY_VERTICES: &str = "RUST_GRAPH_DUMMIES";
+static ENV_LAYERING_TYPE: &str = "RUST_GRAPH_L_TYPE";
+static ENV_CROSSING_MINIMIZATION: &str = "RUST_GRAPH_CROSS_MIN";
+static ENV_TRANSPOSE: &str = "RUST_GRAPH_TRANSPOSE";
+static ENV_DUMMY_SIZE: &str = "RUST_GRAPH_DUMMY_SIZE";
+
 pub trait IntoCoordinates {}
 
 impl<V, E> IntoCoordinates for StableDiGraph<V, E> {}
 impl IntoCoordinates for &[(u32, u32)] {}
 impl IntoCoordinates for (&[u32], &[(u32, u32)]) {}
+
+macro_rules! read_env {
+    ($field:expr, $cb:tt, $env:ident) => {
+        match env::var($env).map($cb) {
+            Ok(Ok(v)) => $field = v,
+            Ok(Err(e)) => {
+                error!(target: "initialization", "{e}");
+            }
+            _ => (),
+        }
+    };
+}
 
 pub struct CoordinatesBuilder<Input: IntoCoordinates> {
     config: Config,
@@ -75,6 +95,51 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         trace!(target: "initializing",
             "Dummy size in regards to vertex size: {v}");
         self.config.dummy_size = v;
+        self
+    }
+
+    #[allow(unused_parens)]
+    pub fn from_env(mut self) -> Self {
+        let parse_bool = |x: String| match x.as_str() {
+            "y" => Ok(true),
+            "n" => Ok(false),
+            v => Err(format!("Invalid argument for dummy vertex env: {v}")),
+        };
+
+        read_env!(
+            self.config.minimum_length,
+            (|x| u32::from_str_radix(&x, 10)),
+            ENV_MINIMUM_LENGTH
+        );
+
+        read_env!(
+            self.config.c_minimization,
+            (TryFrom::try_from),
+            ENV_CROSSING_MINIMIZATION
+        );
+
+        read_env!(
+            self.config.layering_type,
+            (TryFrom::try_from),
+            ENV_LAYERING_TYPE
+        );
+
+        read_env!(
+            self.config.vertex_spacing,
+            (|x| x.parse::<usize>()),
+            ENV_VERTEX_SPACING
+        );
+
+        read_env!(self.config.dummy_vertices, parse_bool, ENV_DUMMY_VERTICES);
+
+        read_env!(
+            self.config.dummy_size,
+            (|x| x.parse::<f64>()),
+            ENV_DUMMY_SIZE
+        );
+
+        read_env!(self.config.transpose, parse_bool, ENV_TRANSPOSE);
+
         self
     }
 }
