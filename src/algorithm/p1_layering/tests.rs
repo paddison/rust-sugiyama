@@ -336,7 +336,7 @@ fn enter_edge_find_edge() {
 
 mod integration {
 
-    use crate::{Config, LayeringType};
+    use crate::{Config, RankingType};
     use petgraph::stable_graph::StableDiGraph;
 
     use crate::algorithm::p1_layering::{rank, slack, Edge, Vertex};
@@ -368,7 +368,7 @@ mod integration {
     #[test]
     fn run_algorithm_example_graph() {
         let (mut graph, ..) = GraphBuilder::new(&EXAMPLE_GRAPH).build();
-        rank(&mut graph, 1);
+        rank(&mut graph, 1, RankingType::MinimizeEdgeLength);
         assert!(is_correct(graph, 1));
     }
 
@@ -381,7 +381,7 @@ mod integration {
             .map(|(t, h)| (t as u32, h as u32))
             .collect::<Vec<_>>();
         let (mut graph, ..) = GraphBuilder::new(&edges).build();
-        rank(&mut graph, 1);
+        rank(&mut graph, 1, RankingType::MinimizeEdgeLength);
         assert!(is_correct(graph, 1));
     }
 
@@ -395,7 +395,7 @@ mod integration {
             .collect::<Vec<_>>();
         println!("built random layout");
         let (mut graph, ..) = GraphBuilder::new(&edges).build();
-        rank(&mut graph, 1);
+        rank(&mut graph, 1, RankingType::MinimizeEdgeLength);
         assert!(is_correct(graph, 1));
     }
 
@@ -432,7 +432,7 @@ mod integration {
 
         let (graph, ..) = GraphBuilder::new(&edges).build();
         let mut cfg = Config::default();
-        cfg.layering_type = LayeringType::Up;
+        cfg.layering_type = RankingType::Up;
         cfg.dummy_vertices = true;
         crate::algorithm::start(graph, cfg);
     }

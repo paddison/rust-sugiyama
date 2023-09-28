@@ -1,14 +1,44 @@
-use petgraph::stable_graph::{StableDiGraph, NodeIndex};
+use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-use crate::algorithm::p3_calculate_coordinates::{mark_type_1_conflicts, create_vertical_alignments};
+use crate::algorithm::p3_calculate_coordinates::{
+    create_vertical_alignments, mark_type_1_conflicts,
+};
 
-use super::{Vertex, Edge, reset_alignment};
+use super::{reset_alignment, Edge, Vertex};
 
 fn create_test_layout() -> (StableDiGraph<Vertex, Edge>, Vec<Vec<NodeIndex>>) {
-    let edges: [(u32, u32); 30] = [(0, 2), (0, 6), (0, 18), (1, 16), (1, 17), 
-                    (3, 8), (16, 8), (4, 8), (17, 19), (18, 20), (5, 8), (5, 9), (6, 8), (6, 21),
-                    (7, 10), (7, 11), (7, 12), (19, 23), (20, 24), (21, 12), (9, 22), (9, 25),
-                    (10, 13), (10, 14), (11, 14), (22, 13), (23, 15), (24, 15), (12, 15), (25, 15)];
+    let edges: [(u32, u32); 30] = [
+        (0, 2),
+        (0, 6),
+        (0, 18),
+        (1, 16),
+        (1, 17),
+        (3, 8),
+        (16, 8),
+        (4, 8),
+        (17, 19),
+        (18, 20),
+        (5, 8),
+        (5, 9),
+        (6, 8),
+        (6, 21),
+        (7, 10),
+        (7, 11),
+        (7, 12),
+        (19, 23),
+        (20, 24),
+        (21, 12),
+        (9, 22),
+        (9, 25),
+        (10, 13),
+        (10, 14),
+        (11, 14),
+        (22, 13),
+        (23, 15),
+        (24, 15),
+        (12, 15),
+        (25, 15),
+    ];
 
     let mut graph = StableDiGraph::<Vertex, Edge>::from_edges(&edges);
     let layers: Vec<Vec<NodeIndex>> = [
@@ -17,20 +47,21 @@ fn create_test_layout() -> (StableDiGraph<Vertex, Edge>, Vec<Vec<NodeIndex>>) {
         vec![7, 8, 19, 20, 21, 9],
         vec![10, 11, 22, 23, 24, 12, 25],
         vec![13, 14, 15],
-    ].into_iter().map(|row| row.into_iter().map(|id| id.into()).collect())
+    ]
+    .into_iter()
+    .map(|row| row.into_iter().map(|id| id.into()).collect())
     .collect();
-    
+
     for (rank, row) in layers.iter().enumerate() {
         for (pos, v) in row.iter().enumerate() {
             let weight = &mut graph[*v];
             if v.index() < 16 {
-                *weight = Vertex::new_test_p3( *v, rank as i32, pos, false);
+                *weight = Vertex::new_test_p3(*v, rank as i32, pos, false);
             } else {
-                *weight = Vertex::new_test_p3( *v, rank as i32, pos, true);
+                *weight = Vertex::new_test_p3(*v, rank as i32, pos, true);
             }
         }
     }
-
 
     (graph, layers)
 }
@@ -47,12 +78,12 @@ fn type_1() {
 
 #[test]
 fn alignment_down_right() {
-    let (mut g , mut l) = create_test_layout();
+    let (mut g, mut l) = create_test_layout();
     mark_type_1_conflicts(&mut g, &l);
 
     // down right means no rotation
     reset_alignment(&mut g, &l);
-    create_vertical_alignments(&mut g, &mut l); 
+    create_vertical_alignments(&mut g, &mut l);
     // verify roots
     assert_eq!(g[NodeIndex::from(0)].root, 0.into());
     assert_eq!(g[NodeIndex::from(1)].root, 1.into());
@@ -80,7 +111,7 @@ fn alignment_down_right() {
     assert_eq!(g[NodeIndex::from(23)].root, 17.into());
     assert_eq!(g[NodeIndex::from(24)].root, 18.into());
     assert_eq!(g[NodeIndex::from(25)].root, 9.into());
-    
+
     // verify alignments
     assert_eq!(g[NodeIndex::from(0)].align, 2.into());
     assert_eq!(g[NodeIndex::from(1)].align, 16.into());
@@ -112,92 +143,169 @@ fn alignment_down_right() {
 
 #[test]
 fn alignment_down_left() {
-    let (mut g , mut l) = create_test_layout();
+    let (mut g, mut l) = create_test_layout();
     mark_type_1_conflicts(&mut g, &l);
     // down left means reverse each layer
     l.iter_mut().for_each(|l| l.reverse());
     reset_alignment(&mut g, &l);
-    create_vertical_alignments(&mut g, &mut l); 
-    
-    
+    create_vertical_alignments(&mut g, &mut l);
+
     // block root 0
-    for n in [0, 6] { assert_eq!(g[NodeIndex::from(n)].root, 0.into()); }
+    for n in [0, 6] {
+        assert_eq!(g[NodeIndex::from(n)].root, 0.into());
+    }
     // block root 1
-    for n in [1] { assert_eq!(g[NodeIndex::from(n)].root, 1.into()); }
+    for n in [1] {
+        assert_eq!(g[NodeIndex::from(n)].root, 1.into());
+    }
     // block root 2
-    for n in [2] { assert_eq!(g[NodeIndex::from(n)].root, 2.into()); }
+    for n in [2] {
+        assert_eq!(g[NodeIndex::from(n)].root, 2.into());
+    }
     // block root 3
-    for n in [3] { assert_eq!(g[NodeIndex::from(n)].root, 3.into()); }
+    for n in [3] {
+        assert_eq!(g[NodeIndex::from(n)].root, 3.into());
+    }
     // block root 16
-    for n in [16] { assert_eq!(g[NodeIndex::from(n)].root, 16.into()); }
+    for n in [16] {
+        assert_eq!(g[NodeIndex::from(n)].root, 16.into());
+    }
     // block root 4
-    for n in [4, 8] { assert_eq!(g[NodeIndex::from(n)].root, 4.into()); }
+    for n in [4, 8] {
+        assert_eq!(g[NodeIndex::from(n)].root, 4.into());
+    }
     // block root 17
-    for n in [17, 19, 23] { assert_eq!(g[NodeIndex::from(n)].root, 17.into()); }
+    for n in [17, 19, 23] {
+        assert_eq!(g[NodeIndex::from(n)].root, 17.into());
+    }
     // block root 18
-    for n in [18, 20, 24] { assert_eq!(g[NodeIndex::from(n)].root, 18.into()); }
+    for n in [18, 20, 24] {
+        assert_eq!(g[NodeIndex::from(n)].root, 18.into());
+    }
     // block root 5
-    for n in [5, 9, 25] { assert_eq!(g[NodeIndex::from(n)].root, 5.into()); }
+    for n in [5, 9, 25] {
+        assert_eq!(g[NodeIndex::from(n)].root, 5.into());
+    }
     // block root 7
-    for n in [7, 11, 14] { assert_eq!(g[NodeIndex::from(n)].root, 7.into()); }
+    for n in [7, 11, 14] {
+        assert_eq!(g[NodeIndex::from(n)].root, 7.into());
+    }
     // block root 21
-    for n in [21, 12, 15] { assert_eq!(g[NodeIndex::from(n)].root, 21.into()); }
+    for n in [21, 12, 15] {
+        assert_eq!(g[NodeIndex::from(n)].root, 21.into());
+    }
     // block root 10
-    for n in [10, 13] { assert_eq!(g[NodeIndex::from(n)].root, 10.into()); }
+    for n in [10, 13] {
+        assert_eq!(g[NodeIndex::from(n)].root, 10.into());
+    }
     // block root 22
-    for n in [22] { assert_eq!(g[NodeIndex::from(n)].root, 22.into()); }
+    for n in [22] {
+        assert_eq!(g[NodeIndex::from(n)].root, 22.into());
+    }
 }
 
 #[test]
 fn alignment_up_right() {
-    let (mut g , mut l) = create_test_layout();
+    let (mut g, mut l) = create_test_layout();
     mark_type_1_conflicts(&mut g, &l);
 
     // up right means reverse the edges of the graph and the ranks in the layer
     g.reverse();
     l.reverse();
     reset_alignment(&mut g, &l);
-    create_vertical_alignments(&mut g, &mut l); 
+    create_vertical_alignments(&mut g, &mut l);
 
-    for n in [13, 10] { assert_eq!(g[NodeIndex::from(n)].root, 13.into()) }
-    for n in [14, 11, 7] { assert_eq!(g[NodeIndex::from(n)].root, 14.into()) }
-    for n in [15, 23, 19, 17] { assert_eq!(g[NodeIndex::from(n)].root, 15.into()) }
-    for n in [22] { assert_eq!(g[NodeIndex::from(n)].root, 22.into()) }
-    for n in [24, 20, 18, 0] { assert_eq!(g[NodeIndex::from(n)].root, 24.into()) }
-    for n in [12, 21] { assert_eq!(g[NodeIndex::from(n)].root, 12.into()) }
-    for n in [25, 9, 5] { assert_eq!(g[NodeIndex::from(n)].root, 25.into()) }
-    for n in [8, 3] { assert_eq!(g[NodeIndex::from(n)].root, 8.into()) }
-    for n in [2] { assert_eq!(g[NodeIndex::from(n)].root, 2.into()) }
-    for n in [16] { assert_eq!(g[NodeIndex::from(n)].root, 16.into()) }
-    for n in [4] { assert_eq!(g[NodeIndex::from(n)].root, 4.into()) }
-    for n in [6] { assert_eq!(g[NodeIndex::from(n)].root, 6.into()) }
-    for n in [1] { assert_eq!(g[NodeIndex::from(n)].root, 1.into()) }
+    for n in [13, 10] {
+        assert_eq!(g[NodeIndex::from(n)].root, 13.into())
+    }
+    for n in [14, 11, 7] {
+        assert_eq!(g[NodeIndex::from(n)].root, 14.into())
+    }
+    for n in [15, 23, 19, 17] {
+        assert_eq!(g[NodeIndex::from(n)].root, 15.into())
+    }
+    for n in [22] {
+        assert_eq!(g[NodeIndex::from(n)].root, 22.into())
+    }
+    for n in [24, 20, 18, 0] {
+        assert_eq!(g[NodeIndex::from(n)].root, 24.into())
+    }
+    for n in [12, 21] {
+        assert_eq!(g[NodeIndex::from(n)].root, 12.into())
+    }
+    for n in [25, 9, 5] {
+        assert_eq!(g[NodeIndex::from(n)].root, 25.into())
+    }
+    for n in [8, 3] {
+        assert_eq!(g[NodeIndex::from(n)].root, 8.into())
+    }
+    for n in [2] {
+        assert_eq!(g[NodeIndex::from(n)].root, 2.into())
+    }
+    for n in [16] {
+        assert_eq!(g[NodeIndex::from(n)].root, 16.into())
+    }
+    for n in [4] {
+        assert_eq!(g[NodeIndex::from(n)].root, 4.into())
+    }
+    for n in [6] {
+        assert_eq!(g[NodeIndex::from(n)].root, 6.into())
+    }
+    for n in [1] {
+        assert_eq!(g[NodeIndex::from(n)].root, 1.into())
+    }
 }
 
 #[test]
 fn alignment_up_left() {
-    let (mut g , mut l) = create_test_layout();
+    let (mut g, mut l) = create_test_layout();
     mark_type_1_conflicts(&mut g, &l);
     // up left means reverse edges, ranks and order in layers
     g.reverse();
     l.reverse();
     l.iter_mut().for_each(|l| l.reverse());
     reset_alignment(&mut g, &l);
-    create_vertical_alignments(&mut g, &mut l); 
+    create_vertical_alignments(&mut g, &mut l);
 
-    for n in [15, 25, 9] { assert_eq!(g[NodeIndex::from(n)].root, 15.into()) }
-    for n in [14] { assert_eq!(g[NodeIndex::from(n)].root, 14.into()) }
-    for n in [13, 22] { assert_eq!(g[NodeIndex::from(n)].root, 13.into()) }
-    for n in [12, 21, 6] { assert_eq!(g[NodeIndex::from(n)].root, 12.into()) }
-    for n in [24, 20, 18] { assert_eq!(g[NodeIndex::from(n)].root, 24.into()) }
-    for n in [23, 19, 17, 1] { assert_eq!(g[NodeIndex::from(n)].root, 23.into()) }
-    for n in [11, 7] { assert_eq!(g[NodeIndex::from(n)].root, 11.into()) }
-    for n in [10] { assert_eq!(g[NodeIndex::from(n)].root, 10.into()) }
-    for n in [4, 8] { assert_eq!(g[NodeIndex::from(n)].root, 8.into()) }
-    for n in [0] { assert_eq!(g[NodeIndex::from(n)].root, 0.into()) }
-    for n in [2] { assert_eq!(g[NodeIndex::from(n)].root, 2.into()) }
-    for n in [3] { assert_eq!(g[NodeIndex::from(n)].root, 3.into()) }
-    for n in [16] { assert_eq!(g[NodeIndex::from(n)].root, 16.into()) }
+    for n in [15, 25, 9] {
+        assert_eq!(g[NodeIndex::from(n)].root, 15.into())
+    }
+    for n in [14] {
+        assert_eq!(g[NodeIndex::from(n)].root, 14.into())
+    }
+    for n in [13, 22] {
+        assert_eq!(g[NodeIndex::from(n)].root, 13.into())
+    }
+    for n in [12, 21, 6] {
+        assert_eq!(g[NodeIndex::from(n)].root, 12.into())
+    }
+    for n in [24, 20, 18] {
+        assert_eq!(g[NodeIndex::from(n)].root, 24.into())
+    }
+    for n in [23, 19, 17, 1] {
+        assert_eq!(g[NodeIndex::from(n)].root, 23.into())
+    }
+    for n in [11, 7] {
+        assert_eq!(g[NodeIndex::from(n)].root, 11.into())
+    }
+    for n in [10] {
+        assert_eq!(g[NodeIndex::from(n)].root, 10.into())
+    }
+    for n in [4, 8] {
+        assert_eq!(g[NodeIndex::from(n)].root, 8.into())
+    }
+    for n in [0] {
+        assert_eq!(g[NodeIndex::from(n)].root, 0.into())
+    }
+    for n in [2] {
+        assert_eq!(g[NodeIndex::from(n)].root, 2.into())
+    }
+    for n in [3] {
+        assert_eq!(g[NodeIndex::from(n)].root, 3.into())
+    }
+    for n in [16] {
+        assert_eq!(g[NodeIndex::from(n)].root, 16.into())
+    }
 }
 
 #[test]
@@ -205,13 +313,17 @@ fn place_blocks() {
     let (mut g, mut l) = create_test_layout();
     mark_type_1_conflicts(&mut g, &mut l);
     create_vertical_alignments(&mut g, &mut l);
-    
+
     let block_1: Vec<NodeIndex> = [
-        0, 1, 2, 3, 4, 5, 6, 
-        8, 9, 12, 15, 16, 17, 
-        18, 19, 20, 21, 23, 24, 25
-    ].into_iter().map(|v| v.into()).collect();
-    let block_2: Vec<NodeIndex> = [7, 10, 11, 22, 13, 14].into_iter().map(|v| v.into()).collect();
+        0, 1, 2, 3, 4, 5, 6, 8, 9, 12, 15, 16, 17, 18, 19, 20, 21, 23, 24, 25,
+    ]
+    .into_iter()
+    .map(|v| v.into())
+    .collect();
+    let block_2: Vec<NodeIndex> = [7, 10, 11, 22, 13, 14]
+        .into_iter()
+        .map(|v| v.into())
+        .collect();
 
     let x_coordinates = super::place_blocks(&mut g, &l, 10, 1.);
 

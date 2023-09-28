@@ -4,7 +4,7 @@ use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
 use crate::{
     algorithm::{self, Edge, Vertex},
-    Config, LayeringType, Layouts, CrossingMinimization,
+    Config, CrossingMinimization, Layouts, RankingType,
 };
 
 pub trait IntoCoordinates {}
@@ -43,7 +43,7 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         self
     }
 
-    pub fn layering_type(mut self, v: LayeringType) -> Self {
+    pub fn layering_type(mut self, v: RankingType) -> Self {
         self.config.layering_type = v;
         self
     }

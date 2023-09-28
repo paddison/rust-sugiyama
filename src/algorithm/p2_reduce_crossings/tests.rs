@@ -1,51 +1,118 @@
-use petgraph::stable_graph::{StableDiGraph, NodeIndex};
+use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-use super::{Vertex, Edge};
+use super::{Edge, Vertex};
 
-static ONE_DUMMY: [(u32, u32); 9] = [(0, 1), (1, 2), (2, 3), (3, 7), (4, 6), (5, 6), (6, 7), (0, 4), (0, 5)];
-static ONE_DUMMY_RANKS: [(u32, u32); 8] = [(0, 0), (1, 1), (2, 2), (3, 3), (4, 1), (5, 1), (6, 2), (7, 4)];
+static ONE_DUMMY: [(u32, u32); 9] = [
+    (0, 1),
+    (1, 2),
+    (2, 3),
+    (3, 7),
+    (4, 6),
+    (5, 6),
+    (6, 7),
+    (0, 4),
+    (0, 5),
+];
+static ONE_DUMMY_RANKS: [(u32, u32); 8] = [
+    (0, 0),
+    (1, 1),
+    (2, 2),
+    (3, 3),
+    (4, 1),
+    (5, 1),
+    (6, 2),
+    (7, 4),
+];
 
 static THREE_DUMMIES: [(u32, u32); 10] = [
-    (0, 1), (0, 2),
-    (1, 4), (1, 5), (2, 3),
-    (3, 8), (4, 6), (5, 7),
+    (0, 1),
+    (0, 2),
+    (1, 4),
+    (1, 5),
+    (2, 3),
+    (3, 8),
+    (4, 6),
+    (5, 7),
     (6, 7),
     (7, 8),
 ];
-static THREE_DUMMIES_RANKS: [(u32, u32); 9] = [(0, 0), (1, 1), (2, 1), (3, 2), (4, 2), (5, 2), (6, 3), (7, 4), (8, 5)];
+static THREE_DUMMIES_RANKS: [(u32, u32); 9] = [
+    (0, 0),
+    (1, 1),
+    (2, 1),
+    (3, 2),
+    (4, 2),
+    (5, 2),
+    (6, 3),
+    (7, 4),
+    (8, 5),
+];
 
 static COMPLEX_EXAMPLE: [(u32, u32); 21] = [
-    (0, 1), (0, 2), (0, 3),
-    (1, 4), (1, 5), (1, 6), (1, 7), (1, 8), (1, 13), (3, 9), (3, 11),
-    (4, 10), (5, 11), (6, 11), (7, 11), (8, 15), 
-    (11, 12), (11, 13),
-    (12, 14), (12, 15), (12, 13),
+    (0, 1),
+    (0, 2),
+    (0, 3),
+    (1, 4),
+    (1, 5),
+    (1, 6),
+    (1, 7),
+    (1, 8),
+    (1, 13),
+    (3, 9),
+    (3, 11),
+    (4, 10),
+    (5, 11),
+    (6, 11),
+    (7, 11),
+    (8, 15),
+    (11, 12),
+    (11, 13),
+    (12, 14),
+    (12, 15),
+    (12, 13),
 ];
 static COMPLEX_EXAMPLE_RANKS: [(u32, u32); 16] = [
     (0, 0),
-    (1, 1), (2, 1), (3, 1),
-    (4, 2), (5, 2), (6, 2), (7, 2), (8, 2), (9, 2),
-    (10, 3), (11, 3),
+    (1, 1),
+    (2, 1),
+    (3, 1),
+    (4, 2),
+    (5, 2),
+    (6, 2),
+    (7, 2),
+    (8, 2),
+    (9, 2),
+    (10, 3),
+    (11, 3),
     (12, 4),
-    (14, 5), (15, 5), (13, 5)
+    (14, 5),
+    (15, 5),
+    (13, 5),
 ];
 static _TYPE_2_CONFLICT_2_COLS: [(u32, u32); 8] = [
-    (0, 3), (1, 2),
-    (2, 5), (3, 4),
-    (4, 7), (5, 6),
-    (6, 8), (7, 8),
+    (0, 3),
+    (1, 2),
+    (2, 5),
+    (3, 4),
+    (4, 7),
+    (5, 6),
+    (6, 8),
+    (7, 8),
 ];
 
 static _TYPE_2_CONFLICT_2_COLS_RANKS: [(u32, u32); 9] = [
-    (0, 0), (1, 0),
-    (2, 1), (3, 1),
-    (4, 2), (5, 2),
-    (6, 3), (7, 3),
-    (8, 4)
+    (0, 0),
+    (1, 0),
+    (2, 1),
+    (3, 1),
+    (4, 2),
+    (5, 2),
+    (6, 3),
+    (7, 3),
+    (8, 4),
 ];
 
 static _TYPE_2_CONFLICT_2_COLS_DUMMIES: [u32; 4] = [2, 3, 4, 5];
-
 
 struct GraphBuilder {
     graph: StableDiGraph<Vertex, Edge>,
@@ -58,7 +125,7 @@ impl GraphBuilder {
         for (v, rank) in ranks {
             graph[NodeIndex::from(*v)].rank = *rank as i32;
         }
-        
+
         Self {
             graph,
             minimum_length: 1,
@@ -89,14 +156,23 @@ mod insert_dummy_vertices {
 
     use petgraph::stable_graph::StableDiGraph;
 
-    use crate::{algorithm::p2_reduce_crossings::{tests::{ONE_DUMMY, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS}, insert_dummy_vertices}, configure::CoordinatesBuilder, Config};
+    use crate::{
+        algorithm::p2_reduce_crossings::{
+            insert_dummy_vertices,
+            tests::{
+                COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS, ONE_DUMMY, THREE_DUMMIES,
+                THREE_DUMMIES_RANKS,
+            },
+        },
+        Config,
+    };
 
-    use super::{ONE_DUMMY_RANKS, GraphBuilder};
-
+    use super::{GraphBuilder, ONE_DUMMY_RANKS};
 
     #[test]
     fn insert_dummy_vertices_one_dummy() {
-        let (mut graph, minimum_length) = GraphBuilder::new_from_edges_with_ranking(&ONE_DUMMY, &ONE_DUMMY_RANKS).build();
+        let (mut graph, minimum_length) =
+            GraphBuilder::new_from_edges_with_ranking(&ONE_DUMMY, &ONE_DUMMY_RANKS).build();
         let n_vertices = graph.node_count();
         insert_dummy_vertices(&mut graph, minimum_length);
         // one dummy vertex
@@ -107,7 +183,8 @@ mod insert_dummy_vertices {
 
     #[test]
     fn insert_dummy_vertices_three_dummies() {
-        let (mut graph, minimum_length) = GraphBuilder::new_from_edges_with_ranking(&THREE_DUMMIES, &THREE_DUMMIES_RANKS).build();
+        let (mut graph, minimum_length) =
+            GraphBuilder::new_from_edges_with_ranking(&THREE_DUMMIES, &THREE_DUMMIES_RANKS).build();
         let n_vertices = graph.node_count();
         insert_dummy_vertices(&mut graph, minimum_length);
         // one dummy vertex
@@ -118,7 +195,9 @@ mod insert_dummy_vertices {
 
     #[test]
     fn insert_dummy_vertices_7_dummies() {
-        let (mut graph, minimum_length) = GraphBuilder::new_from_edges_with_ranking(&COMPLEX_EXAMPLE, &COMPLEX_EXAMPLE_RANKS).build();
+        let (mut graph, minimum_length) =
+            GraphBuilder::new_from_edges_with_ranking(&COMPLEX_EXAMPLE, &COMPLEX_EXAMPLE_RANKS)
+                .build();
         let n_vertices = graph.node_count();
         insert_dummy_vertices(&mut graph, minimum_length);
         // one dummy vertex
@@ -130,14 +209,55 @@ mod insert_dummy_vertices {
     #[test]
     fn bundle_dummy_vertices_ping_graph() {
         let mut edges = [
-            (1, 2), (1, 4), (1, 5), (1, 3), (2, 4), (2, 5), (3, 9), 
-            (3, 10), (3, 8), (4, 6), (4, 9), (4, 8), (5, 6), (5, 10), (5, 8), 
-            (6, 7), (7, 9), (7, 10), (8, 14), (8, 15), (8, 13), (9, 11), (9, 14), 
-            (9, 13), (10, 11), (10, 15), (10, 13), (11, 12), (12, 14), (12, 15), 
-            (13, 18), (13, 19), (13, 20), (14, 16), (14, 18), (14, 20), (15, 16), 
-            (15, 19), (15, 20), (16, 17), (17, 18), (17, 19), (18, 21), (19, 21),
+            (1, 2),
+            (1, 4),
+            (1, 5),
+            (1, 3),
+            (2, 4),
+            (2, 5),
+            (3, 9),
+            (3, 10),
+            (3, 8),
+            (4, 6),
+            (4, 9),
+            (4, 8),
+            (5, 6),
+            (5, 10),
+            (5, 8),
+            (6, 7),
+            (7, 9),
+            (7, 10),
+            (8, 14),
+            (8, 15),
+            (8, 13),
+            (9, 11),
+            (9, 14),
+            (9, 13),
+            (10, 11),
+            (10, 15),
+            (10, 13),
+            (11, 12),
+            (12, 14),
+            (12, 15),
+            (13, 18),
+            (13, 19),
+            (13, 20),
+            (14, 16),
+            (14, 18),
+            (14, 20),
+            (15, 16),
+            (15, 19),
+            (15, 20),
+            (16, 17),
+            (17, 18),
+            (17, 19),
+            (18, 21),
+            (19, 21),
         ];
-        for e in &mut edges { e.0 -= 1;  e.1 -= 1;}
+        for e in &mut edges {
+            e.0 -= 1;
+            e.1 -= 1;
+        }
         let g = StableDiGraph::from_edges(&edges);
         let c = Config::default();
         crate::algorithm::start(g, c);
@@ -147,12 +267,15 @@ mod insert_dummy_vertices {
 mod init_order {
     use crate::algorithm::p2_reduce_crossings::insert_dummy_vertices;
 
-    use super::{GraphBuilder, ONE_DUMMY, ONE_DUMMY_RANKS, THREE_DUMMIES, THREE_DUMMIES_RANKS, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS};
+    use super::{
+        GraphBuilder, COMPLEX_EXAMPLE, COMPLEX_EXAMPLE_RANKS, ONE_DUMMY, ONE_DUMMY_RANKS,
+        THREE_DUMMIES, THREE_DUMMIES_RANKS,
+    };
 
-    
     #[test]
     fn all_neighbors_must_be_at_adjacent_level_one_dummy() {
-        let (mut graph, minimum_length) = GraphBuilder::new_from_edges_with_ranking(&ONE_DUMMY, &ONE_DUMMY_RANKS).build();
+        let (mut graph, minimum_length) =
+            GraphBuilder::new_from_edges_with_ranking(&ONE_DUMMY, &ONE_DUMMY_RANKS).build();
         insert_dummy_vertices(&mut graph, minimum_length);
         for v in graph.node_indices() {
             let rank = graph[v].rank;
@@ -164,8 +287,8 @@ mod init_order {
 
     #[test]
     fn all_neighbors_must_be_at_adjacent_level_three_dummies() {
-        let (mut graph, minimum_length) = GraphBuilder::new_from_edges_with_ranking(&THREE_DUMMIES, &THREE_DUMMIES_RANKS)
-            .build();
+        let (mut graph, minimum_length) =
+            GraphBuilder::new_from_edges_with_ranking(&THREE_DUMMIES, &THREE_DUMMIES_RANKS).build();
         insert_dummy_vertices(&mut graph, minimum_length);
         for v in graph.node_indices() {
             let rank = graph[v].rank;
@@ -177,8 +300,9 @@ mod init_order {
 
     #[test]
     fn all_neighbors_must_be_at_adjacent_level_seven_dummies() {
-        let (mut graph, minimum_length) = GraphBuilder::new_from_edges_with_ranking(&COMPLEX_EXAMPLE, &COMPLEX_EXAMPLE_RANKS)
-            .build();
+        let (mut graph, minimum_length) =
+            GraphBuilder::new_from_edges_with_ranking(&COMPLEX_EXAMPLE, &COMPLEX_EXAMPLE_RANKS)
+                .build();
 
         insert_dummy_vertices(&mut graph, minimum_length);
         for v in graph.node_indices() {
@@ -193,8 +317,8 @@ mod init_order {
 // TODO: Add new tests for Order crosscount
 #[cfg(test)]
 mod order {
+    use crate::algorithm::{p2::order_layer, p2_reduce_crossings::Order, Edge, Vertex};
     use petgraph::stable_graph::StableDiGraph;
-    use crate::algorithm::{p2_reduce_crossings::Order, Edge, Vertex, p2::{barycenter, order_layer}};
 
     #[test]
     fn two_crossings() {
@@ -209,10 +333,7 @@ mod order {
         graph.add_edge(n1, s0, Edge::default());
         graph.add_edge(n2, s0, Edge::default());
 
-        let order = Order::new(vec![
-            vec![n0, n1, n2], 
-            vec![s0, s1],
-        ]);
+        let order = Order::new(vec![vec![n0, n1, n2], vec![s0, s1]]);
         assert_eq!(order.bilayer_cross_count(&graph, 0), 2);
     }
 
@@ -233,10 +354,7 @@ mod order {
         graph.add_edge(n2, s1, Edge::default());
         graph.add_edge(n3, s0, Edge::default());
 
-        let order = Order::new(vec![
-            vec![n0, n1, n2, n3], 
-            vec![s0, s1, s2, s3],
-        ]);
+        let order = Order::new(vec![vec![n0, n1, n2, n3], vec![s0, s1, s2, s3]]);
 
         assert_eq!(order.bilayer_cross_count(&graph, 0), 6);
     }
@@ -268,10 +386,7 @@ mod order {
         g.add_edge(n5, s2, Edge::default());
         g.add_edge(n5, s4, Edge::default());
 
-        let order = Order::new(vec![
-            vec![n0, n1, n2, n3, n4, n5], 
-            vec![s0, s1, s2, s3, s4],
-        ]);
+        let order = Order::new(vec![vec![n0, n1, n2, n3, n4, n5], vec![s0, s1, s2, s3, s4]]);
         assert_eq!(order.crossings(&g), 12);
     }
 
@@ -302,9 +417,20 @@ mod order {
         graph.add_edge(n6, s3, Edge::default());
         graph.add_edge(n7, s4, Edge::default());
 
-        let _inner = vec![vec![n0, n2, n4, n3, n6, n7, n1, n5], vec![s0, s1, s2, s3, s4]];
+        let _inner = vec![
+            vec![n0, n2, n4, n3, n6, n7, n1, n5],
+            vec![s0, s1, s2, s3, s4],
+        ];
         let order = Order::new(_inner);
-        let expected_order = order_layer(&graph, false, &order, crate::algorithm::p2_reduce_crossings::barycenter);
-        assert_eq!(expected_order._inner[0], vec![n0, n1, n2, n3, n4, n5, n6, n7]);
+        let expected_order = order_layer(
+            &graph,
+            false,
+            &order,
+            crate::algorithm::p2_reduce_crossings::barycenter,
+        );
+        assert_eq!(
+            expected_order._inner[0],
+            vec![n0, n1, n2, n3, n4, n5, n6, n7]
+        );
     }
 }

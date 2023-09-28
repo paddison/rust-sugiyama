@@ -1,8 +1,12 @@
 use std::collections::VecDeque;
 
-use petgraph::{stable_graph::{StableDiGraph, EdgeIndex, NodeIndex}, Direction::{Incoming, Outgoing, self}, visit::EdgeRef};
+use petgraph::{
+    stable_graph::{EdgeIndex, NodeIndex, StableDiGraph},
+    visit::EdgeRef,
+    Direction::{self, Incoming, Outgoing},
+};
 
-use super::{Vertex, Edge};
+use super::{Edge, Vertex};
 
 struct NeighborhoodInfo {
     cut_value_sum: i32,
@@ -19,7 +23,11 @@ pub(super) fn init_cutvalues(graph: &mut StableDiGraph<Vertex, Edge>) {
     calculate_cut_values(graph, queue);
 }
 
-pub(super) fn update_cutvalues(graph: &mut StableDiGraph<Vertex, Edge>, removed_edge: EdgeIndex, swap_edge: EdgeIndex) -> NodeIndex {
+pub(super) fn update_cutvalues(
+    graph: &mut StableDiGraph<Vertex, Edge>,
+    removed_edge: EdgeIndex,
+    swap_edge: EdgeIndex,
+) -> NodeIndex {
     let least_common_ancestor = remove_outdated_cut_values(graph, swap_edge, removed_edge);
     let queue = VecDeque::from([graph.edge_endpoints(removed_edge).unwrap().0]);
     calculate_cut_values(graph, queue);
@@ -27,19 +35,22 @@ pub(super) fn update_cutvalues(graph: &mut StableDiGraph<Vertex, Edge>, removed_
 }
 
 fn leaves(graph: &StableDiGraph<Vertex, Edge>) -> VecDeque<NodeIndex> {
-    graph.node_indices()
-                .filter(|v| 
-                1 == graph.edges_directed(*v, Incoming)
-                            .chain(graph.edges_directed(*v, Outgoing))
-                            .filter(|e| e.weight().is_tree_edge)
-                            .count())
-                .collect::<VecDeque<_>>()
+    graph
+        .node_indices()
+        .filter(|v| {
+            1 == graph
+                .edges_directed(*v, Incoming)
+                .chain(graph.edges_directed(*v, Outgoing))
+                .filter(|e| e.weight().is_tree_edge)
+                .count()
+        })
+        .collect::<VecDeque<_>>()
 }
 
 fn calculate_cut_values(graph: &mut StableDiGraph<Vertex, Edge>, mut queue: VecDeque<NodeIndex>) {
     while let Some(vertex) = queue.pop_front() {
-        let incoming = get_neighborhood_info(graph, vertex, Incoming); 
-        let outgoing = get_neighborhood_info(graph, vertex, Outgoing); 
+        let incoming = get_neighborhood_info(graph, vertex, Incoming);
+        let outgoing = get_neighborhood_info(graph, vertex, Outgoing);
 
         // if we can't calculate cut value yet, or the value is already known
         let (mut incoming, mut outgoing) = match (incoming, outgoing) {
@@ -58,9 +69,8 @@ fn calculate_cut_values(graph: &mut StableDiGraph<Vertex, Edge>, mut queue: VecD
                 // switch direction, if vertex is tail component of edge
                 std::mem::swap(&mut incoming, &mut outgoing);
                 e
-            },
-            None => graph.find_edge(missing, vertex).unwrap()
-
+            }
+            None => graph.find_edge(missing, vertex).unwrap(),
         };
 
         graph[edge].cut_value = Some(calculate_cut_value(graph[edge].weight, incoming, outgoing));
@@ -69,13 +79,23 @@ fn calculate_cut_values(graph: &mut StableDiGraph<Vertex, Edge>, mut queue: VecD
     }
 }
 
-fn calculate_cut_value(edge_weight: i32, incoming: NeighborhoodInfo, outgoing: NeighborhoodInfo) -> i32 {
-    edge_weight 
-    + incoming.non_tree_edge_weight_sum - incoming.cut_value_sum + incoming.tree_edge_weight_sum
-    - outgoing.non_tree_edge_weight_sum + outgoing.cut_value_sum - outgoing.tree_edge_weight_sum
+fn calculate_cut_value(
+    edge_weight: i32,
+    incoming: NeighborhoodInfo,
+    outgoing: NeighborhoodInfo,
+) -> i32 {
+    edge_weight + incoming.non_tree_edge_weight_sum - incoming.cut_value_sum
+        + incoming.tree_edge_weight_sum
+        - outgoing.non_tree_edge_weight_sum
+        + outgoing.cut_value_sum
+        - outgoing.tree_edge_weight_sum
 }
 
-fn get_neighborhood_info(graph: &StableDiGraph<Vertex, Edge>, vertex: NodeIndex, direction: Direction) -> Option<NeighborhoodInfo> {
+fn get_neighborhood_info(
+    graph: &StableDiGraph<Vertex, Edge>,
+    vertex: NodeIndex,
+    direction: Direction,
+) -> Option<NeighborhoodInfo> {
     // return the sum of all cut values,
     // sum of weights of cut value edges
     // missing cut value (only if there is one)
@@ -99,19 +119,21 @@ fn get_neighborhood_info(graph: &StableDiGraph<Vertex, Edge>, vertex: NodeIndex,
             return None;
         }
     }
-    Some(
-        NeighborhoodInfo {
-            cut_value_sum,
-            tree_edge_weight_sum,
-            non_tree_edge_weight_sum,
-            missing,
-        }
-    )
+    Some(NeighborhoodInfo {
+        cut_value_sum,
+        tree_edge_weight_sum,
+        non_tree_edge_weight_sum,
+        missing,
+    })
 }
 
-fn remove_outdated_cut_values(graph: &mut StableDiGraph<Vertex, Edge>, swap_edge: EdgeIndex, removed_edge: EdgeIndex) -> NodeIndex {
+fn remove_outdated_cut_values(
+    graph: &mut StableDiGraph<Vertex, Edge>,
+    swap_edge: EdgeIndex,
+    removed_edge: EdgeIndex,
+) -> NodeIndex {
     graph[removed_edge].cut_value = None;
-    let (mut w, mut x)  = graph.edge_endpoints(swap_edge).unwrap();
+    let (mut w, mut x) = graph.edge_endpoints(swap_edge).unwrap();
     if graph[w].lim > graph[x].lim {
         std::mem::swap(&mut w, &mut x)
     }
@@ -125,7 +147,9 @@ fn remove_outdated_cut_values(graph: &mut StableDiGraph<Vertex, Edge>, swap_edge
                 let edge = graph.find_edge_undirected(l, parent).unwrap().0;
                 graph[edge].cut_value = None;
                 l = parent;
-                if graph[l].low <= graph[w].lim && graph[x].lim <= graph[l].lim || graph[l].parent.is_none() {
+                if graph[l].low <= graph[w].lim && graph[x].lim <= graph[l].lim
+                    || graph[l].parent.is_none()
+                {
                     break l;
                 }
                 parent = graph[l].parent.unwrap();
@@ -151,39 +175,135 @@ mod tests {
 
     use petgraph::stable_graph::NodeIndex;
 
-    use crate::algorithm::p1_layering::{tests::{EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE, EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE, GraphBuilder, EXAMPLE_GRAPH, CUT_VALUES_EXAMPLE_GRAPH_NEG_CUT_VALUE, LOW_LIM_GRAPH, LOW_LIM_GRAPH_LOW_LIM_VALUES}, cut_values::{init_cutvalues, update_cutvalues, remove_outdated_cut_values}, low_lim::init_low_lim, Edge};
-
+    use crate::algorithm::p1_layering::{
+        cut_values::{init_cutvalues, remove_outdated_cut_values, update_cutvalues},
+        low_lim::init_low_lim,
+        tests::{
+            GraphBuilder, CUT_VALUES_EXAMPLE_GRAPH_NEG_CUT_VALUE, EXAMPLE_GRAPH,
+            EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE, EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE,
+            LOW_LIM_GRAPH, LOW_LIM_GRAPH_LOW_LIM_VALUES,
+        },
+        Edge,
+    };
 
     #[test]
     fn test_cut_values_one_negative() {
-        let edges = EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE; 
-        let (mut graph, ..) = GraphBuilder::new(&EXAMPLE_GRAPH).with_tree_edges(&edges).build();
+        let edges = EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE;
+        let (mut graph, ..) = GraphBuilder::new(&EXAMPLE_GRAPH)
+            .with_tree_edges(&edges)
+            .build();
 
         init_cutvalues(&mut graph);
 
-        assert_eq!(graph[graph.find_edge(edges[0].0.into(), edges[0].1.into()).unwrap()].cut_value, Some(3));
-        assert_eq!(graph[graph.find_edge(edges[1].0.into(), edges[1].1.into()).unwrap()].cut_value, Some(3));
-        assert_eq!(graph[graph.find_edge(edges[2].0.into(), edges[2].1.into()).unwrap()].cut_value, Some(3));
-        assert_eq!(graph[graph.find_edge(edges[3].0.into(), edges[3].1.into()).unwrap()].cut_value, Some(3));
-        assert_eq!(graph[graph.find_edge(edges[4].0.into(), edges[4].1.into()).unwrap()].cut_value, Some(0));
-        assert_eq!(graph[graph.find_edge(edges[5].0.into(), edges[5].1.into()).unwrap()].cut_value, Some(0));
-        assert_eq!(graph[graph.find_edge(edges[6].0.into(), edges[6].1.into()).unwrap()].cut_value, Some(-1));
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[0].0.into(), edges[0].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(3)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[1].0.into(), edges[1].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(3)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[2].0.into(), edges[2].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(3)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[3].0.into(), edges[3].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(3)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[4].0.into(), edges[4].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(0)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[5].0.into(), edges[5].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(0)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[6].0.into(), edges[6].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(-1)
+        );
     }
 
     #[test]
     fn test_cut_values_all_positive() {
         let edges = EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE;
-        let (mut graph, ..) = GraphBuilder::new(&EXAMPLE_GRAPH).with_tree_edges(&edges).build();
+        let (mut graph, ..) = GraphBuilder::new(&EXAMPLE_GRAPH)
+            .with_tree_edges(&edges)
+            .build();
 
         init_cutvalues(&mut graph);
 
-        assert_eq!(graph[graph.find_edge(edges[0].0.into(), edges[0].1.into()).unwrap()].cut_value, Some(2));
-        assert_eq!(graph[graph.find_edge(edges[1].0.into(), edges[1].1.into()).unwrap()].cut_value, Some(1));
-        assert_eq!(graph[graph.find_edge(edges[2].0.into(), edges[2].1.into()).unwrap()].cut_value, Some(2));
-        assert_eq!(graph[graph.find_edge(edges[3].0.into(), edges[3].1.into()).unwrap()].cut_value, Some(2));
-        assert_eq!(graph[graph.find_edge(edges[4].0.into(), edges[4].1.into()).unwrap()].cut_value, Some(2));
-        assert_eq!(graph[graph.find_edge(edges[5].0.into(), edges[5].1.into()).unwrap()].cut_value, Some(1));
-        assert_eq!(graph[graph.find_edge(edges[6].0.into(), edges[6].1.into()).unwrap()].cut_value, Some(0));
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[0].0.into(), edges[0].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(2)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[1].0.into(), edges[1].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(1)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[2].0.into(), edges[2].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(2)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[3].0.into(), edges[3].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(2)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[4].0.into(), edges[4].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(2)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[5].0.into(), edges[5].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(1)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[6].0.into(), edges[6].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(0)
+        );
     }
 
     #[test]
@@ -199,7 +319,10 @@ mod tests {
         let head = 8.into();
         let edge = graph.add_edge(tail, head, Edge::default());
         let actual_lca = remove_outdated_cut_values(&mut graph, edge, edge);
-        let expected_path = [(5, 6), (4, 5), (4, 8)].into_iter().map(|(t, h)| graph.find_edge(t.into(), h.into()).unwrap()).collect::<Vec<_>>();
+        let expected_path = [(5, 6), (4, 5), (4, 8)]
+            .into_iter()
+            .map(|(t, h)| graph.find_edge(t.into(), h.into()).unwrap())
+            .collect::<Vec<_>>();
         for edge in graph.edge_indices() {
             if expected_path.contains(&edge) {
                 assert!(graph[edge].cut_value.is_none());
@@ -217,14 +340,17 @@ mod tests {
             .with_tree_edges(&LOW_LIM_GRAPH)
             .with_low_lim_values(&LOW_LIM_GRAPH_LOW_LIM_VALUES)
             .build();
-    
+
         init_cutvalues(&mut graph);
 
         let tail = 3.into();
         let head = 8.into();
         let edge = graph.add_edge(tail, head, Edge::default());
         let actual_lca = remove_outdated_cut_values(&mut graph, edge, edge);
-        let expected_path = [(1, 3), (0, 1), (4, 8), (0, 4)].into_iter().map(|(t, h)| graph.find_edge(t.into(), h.into()).unwrap()).collect::<Vec<_>>();
+        let expected_path = [(1, 3), (0, 1), (4, 8), (0, 4)]
+            .into_iter()
+            .map(|(t, h)| graph.find_edge(t.into(), h.into()).unwrap())
+            .collect::<Vec<_>>();
         for edge in graph.edge_indices() {
             if expected_path.contains(&edge) {
                 assert!(graph[edge].cut_value.is_none());
@@ -252,18 +378,60 @@ mod tests {
         update_cutvalues(&mut graph, removed_edge, swap_edge);
         let edges = EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE;
 
-        assert_eq!(graph[graph.find_edge(edges[0].0.into(), edges[0].1.into()).unwrap()].cut_value, Some(2));
-        assert_eq!(graph[graph.find_edge(edges[1].0.into(), edges[1].1.into()).unwrap()].cut_value, Some(1));
-        assert_eq!(graph[graph.find_edge(edges[2].0.into(), edges[2].1.into()).unwrap()].cut_value, Some(2));
-        assert_eq!(graph[graph.find_edge(edges[3].0.into(), edges[3].1.into()).unwrap()].cut_value, Some(2));
-        assert_eq!(graph[graph.find_edge(edges[4].0.into(), edges[4].1.into()).unwrap()].cut_value, Some(2));
-        assert_eq!(graph[graph.find_edge(edges[5].0.into(), edges[5].1.into()).unwrap()].cut_value, Some(1));
-        assert_eq!(graph[graph.find_edge(edges[6].0.into(), edges[6].1.into()).unwrap()].cut_value, Some(0));
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[0].0.into(), edges[0].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(2)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[1].0.into(), edges[1].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(1)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[2].0.into(), edges[2].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(2)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[3].0.into(), edges[3].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(2)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[4].0.into(), edges[4].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(2)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[5].0.into(), edges[5].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(1)
+        );
+        assert_eq!(
+            graph[graph
+                .find_edge(edges[6].0.into(), edges[6].1.into())
+                .unwrap()]
+            .cut_value,
+            Some(0)
+        );
     }
 
     #[test]
     fn update_cutvalues_only_tree_edges_have_cut_values() {
-        let (mut graph, ..)= GraphBuilder::new(&EXAMPLE_GRAPH)
+        let (mut graph, ..) = GraphBuilder::new(&EXAMPLE_GRAPH)
             .with_tree_edges(&EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE)
             .with_cut_values(&CUT_VALUES_EXAMPLE_GRAPH_NEG_CUT_VALUE)
             .with_least_common_ancestor(0)

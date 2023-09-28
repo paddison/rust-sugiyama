@@ -3,12 +3,11 @@ use std::collections::HashMap;
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableDiGraph};
 
 use crate::{util::weakly_connected_components, Layout, Layouts};
-use crate::{Config, LayeringType, CrossingMinimization};
+use crate::{Config, CrossingMinimization, RankingType};
 use p1_layering as p1;
 use p2_reduce_crossings as p2;
 use p3_calculate_coordinates as p3;
 
-use self::p1::ranking::move_vertices_up;
 use self::p3_calculate_coordinates::VDir;
 
 mod p1_layering;
@@ -33,7 +32,10 @@ pub(super) struct Vertex {
 
 impl Vertex {
     pub(super) fn new(id: usize) -> Self {
-        Self{ id, ..Default::default() }
+        Self {
+            id,
+            ..Default::default()
+        }
     }
 
     #[cfg(test)]
@@ -173,20 +175,15 @@ fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layou
 fn execute_phase_1(
     graph: &mut StableDiGraph<Vertex, Edge>,
     minimum_length: i32,
-    layering_type: LayeringType,
+    ranking_type: RankingType,
 ) {
-    p1::ranking::init_rank(graph, minimum_length);
-    match layering_type {
-        LayeringType::Up => move_vertices_up(graph, minimum_length),
-        _ => p1::rank(graph, minimum_length),
-    }
-    //p1::rank(graph, minimum_length);
+    p1::rank(graph, minimum_length, ranking_type);
 }
 
 fn execute_phase_2(
     graph: &mut StableDiGraph<Vertex, Edge>,
     minimum_length: i32,
-    no_dummy_vertices: bool,
+    dummy_vertices: bool,
     crossing_minimization: CrossingMinimization,
     transpose: bool,
 ) -> Vec<Vec<NodeIndex>> {
@@ -196,13 +193,9 @@ fn execute_phase_2(
     for v in graph.node_indices() {
         test_layers[graph[v].rank as usize].push(v);
     }
-    for l in test_layers {
-        //println!("{l:?}");
-    }
     p2::insert_dummy_vertices(graph, minimum_length);
-    //p2::bundle_dummy_vertices(graph);
     let mut order = p2::ordering(graph, crossing_minimization, transpose);
-    if no_dummy_vertices {
+    if !dummy_vertices {
         p2::remove_dummy_vertices(graph, &mut order);
     }
     order
@@ -213,22 +206,17 @@ fn execute_phase_3(
     graph: &mut StableDiGraph<Vertex, Edge>,
     mut layers: Vec<Vec<NodeIndex>>,
     vertex_spacing: usize,
-    dummy_size: f64
+    dummy_size: f64,
 ) -> Layout {
     for n in graph.node_indices().collect::<Vec<_>>() {
         if graph[n].is_dummy {
             graph[n].id = n.index();
         }
     }
-    for l in &layers {
-        let id = l.iter().map(|v| graph[*v].id).collect::<Vec<_>>();
-        //println!("{id:?}");
-    }
     let width = layers.iter().map(|l| l.len()).max().unwrap_or(0);
     let height = layers.len();
     let mut layouts = p3::create_layouts(graph, &mut layers, vertex_spacing, dummy_size);
 
-    
     p3::align_to_smallest_width_layout(&mut layouts);
     let mut x_coordinates = p3::calculate_relative_coords(layouts);
     // determine the smallest x-coordinate
@@ -239,7 +227,7 @@ fn execute_phase_3(
         *c -= min;
     }
 
-    print_to_console(VDir::Down, graph, &layers, x_coordinates.iter().copied().collect::<HashMap<_, _>>(), vertex_spacing);
+    // print_to_console(VDir::Down, graph, &layers, x_coordinates.iter().copied().collect::<HashMap<_, _>>(), vertex_spacing);
     let mut v = x_coordinates.iter().collect::<Vec<_>>();
     v.sort_by(|a, b| a.0.index().cmp(&b.0.index()));
     // format to NodeIndex: (x, y), width, height
@@ -265,34 +253,42 @@ fn slack(graph: &StableDiGraph<Vertex, Edge>, edge: EdgeIndex, minimum_length: i
     graph[head].rank - graph[tail].rank - minimum_length
 }
 
-fn print_to_console(dir: VDir, graph: &StableDiGraph<Vertex, Edge>, layers: &[Vec<NodeIndex>], mut coordinates: HashMap<NodeIndex, isize>, vertex_spacing: usize) {
+#[allow(dead_code)]
+fn print_to_console(
+    dir: VDir,
+    graph: &StableDiGraph<Vertex, Edge>,
+    layers: &[Vec<NodeIndex>],
+    mut coordinates: HashMap<NodeIndex, isize>,
+    vertex_spacing: usize,
+) {
     let min = *coordinates.values().min().unwrap();
     let str_width = 4;
-    coordinates.values_mut().for_each(|v| *v = str_width * (*v - min) / vertex_spacing as isize);
-    let width =  *coordinates.values().max().unwrap() as usize;
+    coordinates
+        .values_mut()
+        .for_each(|v| *v = str_width * (*v - min) / vertex_spacing as isize);
+    let width = *coordinates.values().max().unwrap() as usize;
 
     for line in layers {
         let mut v_line = vec!['-'; width + str_width as usize];
         let mut a_line = vec![' '; width + str_width as usize];
         for v in line {
-            let align = graph[*v].align;
             let pos = *coordinates.get(v).unwrap() as usize;
             if graph[*v].root != *v {
                 a_line[pos] = if dir == VDir::Up { 'v' } else { '^' };
             }
             for (i, c) in v.index().to_string().chars().enumerate() {
-                v_line[pos + i] = c; 
+                v_line[pos + i] = c;
             }
         }
         match dir {
             VDir::Up => {
                 println!("{}", v_line.into_iter().collect::<String>());
                 println!("{}", a_line.into_iter().collect::<String>());
-            },
+            }
             VDir::Down => {
                 println!("{}", a_line.into_iter().collect::<String>());
                 println!("{}", v_line.into_iter().collect::<String>());
-            },
+            }
         }
     }
     println!();

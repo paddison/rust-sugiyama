@@ -1,8 +1,8 @@
 use std::collections::HashSet;
 
-use petgraph::stable_graph::{StableDiGraph, NodeIndex};
+use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-use super::{Vertex, Edge};
+use super::{Edge, Vertex};
 
 pub(super) fn init_low_lim(graph: &mut StableDiGraph<Vertex, Edge>) {
     // start at arbitrary root node
@@ -11,17 +11,32 @@ pub(super) fn init_low_lim(graph: &mut StableDiGraph<Vertex, Edge>) {
     dfs_low_lim(graph, root, None, &mut max_lim, &mut HashSet::new());
 }
 
-pub(super) fn update_low_lim(graph: &mut StableDiGraph<Vertex, Edge>, least_common_ancestor: NodeIndex) {
+pub(super) fn update_low_lim(
+    graph: &mut StableDiGraph<Vertex, Edge>,
+    least_common_ancestor: NodeIndex,
+) {
     let parent = graph[least_common_ancestor].parent;
     let mut visited = match &parent {
         Some(parent) => HashSet::from([*parent]),
-        None => HashSet::new()
+        None => HashSet::new(),
     };
     let mut max_lim = graph[least_common_ancestor].lim;
-    dfs_low_lim(graph, least_common_ancestor, parent, &mut max_lim, &mut visited);
+    dfs_low_lim(
+        graph,
+        least_common_ancestor,
+        parent,
+        &mut max_lim,
+        &mut visited,
+    );
 }
 
-fn dfs_low_lim(graph: &mut StableDiGraph<Vertex, Edge>, next: NodeIndex, parent: Option<NodeIndex>, max_lim: &mut u32, visited: &mut HashSet<NodeIndex>) {
+fn dfs_low_lim(
+    graph: &mut StableDiGraph<Vertex, Edge>,
+    next: NodeIndex,
+    parent: Option<NodeIndex>,
+    max_lim: &mut u32,
+    visited: &mut HashSet<NodeIndex>,
+) {
     visited.insert(next);
     graph[next].lim = *max_lim;
     graph[next].parent = parent;
@@ -39,16 +54,25 @@ fn dfs_low_lim(graph: &mut StableDiGraph<Vertex, Edge>, next: NodeIndex, parent:
 mod tests {
     use petgraph::stable_graph::NodeIndex;
 
-    use crate::algorithm::p1_layering::{Vertex, low_lim::{init_low_lim, update_low_lim}, tests::{LOW_LIM_GRAPH_AFTER_UPDATE, LOW_LIM_GRAPH_LOW_LIM_VALUES, EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE, EXAMPLE_GRAPH_LOW_LIM_VALUES_NEG_CUT_VALUE}};
+    use crate::algorithm::p1_layering::{
+        low_lim::{init_low_lim, update_low_lim},
+        tests::{
+            EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE, EXAMPLE_GRAPH_LOW_LIM_VALUES_NEG_CUT_VALUE,
+            LOW_LIM_GRAPH_AFTER_UPDATE, LOW_LIM_GRAPH_LOW_LIM_VALUES,
+        },
+        Vertex,
+    };
 
-    use super::super::tests::{LOW_LIM_GRAPH, GraphBuilder, EXAMPLE_GRAPH, EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE};
+    use super::super::tests::{
+        GraphBuilder, EXAMPLE_GRAPH, EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE, LOW_LIM_GRAPH,
+    };
 
     #[test]
     fn init_low_lim_low_lim_graph() {
         let (mut graph, ..) = GraphBuilder::new(&LOW_LIM_GRAPH)
-                    .with_tree_edges(&LOW_LIM_GRAPH)
-                    .build();
-        
+            .with_tree_edges(&LOW_LIM_GRAPH)
+            .build();
+
         init_low_lim(&mut graph);
 
         let v0 = graph[NodeIndex::from(0)];
@@ -105,7 +129,7 @@ mod tests {
         assert_eq!(graph[NodeIndex::from(7)].lim, 4);
         assert_eq!(graph[NodeIndex::from(7)].parent, Some(3.into()));
     }
-    
+
     #[test]
     fn update_low_lim_low_lim_graph() {
         let (mut graph, .., least_common_ancestor) = GraphBuilder::new(&LOW_LIM_GRAPH_AFTER_UPDATE)
@@ -114,7 +138,7 @@ mod tests {
             .with_least_common_ancestor(4)
             .build();
 
-        update_low_lim(&mut graph, least_common_ancestor); 
+        update_low_lim(&mut graph, least_common_ancestor);
         let v4 = graph[NodeIndex::from(4)];
         let v5 = graph[NodeIndex::from(5)];
         let v6 = graph[NodeIndex::from(6)];

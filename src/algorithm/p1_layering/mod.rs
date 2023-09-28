@@ -8,13 +8,29 @@ pub(crate) mod tests;
 use petgraph::stable_graph::{EdgeIndex, StableDiGraph};
 use petgraph::visit::IntoNodeIdentifiers;
 
+use crate::RankingType;
+
 use self::cut_values::update_cutvalues;
 use self::low_lim::update_low_lim;
-use self::ranking::{feasible_tree, update_ranks};
+use self::ranking::{feasible_tree, init_rank, move_vertices_down, move_vertices_up, update_ranks};
 
 use super::{slack, Edge, Vertex};
 
-pub(super) fn rank(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
+pub(super) fn rank(
+    graph: &mut StableDiGraph<Vertex, Edge>,
+    minimum_length: i32,
+    ranking_type: RankingType,
+) {
+    init_rank(graph, minimum_length);
+    match ranking_type {
+        RankingType::Original => original(graph, minimum_length),
+        RankingType::MinimizeEdgeLength => minimize_edge_length(graph, minimum_length),
+        RankingType::Up => move_vertices_up(graph, minimum_length),
+        RankingType::Down => move_vertices_down(graph, minimum_length),
+    }
+}
+
+fn minimize_edge_length(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
     feasible_tree(graph, minimum_length);
     while let Some(removed_edge) = leave_edge(graph) {
         // swap edges and calculate cut value
@@ -25,6 +41,11 @@ pub(super) fn rank(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32)
     // don't balance ranks since we want maximum width to
     // give indication about number of parallel processes running
     normalize(graph);
+}
+
+fn original(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
+    move_vertices_up(graph, minimum_length);
+    move_vertices_down(graph, minimum_length);
 }
 
 fn leave_edge(graph: &StableDiGraph<Vertex, Edge>) -> Option<EdgeIndex> {

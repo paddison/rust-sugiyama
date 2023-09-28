@@ -3,19 +3,24 @@ mod tests;
 
 use std::collections::HashMap;
 
-use petgraph::Direction::Incoming;
-use petgraph::stable_graph::{StableDiGraph, NodeIndex};
+use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use petgraph::visit::EdgeRef;
+use petgraph::Direction::Incoming;
 
-use super::{Vertex, Edge, slack, print_to_console};
+use super::{slack, Edge, Vertex};
 
-pub(super) fn create_layouts(graph: &mut StableDiGraph<Vertex, Edge>, layers: &mut [Vec<NodeIndex>], vertex_spacing: usize, dummy_size: f64) -> Vec<HashMap<NodeIndex, isize>> {
+pub(super) fn create_layouts(
+    graph: &mut StableDiGraph<Vertex, Edge>,
+    layers: &mut [Vec<NodeIndex>],
+    vertex_spacing: usize,
+    dummy_size: f64,
+) -> Vec<HashMap<NodeIndex, isize>> {
     let mut layouts = Vec::new();
     mark_type_1_conflicts(graph, layers);
-    let orig_layers = layers.iter().cloned().collect::<Vec<_>>();
     // calculate the coordinates for each direction
-    for v_dir in [VDir::Down, VDir::Up] {
+    for _v_dir in [VDir::Down, VDir::Up] {
         for h_dir in [HDir::Right, HDir::Left] {
+            // reset root, align and sink values
             reset_alignment(graph, layers);
             create_vertical_alignments(graph, layers);
             let mut layout = do_horizontal_compaction(graph, layers, vertex_spacing, dummy_size);
@@ -23,14 +28,13 @@ pub(super) fn create_layouts(graph: &mut StableDiGraph<Vertex, Edge>, layers: &m
             if let HDir::Left = h_dir {
                 layout.values_mut().for_each(|x| *x = -*x);
             }
-            print_to_console(v_dir, graph, &orig_layers, layout.clone(), vertex_spacing);
+            // print_to_console(v_dir, graph, &orig_layers, layout.clone(), vertex_spacing);
             layouts.push(layout);
 
             // rotate the graph
             for row in layers.iter_mut() {
                 row.reverse();
             }
-            // reset root, align and sink values
         }
         // rotate the graph
         graph.reverse();
@@ -41,26 +45,33 @@ pub(super) fn create_layouts(graph: &mut StableDiGraph<Vertex, Edge>, layers: &m
     layouts
 }
 
-pub(crate) fn align_to_smallest_width_layout(aligned_layouts: &mut[HashMap<NodeIndex, isize>]) {
+pub(crate) fn align_to_smallest_width_layout(aligned_layouts: &mut [HashMap<NodeIndex, isize>]) {
     // determine minimum and maximum coordinate of each layout, plus the width
-    let min_max: Vec<(isize, isize, isize)> = aligned_layouts.iter()
-                                                 .map(|c| {
-                                                    let min = *c.values().min().unwrap();
-                                                    let max = *c.values().max().unwrap();
-                                                    (min, max, max - min)
-                                                 }).collect();
+    let min_max: Vec<(isize, isize, isize)> = aligned_layouts
+        .iter()
+        .map(|c| {
+            let min = *c.values().min().unwrap();
+            let max = *c.values().max().unwrap();
+            (min, max, max - min)
+        })
+        .collect();
 
     // determine the layout with the minimum width
-    let min_width = min_max.iter().enumerate().min_by(|a, b| a.1.2.cmp(&b.1.2)).unwrap().0;
+    let min_width = min_max
+        .iter()
+        .enumerate()
+        .min_by(|a, b| a.1 .2.cmp(&b.1 .2))
+        .unwrap()
+        .0;
 
-    // align all other layouts to the lowest/highest coordinate of the layout with the minimum width, 
+    // align all other layouts to the lowest/highest coordinate of the layout with the minimum width,
     // depending on the horizontal direction which was chosen to create them
     for (i, layout) in aligned_layouts.iter_mut().enumerate() {
         // if i % 2 == 0, then horizontal direction was left
-        let shift = if i % 2 == 0 { 
+        let shift = if i % 2 == 0 {
             min_max[i].0 - min_max[min_width].0
-        } else { 
-            min_max[min_width].1 - min_max[i].1 
+        } else {
+            min_max[min_width].1 - min_max[i].1
         };
         for v in layout.values_mut() {
             let new = *v + shift;
@@ -69,7 +80,9 @@ pub(crate) fn align_to_smallest_width_layout(aligned_layouts: &mut[HashMap<NodeI
     }
 }
 
-pub(crate) fn calculate_relative_coords(aligned_layouts: Vec<HashMap<NodeIndex, isize>>) -> Vec<(NodeIndex, isize)> {
+pub(crate) fn calculate_relative_coords(
+    aligned_layouts: Vec<HashMap<NodeIndex, isize>>,
+) -> Vec<(NodeIndex, isize)> {
     // sort all 4 coordinates per vertex in ascending order
     for l in &aligned_layouts {
         let mut v = l.iter().collect::<Vec<_>>();
@@ -91,18 +104,24 @@ pub(crate) fn calculate_relative_coords(aligned_layouts: Vec<HashMap<NodeIndex, 
 
     // create final layout, by averaging the two median values
     // try to use something like mean
-    sorted_layouts.into_iter()
-         .map(|(k, v)| (*k, (v[0] + v[1] + v[2] + v[3]) / 4))
-         .collect::<Vec<_>>()
+    sorted_layouts
+        .into_iter()
+        .map(|(k, v)| (*k, (v[0] + v[1] + v[2] + v[3]) / 4))
+        .collect::<Vec<_>>()
 }
 
 fn is_incident_to_inner_segment(graph: &StableDiGraph<Vertex, Edge>, id: NodeIndex) -> bool {
-    graph[id].is_dummy &&
-    graph.neighbors_directed(id, Incoming).any(|n| graph[n].is_dummy)
+    graph[id].is_dummy
+        && graph
+            .neighbors_directed(id, Incoming)
+            .any(|n| graph[n].is_dummy)
 }
 
-/// Assumes id is incident to inner segment 
-fn get_inner_segment_upper_neighbor(graph: &StableDiGraph<Vertex, Edge>, id: NodeIndex) -> Option<NodeIndex> {
+/// Assumes id is incident to inner segment
+fn get_inner_segment_upper_neighbor(
+    graph: &StableDiGraph<Vertex, Edge>,
+    id: NodeIndex,
+) -> Option<NodeIndex> {
     if is_incident_to_inner_segment(graph, id) {
         graph.neighbors_directed(id, Incoming).next()
     } else {
@@ -111,24 +130,26 @@ fn get_inner_segment_upper_neighbor(graph: &StableDiGraph<Vertex, Edge>, id: Nod
 }
 
 fn mark_type_1_conflicts(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<NodeIndex>]) {
-    for (level, next_level) in layers [..layers.len() - 1]
-                                    .iter()
-                                    .zip(layers[1..].iter()) 
-    {
+    for (level, next_level) in layers[..layers.len() - 1].iter().zip(layers[1..].iter()) {
         let mut left_dummy_index = 0;
         let mut l = 0;
         for (l_1, dummy_candidate) in next_level.iter().enumerate() {
-            let right_dummy_index = match get_inner_segment_upper_neighbor(graph, *dummy_candidate) {
+            let right_dummy_index = match get_inner_segment_upper_neighbor(graph, *dummy_candidate)
+            {
                 Some(id) => graph[id].pos,
-                None => if l_1 == next_level.len()  - 1 { 
-                    level.len() 
-                } else { 
-                    continue;
+                None => {
+                    if l_1 == next_level.len() - 1 {
+                        level.len()
+                    } else {
+                        continue;
+                    }
                 }
             };
             while l < l_1 {
                 let vertex = next_level[l];
-                let mut upper_neighbors = graph.neighbors_directed(vertex, Incoming).collect::<Vec<_>>();
+                let mut upper_neighbors = graph
+                    .neighbors_directed(vertex, Incoming)
+                    .collect::<Vec<_>>();
                 upper_neighbors.sort_by(|a, b| graph[*a].pos.cmp(&graph[*b].pos));
                 for upper_neighbor in upper_neighbors {
                     let vertex_index = graph[upper_neighbor].pos;
@@ -147,7 +168,7 @@ fn mark_type_1_conflicts(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<
 pub(super) fn reset_alignment(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<NodeIndex>]) {
     for (rank, row) in layers.iter().enumerate() {
         for (pos, v) in row.iter().enumerate() {
-            let weight: &mut Vertex = &mut graph[*v]; 
+            let weight: &mut Vertex = &mut graph[*v];
             weight.rank = rank as i32;
             weight.pos = pos;
             weight.shift = isize::MAX;
@@ -159,14 +180,18 @@ pub(super) fn reset_alignment(graph: &mut StableDiGraph<Vertex, Edge>, layers: &
 }
 
 // TODO: Change this so the graph gets rotated outside of the function
-/// Aligns the graph in so called blocks, which are used in the next step 
+/// Aligns the graph in so called blocks, which are used in the next step
 /// to determine the x-coordinate of a vertex.
-fn create_vertical_alignments(graph: &mut StableDiGraph<Vertex, Edge>, layers: &mut [Vec<NodeIndex>]) {
-       for layer in layers {
+fn create_vertical_alignments(
+    graph: &mut StableDiGraph<Vertex, Edge>,
+    layers: &mut [Vec<NodeIndex>],
+) {
+    for layer in layers {
         let mut r = -1;
 
         for v in layer.iter().copied() {
-            let mut edges = graph.edges_directed(v, Incoming)
+            let mut edges = graph
+                .edges_directed(v, Incoming)
                 .filter(|e| slack(graph, e.id(), 1) == 0)
                 .map(|e| (e.id(), e.source()))
                 .collect::<Vec<_>>();
@@ -180,12 +205,14 @@ fn create_vertical_alignments(graph: &mut StableDiGraph<Vertex, Edge>, layers: &
             let d = (edges.len() as f64 + 1.) / 2. - 1.; // need to subtract one because indices are zero based
             let lower_upper_median = [d.floor() as usize, d.ceil() as usize];
 
-            for m in lower_upper_median  {
+            for m in lower_upper_median {
                 if graph[v].align == v {
                     let edge_id = edges[m].0;
                     let median_neighbor = edges[m].1;
 
-                    if !graph[edge_id].has_type_1_conflict && r < graph[median_neighbor].pos as isize {
+                    if !graph[edge_id].has_type_1_conflict
+                        && r < graph[median_neighbor].pos as isize
+                    {
                         graph[median_neighbor].align = v;
                         graph[v].root = graph[median_neighbor].root;
                         graph[v].align = graph[v].root;
@@ -197,10 +224,15 @@ fn create_vertical_alignments(graph: &mut StableDiGraph<Vertex, Edge>, layers: &
     }
 }
 
-fn do_horizontal_compaction(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<NodeIndex>], vertex_spacing: usize, dummy_size: f64) -> HashMap<NodeIndex, isize> {
+fn do_horizontal_compaction(
+    graph: &mut StableDiGraph<Vertex, Edge>,
+    layers: &[Vec<NodeIndex>],
+    vertex_spacing: usize,
+    dummy_size: f64,
+) -> HashMap<NodeIndex, isize> {
     let mut x_coordinates = place_blocks(graph, layers, vertex_spacing as isize, dummy_size);
-    // calculate class shifts 
-    for i in 0..layers.len() { 
+    // calculate class shifts
+    for i in 0..layers.len() {
         let mut v = layers[i][0];
         if graph[v].sink == v {
             if graph[graph[v].sink].shift == isize::MAX {
@@ -219,9 +251,12 @@ fn do_horizontal_compaction(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[V
 
                     if graph[v].pos > 1 {
                         let u = pred(graph[v], layers);
-                        let distance_v_u = *x_coordinates.get(&v).unwrap() - (*x_coordinates.get(&u).unwrap() + vertex_spacing as isize);
+                        let distance_v_u = *x_coordinates.get(&v).unwrap()
+                            - (*x_coordinates.get(&u).unwrap() + vertex_spacing as isize);
                         let u_sink = graph[u].sink;
-                        graph[u_sink].shift = graph[u_sink].shift.min(graph[graph[v].sink].shift + distance_v_u);
+                        graph[u_sink].shift = graph[u_sink]
+                            .shift
+                            .min(graph[graph[v].sink].shift + distance_v_u);
                     }
                 }
                 k = graph[v].pos + 1;
@@ -230,29 +265,48 @@ fn do_horizontal_compaction(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[V
                     break;
                 }
             }
-        }   
+        }
     }
 
     // calculate absolute x-coordinates
     for v in graph.node_indices() {
-        x_coordinates.insert(v, *x_coordinates.get(&v).unwrap() + graph[graph[v].sink].shift);
+        x_coordinates.insert(
+            v,
+            *x_coordinates.get(&v).unwrap() + graph[graph[v].sink].shift,
+        );
     }
     x_coordinates
 }
 
-fn place_blocks(graph: &mut StableDiGraph<Vertex, Edge>, layers: &[Vec<NodeIndex>], vertex_spacing: isize, dummy_size: f64) -> HashMap<NodeIndex, isize> {
+fn place_blocks(
+    graph: &mut StableDiGraph<Vertex, Edge>,
+    layers: &[Vec<NodeIndex>],
+    vertex_spacing: isize,
+    dummy_size: f64,
+) -> HashMap<NodeIndex, isize> {
     let mut x_coordinates = HashMap::new();
     // place blocks
-    for root in graph.node_indices().filter(|v| graph[*v].root == *v).collect::<Vec<_>>() {
-        place_block(graph, layers, root, &mut x_coordinates, vertex_spacing, dummy_size);
+    for root in graph
+        .node_indices()
+        .filter(|v| graph[*v].root == *v)
+        .collect::<Vec<_>>()
+    {
+        place_block(
+            graph,
+            layers,
+            root,
+            &mut x_coordinates,
+            vertex_spacing,
+            dummy_size,
+        );
     }
     x_coordinates
 }
 fn place_block(
     graph: &mut StableDiGraph<Vertex, Edge>,
     layers: &[Vec<NodeIndex>],
-    root: NodeIndex, 
-    x_coordinates: &mut HashMap<NodeIndex, isize>, 
+    root: NodeIndex,
+    x_coordinates: &mut HashMap<NodeIndex, isize>,
     vertex_spacing: isize,
     dummy_size: f64,
 ) {
@@ -266,19 +320,28 @@ fn place_block(
             let u = graph[pred(graph[w], layers)].root;
             place_block(graph, layers, u, x_coordinates, vertex_spacing, dummy_size);
             // initialize sink of current node to have the same sink as the root
-            if graph[root].sink == root { 
-                graph[root].sink = graph[u].sink; 
+            if graph[root].sink == root {
+                graph[root].sink = graph[u].sink;
             }
             if graph[root].sink == graph[u].sink {
-                    let vertex_size = if graph[root].is_dummy { vertex_spacing as f64 * dummy_size } else { 0. } as isize;
-                    x_coordinates.insert(root, *x_coordinates.get(&root).unwrap().max(&(x_coordinates.get(&u).unwrap() + vertex_spacing - vertex_size)));
-
-                }
+                let vertex_size = if graph[root].is_dummy {
+                    vertex_spacing as f64 * (1. - dummy_size)
+                } else {
+                    0.
+                } as isize;
+                x_coordinates.insert(
+                    root,
+                    *x_coordinates
+                        .get(&root)
+                        .unwrap()
+                        .max(&(x_coordinates.get(&u).unwrap() + vertex_spacing - vertex_size)),
+                );
             }
-            w = graph[w].align;
-            if w == root {
-                break
-            }
+        }
+        w = graph[w].align;
+        if w == root {
+            break;
+        }
     }
     // align all other vertices in this block to the x-coordinate of the root
     while graph[w].align != root {
@@ -293,7 +356,7 @@ fn pred(vertex: Vertex, layers: &[Vec<NodeIndex>]) -> NodeIndex {
 }
 /// Represents a layered graph whose vertices have been aligned in blocks.
 /// A root is the highest node in a block, depending on the direction.
-/// 
+///
 /// It is used to determine classes of a block, calculate the x-coordinates of a block
 /// in regard to its class and shift classes together as close as possible.
 

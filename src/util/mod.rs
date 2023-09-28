@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use petgraph::stable_graph::{StableDiGraph, NodeIndex};
+use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
 /// Takes a graph and breaks it down into its weakly connected components.
 /// A weakly connected component is a list of edges which are connected with each other.
@@ -17,12 +17,13 @@ pub fn weakly_connected_components<V: Copy, E: Copy>(
         let sub_graph = graph.filter_map(
             |v, w| match components.get(&v) {
                 Some(c) if *c == component => Some(*w),
-                _ => None
+                _ => None,
             },
             |e, w| match graph.edge_endpoints(e) {
                 Some((t, _)) if components.get(&t) == Some(&component) => Some(*w),
                 _ => None,
-            });
+            },
+        );
         sub_graphs.push(sub_graph);
     }
 
@@ -44,18 +45,22 @@ fn find_components<V, E>(graph: &StableDiGraph<V, E>) -> (HashMap<NodeIndex, usi
     (components, n_components)
 }
 
-fn find_component_dfs<V, E>(vertex: NodeIndex, graph: &StableDiGraph<V, E>, components: &mut HashMap<NodeIndex, usize>, n_components: usize) {
+fn find_component_dfs<V, E>(
+    vertex: NodeIndex,
+    graph: &StableDiGraph<V, E>,
+    components: &mut HashMap<NodeIndex, usize>,
+    n_components: usize,
+) {
     let mut queue = vec![vertex];
     while let Some(v) = queue.pop() {
         if components.contains_key(&v) {
             continue;
-        }    
+        }
         components.insert(v, n_components);
         for n in graph.neighbors_undirected(v) {
             queue.push(n);
         }
     }
-
 }
 
 #[test]

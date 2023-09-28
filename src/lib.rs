@@ -18,17 +18,18 @@ pub struct Config {
     minimum_length: u32,
     vertex_spacing: usize,
     dummy_vertices: bool,
-    layering_type: LayeringType,
-    c_minimization: CrossingMinimization,    
-    transpose: bool,
     dummy_size: f64,
+    layering_type: RankingType,
+    c_minimization: CrossingMinimization,
+    transpose: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
-pub enum LayeringType {
+pub enum RankingType {
+    Original,
+    MinimizeEdgeLength,
     Up,
     Down,
-    Feasible,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -43,7 +44,7 @@ impl Default for Config {
             minimum_length: 1,
             vertex_spacing: 10,
             dummy_vertices: true,
-            layering_type: LayeringType::Feasible,
+            layering_type: RankingType::MinimizeEdgeLength,
             c_minimization: CrossingMinimization::Barycenter,
             transpose: true,
             dummy_size: 1.0,
@@ -183,8 +184,6 @@ mod benchmark {
 
 #[cfg(test)]
 mod check_visuals {
-    use petgraph::stable_graph::StableDiGraph;
-
     use crate::from_vertices_and_edges;
 
     use super::from_edges;
@@ -301,26 +300,62 @@ mod check_visuals {
 
     #[test]
     fn hlrs_ping() {
-        let nodes = [
-            1, 2, 3, 4, 5, 
-            6, 7, 8, 9, 10, 
-            11, 12, 13, 14, 15, 
-            16, 17, 18, 19, 20, 
-            21
+        let _nodes = [
+            1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
         ];
         let edges = [
-            (1, 2), (1, 4), (1, 5), (1, 3), (2, 4), 
-            (2, 5), (3, 9), (3, 10), (3, 8), (4, 6), 
-            (4, 9), (4, 8), (5, 6), (5, 10), (5, 8), 
-            (6, 7), (7, 9), (7, 10), (8, 14), (8, 15), 
-            (8, 13), (9, 11), (9, 14), (9, 13), (10, 11), 
-            (10, 15), (10, 13), (11, 12), (12, 14), (12, 15), 
-            (13, 18), (13, 19), (13, 20), (14, 16), (14, 18), 
-            (14, 20), (15, 16), (15, 19), (15, 20), (16, 17), 
-            (17, 18), (17, 19), (18, 21), (19, 21)
-        ].into_iter().map(|(t, h)| (t - 1, h - 1)).collect::<Vec<_>>();
+            (1, 2),
+            (1, 4),
+            (1, 5),
+            (1, 3),
+            (2, 4),
+            (2, 5),
+            (3, 9),
+            (3, 10),
+            (3, 8),
+            (4, 6),
+            (4, 9),
+            (4, 8),
+            (5, 6),
+            (5, 10),
+            (5, 8),
+            (6, 7),
+            (7, 9),
+            (7, 10),
+            (8, 14),
+            (8, 15),
+            (8, 13),
+            (9, 11),
+            (9, 14),
+            (9, 13),
+            (10, 11),
+            (10, 15),
+            (10, 13),
+            (11, 12),
+            (12, 14),
+            (12, 15),
+            (13, 18),
+            (13, 19),
+            (13, 20),
+            (14, 16),
+            (14, 18),
+            (14, 20),
+            (15, 16),
+            (15, 19),
+            (15, 20),
+            (16, 17),
+            (17, 18),
+            (17, 19),
+            (18, 21),
+            (19, 21),
+        ]
+        .into_iter()
+        .map(|(t, h)| (t - 1, h - 1))
+        .collect::<Vec<_>>();
 
-        let layout = from_edges(&edges).layering_type(crate::LayeringType::Up).build();
+        let layout = from_edges(&edges)
+            .layering_type(crate::RankingType::Up)
+            .build();
         println!("{layout:?}");
     }
 }

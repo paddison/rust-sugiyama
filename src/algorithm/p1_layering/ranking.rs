@@ -17,10 +17,7 @@ pub(crate) fn print_ranks(graph: &StableDiGraph<Vertex, Edge>) {
     println!("\n");
 }
 
-pub(crate) fn feasible_tree(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
-    //init_rank(graph, minimum_length);
-    print_ranks(graph);
-
+pub(super) fn feasible_tree(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
     let tree_root = graph.node_indices().next().unwrap();
 
     while tight_tree(graph, tree_root, &mut HashSet::new(), minimum_length) < graph.node_count() {
@@ -40,7 +37,7 @@ pub(crate) fn feasible_tree(graph: &mut StableDiGraph<Vertex, Edge>, minimum_len
     init_low_lim(graph);
 }
 
-pub(crate) fn move_vertices_up(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
+pub(super) fn move_vertices_up(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
     // set rank of all vertices to the max rank + 1 of all the upper neighbors
     for v in graph.node_indices().collect::<Vec<_>>() {
         let rank = graph
@@ -49,6 +46,19 @@ pub(crate) fn move_vertices_up(graph: &mut StableDiGraph<Vertex, Edge>, minimum_
             .max()
             .unwrap_or(0);
         graph[v].rank = rank;
+    }
+}
+
+pub(super) fn move_vertices_down(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
+    if let Some(max_rank) = graph.node_weights().map(|w| w.rank).max() {
+        for v in graph.node_indices().collect::<Vec<_>>() {
+            let rank = graph
+                .neighbors_directed(v, Outgoing)
+                .filter_map(|n| graph[n].rank.checked_sub(minimum_length))
+                .min()
+                .unwrap_or(max_rank);
+            graph[v].rank = rank;
+        }
     }
 }
 
