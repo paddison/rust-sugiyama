@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use log::{debug, info};
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
 /// Takes a graph and breaks it down into its weakly connected components.
@@ -8,12 +9,15 @@ pub fn weakly_connected_components<V: Copy, E: Copy>(
     graph: StableDiGraph<V, E>,
 ) -> Vec<StableDiGraph<V, E>> {
     // map graph weights to options so we can take them later while building the subgraphs
+    info!(target: "connected_components", "Splitting graph into its connected components");
     let mut sub_graphs = Vec::new();
 
     let (components, n_components) = find_components(&graph);
+    debug!(target: "connected_components", "Found {n_components} components");
 
     // build each subgraph
     for component in 0..n_components {
+        debug!(target: "connected_components", "Creating component: {component}");
         let sub_graph = graph.filter_map(
             |v, w| match components.get(&v) {
                 Some(c) if *c == component => Some(*w),

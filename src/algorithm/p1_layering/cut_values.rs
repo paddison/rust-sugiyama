@@ -1,5 +1,6 @@
 use std::collections::VecDeque;
 
+use log::{debug, info, trace};
 use petgraph::{
     stable_graph::{EdgeIndex, NodeIndex, StableDiGraph},
     visit::EdgeRef,
@@ -8,6 +9,7 @@ use petgraph::{
 
 use super::{Edge, Vertex};
 
+#[derive(Debug)]
 struct NeighborhoodInfo {
     cut_value_sum: i32,
     tree_edge_weight_sum: i32,
@@ -17,8 +19,9 @@ struct NeighborhoodInfo {
 
 pub(super) fn init_cutvalues(graph: &mut StableDiGraph<Vertex, Edge>) {
     // TODO: check if it is faster to collect tree edges or to do unecessary iterations
-    // let tree_edges = self.graph.edge_indices().filter(|e| self.graph[*e].is_tree_edge).collect::<HashSet<_>>();
+    info!(target: "cut_values", "Initializing cut values");
     let queue = leaves(graph);
+    debug!(target: "cut_values", "Leaves of tree: {:?}", queue);
     // traverse tree inward via breadth first starting from leaves
     calculate_cut_values(graph, queue);
 }
@@ -28,8 +31,10 @@ pub(super) fn update_cutvalues(
     removed_edge: EdgeIndex,
     swap_edge: EdgeIndex,
 ) -> NodeIndex {
+    info!(target: "cut_values", "Updating outdated cut values");
     let least_common_ancestor = remove_outdated_cut_values(graph, swap_edge, removed_edge);
     let queue = VecDeque::from([graph.edge_endpoints(removed_edge).unwrap().0]);
+    debug!(target: "cut_values", "Leaves of tree: {queue:?}");
     calculate_cut_values(graph, queue);
     least_common_ancestor
 }
@@ -48,7 +53,9 @@ fn leaves(graph: &StableDiGraph<Vertex, Edge>) -> VecDeque<NodeIndex> {
 }
 
 fn calculate_cut_values(graph: &mut StableDiGraph<Vertex, Edge>, mut queue: VecDeque<NodeIndex>) {
+    info!(target: "cut_values", "Calculating cut values of tree edges");
     while let Some(vertex) = queue.pop_front() {
+        debug!(target: "cut_values", "Calculating cut values for tree edges incident to: {}", vertex.index());
         let incoming = get_neighborhood_info(graph, vertex, Incoming);
         let outgoing = get_neighborhood_info(graph, vertex, Outgoing);
 
@@ -74,6 +81,7 @@ fn calculate_cut_values(graph: &mut StableDiGraph<Vertex, Edge>, mut queue: VecD
         };
 
         graph[edge].cut_value = Some(calculate_cut_value(graph[edge].weight, incoming, outgoing));
+        trace!(target: "cut_values", "Cut values for edge: {}, {:?}", edge.index(), graph[edge].cut_value);
         // continue traversing tree in direction of edge whose vertex was missing before
         queue.push_back(missing);
     }
@@ -84,6 +92,7 @@ fn calculate_cut_value(
     incoming: NeighborhoodInfo,
     outgoing: NeighborhoodInfo,
 ) -> i32 {
+    trace!(target: "cut_values", "Calculating cut value: edge_weight: {edge_weight}, data of incoming edges: {incoming:?}, data of outgoing edges: {outgoing:?}");
     edge_weight + incoming.non_tree_edge_weight_sum - incoming.cut_value_sum
         + incoming.tree_edge_weight_sum
         - outgoing.non_tree_edge_weight_sum
@@ -132,11 +141,17 @@ fn remove_outdated_cut_values(
     swap_edge: EdgeIndex,
     removed_edge: EdgeIndex,
 ) -> NodeIndex {
+    info!(target: "cut_values", "Remove outtdated cut_values, in order to calculate new ones");
     graph[removed_edge].cut_value = None;
     let (mut w, mut x) = graph.edge_endpoints(swap_edge).unwrap();
     if graph[w].lim > graph[x].lim {
         std::mem::swap(&mut w, &mut x)
     }
+    debug!(target: "cut_values", 
+        "looking for path connecting endpoints of new edge ({}, {}), removing cut values on the way", 
+        w.index(), 
+        x.index());
+
     // follow path back until least common ancestor is found
     // and remove cut_values on the way
     let least_common_ancestor = match graph[w].parent {
@@ -147,6 +162,7 @@ fn remove_outdated_cut_values(
                 let edge = graph.find_edge_undirected(l, parent).unwrap().0;
                 graph[edge].cut_value = None;
                 l = parent;
+                trace!(target: "cut_values", "current node in path: {}", l.index());
                 if graph[l].low <= graph[w].lim && graph[x].lim <= graph[l].lim
                     || graph[l].parent.is_none()
                 {
@@ -166,6 +182,12 @@ fn remove_outdated_cut_values(
         graph[edge].cut_value = None;
         l = parent;
     }
+
+    debug!(target: "cut_values", 
+        "found least common ancestor in path connecting {} {}: {}", 
+        w.index(), 
+        x.index(), 
+        least_common_ancestor.index());
 
     least_common_ancestor
 }

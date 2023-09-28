@@ -1,5 +1,6 @@
 use std::collections::{HashSet, VecDeque};
 
+use log::{debug, info, trace};
 use petgraph::{
     stable_graph::{EdgeIndex, NodeIndex, StableDiGraph},
     Direction::{self, Incoming, Outgoing},
@@ -7,6 +8,7 @@ use petgraph::{
 
 use super::{cut_values::init_cutvalues, low_lim::init_low_lim, slack, Edge, Vertex};
 
+#[allow(dead_code)]
 pub(crate) fn print_ranks(graph: &StableDiGraph<Vertex, Edge>) {
     for (i, v) in graph.node_indices().enumerate() {
         if i != 0 && i % 5 == 0 {
@@ -18,11 +20,16 @@ pub(crate) fn print_ranks(graph: &StableDiGraph<Vertex, Edge>) {
 }
 
 pub(super) fn feasible_tree(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
+    info!(target: "ranking", "building feasible tree");
     let tree_root = graph.node_indices().next().unwrap();
+    trace!(target: "ranking", "root of tree is: {}", tree_root.index());
 
+    info!(target: "ranking", "Trying to build tight tree.");
     while tight_tree(graph, tree_root, &mut HashSet::new(), minimum_length) < graph.node_count() {
+        debug!(target: "ranking", "unable to build tight tree yet, finding edge which is not tight");
         let edge = find_non_tight_edge(graph, minimum_length);
-        let (_, head) = graph.edge_endpoints(edge).unwrap();
+        let (tail, head) = graph.edge_endpoints(edge).unwrap();
+        debug!(target: "ranking", "found edge: ({}, {})", tail.index(), head.index());
         let mut delta = slack(graph, edge, minimum_length);
 
         if graph[head].is_tree_vertex {
@@ -30,7 +37,6 @@ pub(super) fn feasible_tree(graph: &mut StableDiGraph<Vertex, Edge>, minimum_len
         }
 
         tighten_edge(graph, delta);
-        print_ranks(graph);
     }
 
     init_cutvalues(graph);
@@ -39,17 +45,21 @@ pub(super) fn feasible_tree(graph: &mut StableDiGraph<Vertex, Edge>, minimum_len
 
 pub(super) fn move_vertices_up(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
     // set rank of all vertices to the max rank + 1 of all the upper neighbors
+    info!(target: "ranking", "Moving vertices as far up as possible");
     for v in graph.node_indices().collect::<Vec<_>>() {
         let rank = graph
             .neighbors_directed(v, Incoming)
             .map(|n| graph[n].rank + minimum_length)
             .max()
             .unwrap_or(0);
+
+        trace!(target: "ranking", "Vertex: {}, rank: {}", v.index(), rank);
         graph[v].rank = rank;
     }
 }
 
 pub(super) fn move_vertices_down(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
+    info!(target: "ranking", "Moving vertices as far down as possible");
     if let Some(max_rank) = graph.node_weights().map(|w| w.rank).max() {
         for v in graph.node_indices().collect::<Vec<_>>() {
             let rank = graph
@@ -57,12 +67,15 @@ pub(super) fn move_vertices_down(graph: &mut StableDiGraph<Vertex, Edge>, minimu
                 .filter_map(|n| graph[n].rank.checked_sub(minimum_length))
                 .min()
                 .unwrap_or(max_rank);
+
+            trace!(target: "ranking", "Vertex: {}, rank: {}", v.index(), rank);
             graph[v].rank = rank;
         }
     }
 }
 
 pub(super) fn update_ranks(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
+    info!(target: "ranking", "Updating node ranks");
     let node = graph.node_indices().next().unwrap();
     let mut visited = HashSet::from([node]);
     graph[node].rank = 0;
@@ -99,6 +112,7 @@ fn tight_tree(
 ) -> usize {
     // start from topmost nodes.
     // then for each topmost node add nodes to tree until done. Then continue with next node until no more nodes are found.
+    trace!(target: "ranking", "vertex: {}", vertex.index());
     let mut node_count = 1;
     if !graph[vertex].is_tree_vertex {
         graph[vertex].is_tree_vertex = true;
@@ -114,12 +128,14 @@ fn tight_tree(
             if graph[edge].is_tree_edge {
                 node_count += tight_tree(graph, other, visited, minimum_length);
             } else if slack(graph, edge, minimum_length) == 0 && !graph[other].is_tree_vertex {
+                trace!(target: "ranking", "adding edge with minimum slack: {}", edge.index());
                 graph[edge].is_tree_edge = true;
                 node_count += tight_tree(graph, other, visited, minimum_length);
             }
         }
     }
 
+    trace!(target: "ranking", "Tight tree nodecount: {node_count}");
     node_count
 }
 
@@ -127,6 +143,7 @@ pub(crate) fn init_rank(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length:
     // Sort nodes topologically so we don't need to verify that we've assigned
     // a rank to all incoming neighbors
     // assume graphs contain no circles for now
+    info!(target: "ranking", "Initializing ranks via topological sort.");
     for v in petgraph::algo::toposort(&*graph, None).unwrap() {
         let rank = graph
             .neighbors_directed(v, Incoming)
@@ -134,6 +151,7 @@ pub(crate) fn init_rank(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length:
             .max();
 
         if let Some(rank) = rank {
+            trace!(target: "ranking", "Vertex: {}, rank: {}", v.index(), rank);
             graph[v].rank = rank;
         }
     }
@@ -153,6 +171,7 @@ fn find_non_tight_edge(graph: &StableDiGraph<Vertex, Edge>, minimum_length: i32)
 }
 
 fn tighten_edge(graph: &mut StableDiGraph<Vertex, Edge>, delta: i32) {
+    trace!(target: "ranking", "tighten all other tree edges by adjusting ranks by: {}", delta);
     for v in graph.node_indices().collect::<Vec<_>>() {
         if graph[v].is_tree_vertex {
             graph[v].rank += delta;
@@ -175,6 +194,7 @@ fn update_neighbor_ranks(
             continue;
         }
         graph[other].rank = graph[parent].rank + minimum_length * coefficient;
+        trace!(target: "ranking", "updating ranks of {}, new rank is: {}", other.index(), graph[other].rank);
         queue.push_back(other);
         visited.insert(other);
     }

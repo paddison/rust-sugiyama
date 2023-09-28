@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use algorithm::{Edge, Vertex};
 use configure::CoordinatesBuilder;
 
+use log::info;
 use petgraph::stable_graph::StableDiGraph;
 
 mod algorithm;
@@ -53,11 +54,17 @@ impl Default for Config {
 }
 
 pub fn from_edges(edges: &[(u32, u32)]) -> CoordinatesBuilder<&[(u32, u32)]> {
+    info!(target: "initializing", "Creating new layout from edges, containing {} edges", edges.len());
     let graph = StableDiGraph::from_edges(edges);
     CoordinatesBuilder::new(graph)
 }
 
 pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>) -> CoordinatesBuilder<StableDiGraph<V, E>> {
+    info!(target: "initializing", 
+        "Creating new layout from existing graph, containing {} vertices and {} edges.", 
+        graph.node_count(), 
+        graph.edge_count());
+
     let graph = graph.map(|id, _| Vertex::new(id.index()), |_, _| Edge::default());
     CoordinatesBuilder::new(graph)
 }
@@ -66,7 +73,11 @@ pub fn from_vertices_and_edges<'a>(
     vertices: &'a [u32],
     edges: &'a [(u32, u32)],
 ) -> CoordinatesBuilder<RawGraph<'a>> {
-    println!("from v and e");
+    info!(target: "initializing", 
+        "Creating new layout from existing graph, containing {} vertices and {} edges.", 
+        vertices.len(), 
+        edges.len());
+
     let mut graph = StableDiGraph::new();
     let mut id_map = HashMap::new();
     for v in vertices {

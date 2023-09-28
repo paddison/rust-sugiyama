@@ -1,13 +1,17 @@
 use std::collections::HashSet;
 
+use log::{debug, info, trace};
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
 use super::{Edge, Vertex};
 
 pub(super) fn init_low_lim(graph: &mut StableDiGraph<Vertex, Edge>) {
     // start at arbitrary root node
+    info!(target: "low_lim", "initialzing low, lim and parent values of vertices");
     let root = graph.node_indices().next().unwrap();
+    debug!(target: "low_lim", "root of tree: {}", root.index());
     let mut max_lim = graph.node_count() as u32;
+    trace!(target: "low_lim", "Maximum Lim value: {max_lim}");
     dfs_low_lim(graph, root, None, &mut max_lim, &mut HashSet::new());
 }
 
@@ -15,12 +19,17 @@ pub(super) fn update_low_lim(
     graph: &mut StableDiGraph<Vertex, Edge>,
     least_common_ancestor: NodeIndex,
 ) {
+    info!(target: "low_lim", 
+        "updatig low, lim and parent values, starting from: {}", 
+        least_common_ancestor.index());
+
     let parent = graph[least_common_ancestor].parent;
     let mut visited = match &parent {
         Some(parent) => HashSet::from([*parent]),
         None => HashSet::new(),
     };
     let mut max_lim = graph[least_common_ancestor].lim;
+    trace!(target: "low_lim", "Maximum Lim value: {max_lim}");
     dfs_low_lim(
         graph,
         least_common_ancestor,
@@ -38,6 +47,7 @@ fn dfs_low_lim(
     visited: &mut HashSet<NodeIndex>,
 ) {
     visited.insert(next);
+    debug!(target: "low_lim", "calculating values for vertex: {}", next.index());
     graph[next].lim = *max_lim;
     graph[next].parent = parent;
     let mut walker = graph.neighbors_undirected(next).detach();
@@ -48,6 +58,12 @@ fn dfs_low_lim(
         }
     }
     graph[next].low = *max_lim;
+    trace!(target: "low_lim", 
+        "Vertex: {}, low: {}, lim: {}, parent: {:?}", 
+        next.index(), 
+        graph[next].low,
+        graph[next].lim, 
+        graph[next].parent);
 }
 
 #[cfg(test)]

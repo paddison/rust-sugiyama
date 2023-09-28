@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use log::info;
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableDiGraph};
 
 use crate::{util::weakly_connected_components, Layout, Layouts};
@@ -148,6 +149,7 @@ pub(super) fn _map_input_graph<V, E>(graph: &StableDiGraph<V, E>) -> StableDiGra
 }
 
 fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
+    info!("Initializing graphs vertex weights");
     for id in graph.node_indices().collect::<Vec<_>>() {
         graph[id].id = id.index();
         graph[id].root = id;
@@ -157,6 +159,7 @@ fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
 }
 
 fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layout {
+    info!(target: "layouting", "Start building layout");
     execute_phase_1(
         &mut graph,
         config.minimum_length as i32,
@@ -177,6 +180,7 @@ fn execute_phase_1(
     minimum_length: i32,
     ranking_type: RankingType,
 ) {
+    info!(target: "layouting", "Executing phase 1: Ranking");
     p1::rank(graph, minimum_length, ranking_type);
 }
 
@@ -187,12 +191,14 @@ fn execute_phase_2(
     crossing_minimization: CrossingMinimization,
     transpose: bool,
 ) -> Vec<Vec<NodeIndex>> {
-    // build layer to test them
-    let mut test_layers =
-        vec![vec![]; graph.node_weights().map(|w| w.rank as usize).max().unwrap() + 1];
-    for v in graph.node_indices() {
-        test_layers[graph[v].rank as usize].push(v);
-    }
+    info!(target: "layouting", "Executing phase 2: Crossing Reduction");
+    info!(target: "layouting",
+        "Has dummy vertices: {}, heuristic for crossing minimization: {:?}, using transpose: {}",
+        dummy_vertices,
+        crossing_minimization,
+        transpose
+    );
+
     p2::insert_dummy_vertices(graph, minimum_length);
     let mut order = p2::ordering(graph, crossing_minimization, transpose);
     if !dummy_vertices {
@@ -208,6 +214,8 @@ fn execute_phase_3(
     vertex_spacing: usize,
     dummy_size: f64,
 ) -> Layout {
+    info!(target: "layouting", "Executing phase 3: Coordinate Calculation");
+    info!(target: "layouting", "Dummy vertices size (if enabled): {dummy_size}");
     for n in graph.node_indices().collect::<Vec<_>>() {
         if graph[n].is_dummy {
             graph[n].id = n.index();
@@ -227,7 +235,6 @@ fn execute_phase_3(
         *c -= min;
     }
 
-    // print_to_console(VDir::Down, graph, &layers, x_coordinates.iter().copied().collect::<HashMap<_, _>>(), vertex_spacing);
     let mut v = x_coordinates.iter().collect::<Vec<_>>();
     v.sort_by(|a, b| a.0.index().cmp(&b.0.index()));
     // format to NodeIndex: (x, y), width, height

@@ -4,16 +4,16 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::ops::{Deref, DerefMut};
 
+use log::{debug, info, trace};
 use petgraph::algo::toposort;
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use petgraph::Direction::{Incoming, Outgoing};
 
-use crate::util::radix_sort;
+use crate::util::{iterate, radix_sort, IterDir};
 use crate::CrossingMinimization;
 
 use super::{slack, Edge, Vertex};
 
-// later test if its better to access neighbors via graph or to store them separately
 #[derive(Clone)]
 struct Order {
     _inner: Vec<Vec<NodeIndex>>,
@@ -59,33 +59,30 @@ impl Order {
         self._inner[r].swap(a, b);
     }
 
-    fn crossing(
+    fn cross_count_two_vertices(
         &self,
         v: NodeIndex,
         w: NodeIndex,
         graph: &StableDiGraph<Vertex, Edge>,
-        rank: usize,
     ) -> usize {
         let mut crossings = 0;
-        if rank > 0 {
-            for dir in [Incoming, Outgoing] {
-                let mut v_adjacent = graph
-                    .neighbors_directed(v, dir)
-                    .map(|n| *self.positions.get(&n).unwrap())
-                    .collect::<Vec<_>>();
-                let mut w_adjacent = graph
-                    .neighbors_directed(w, dir)
-                    .map(|n| *self.positions.get(&n).unwrap())
-                    .collect::<Vec<_>>();
-                v_adjacent.sort();
-                w_adjacent.sort();
-                crossings += Self::cross_count(&v_adjacent, &w_adjacent);
-            }
+        for dir in [Incoming, Outgoing] {
+            let mut v_adjacent = graph
+                .neighbors_directed(v, dir)
+                .map(|n| *self.positions.get(&n).unwrap())
+                .collect::<Vec<_>>();
+            let mut w_adjacent = graph
+                .neighbors_directed(w, dir)
+                .map(|n| *self.positions.get(&n).unwrap())
+                .collect::<Vec<_>>();
+            v_adjacent.sort();
+            w_adjacent.sort();
+            crossings += Self::calculate_cross_count_two_vertices(&v_adjacent, &w_adjacent);
         }
         crossings
     }
 
-    fn cross_count(v_adjacent: &[usize], w_adjacent: &[usize]) -> usize {
+    fn calculate_cross_count_two_vertices(v_adjacent: &[usize], w_adjacent: &[usize]) -> usize {
         let mut all_crossings = 0;
         let mut k = 0;
         for i in v_adjacent {
@@ -135,7 +132,6 @@ impl Order {
                 )
             })
             .collect::<Vec<_>>();
-
         Self::count_crossings(edge_endpoint_positions, south.len())
     }
 
@@ -199,9 +195,16 @@ impl DerefMut for Order {
 pub(super) fn insert_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
     // find all edges that have slack of greater than 0.
     // and insert dummy vertices
+    info!(target: "crossing_reduction", "Inserting dummy vertices for edges spanning more than {minimum_length} ranks");
     for edge in graph.edge_indices().collect::<Vec<_>>() {
         if slack(graph, edge, minimum_length) > 0 {
             let (mut tail, head) = graph.edge_endpoints(edge).unwrap();
+            trace!(target: "crossing_reduction", 
+                "Inserting {} dummy vertices between: ({}, {})", 
+                graph[tail].rank - graph[head].rank - 1, 
+                tail.index(), 
+                head.index());
+
             // we don't need to remember edges that where removed
             graph.remove_edge(edge);
             for rank in (graph[tail].rank + 1)..graph[head].rank {
@@ -232,6 +235,7 @@ pub(super) fn remove_dummy_vertices(
     // follow them until the other non dummy node is found
     // insert old edge
     // remove all dummy nodes
+    info!(target: "crossing_reduction", "Removing dummy vertices and inserting original edges.");
     let vertices = toposort(&*graph, None).unwrap();
     for v in vertices {
         let mut edges = Vec::new();
@@ -276,6 +280,9 @@ type CMMethod =
     fn(&StableDiGraph<Vertex, Edge>, NodeIndex, bool, &HashMap<NodeIndex, usize>) -> f64;
 
 fn init_order(graph: &StableDiGraph<Vertex, Edge>) -> Order {
+    info!(target: "crossing_reduction", 
+        "Initializing order of vertices in each rank via dfs.");
+
     fn dfs(
         v: NodeIndex,
         order: &mut Vec<Vec<NodeIndex>>,
@@ -313,7 +320,9 @@ fn reduce_crossings_bilayer_sweep(
     cm_method: CMMethod,
     transpose: bool,
 ) -> Order {
+    info!(target: "crossing_reduction", "Reducing crossings via bilayer sweep");
     let mut best_crossings = order.crossings(graph);
+    debug!(target: "crossing_reduction", "Initial number of crossings: {best_crossings}");
     let mut last_best = 0;
     let mut best = order.clone();
     for i in 0.. {
@@ -322,16 +331,17 @@ fn reduce_crossings_bilayer_sweep(
             self::transpose(graph, &mut order, i % 2 == 0);
         }
         let crossings = order.crossings(graph);
+        trace!(target: "crossing_reduction", "Current number of crossings: {crossings}");
         if crossings < best_crossings {
-            println!("c: {crossings}");
             best_crossings = crossings;
+            debug!(target: "crossing_reduction", "Lowest number of crossings so far: {best_crossings}");
             best = order.clone();
             last_best = 0;
         } else {
             last_best += 1;
         }
         if last_best == 4 {
-            //println!("{:?}", petgraph::dot::Dot::with_config(graph, &[petgraph::dot::Config::NodeIndexLabel, petgraph::dot::Config::EdgeNoLabel]));
+            info!(target: "crossing_reduction", "Didn't improve after 4 sweeps, returning");
             return best;
         }
     }
@@ -339,27 +349,32 @@ fn reduce_crossings_bilayer_sweep(
 }
 
 fn transpose(graph: &StableDiGraph<Vertex, Edge>, order: &mut Order, move_down: bool) {
+    debug!(target: "crossings_reduction", 
+        "Using transpose, try to swap vertices in each layer manually to reduce cross count");
+
     let mut improved = true;
+    let iter_dir = if move_down {
+        IterDir::Forward
+    } else {
+        IterDir::Backward
+    };
 
     while improved {
         improved = false;
-        let ranks: Vec<usize> = if move_down {
-            (0..order.max_rank()).collect()
-        } else {
-            (0..order.max_rank()).rev().collect()
-        };
-        for r in ranks {
+        for r in iterate(iter_dir, order.max_rank()) {
+            trace!(target: "reduce_crossings", "Transpose vertices in rank {r}");
             for i in 0..order._inner[r].len() - 1 {
                 let v = order._inner[r][i];
                 let w = order._inner[r][i + 1];
-                let v_w_crossing = order.crossing(v, w, graph, r);
-                let w_v_crossing = order.crossing(w, v, graph, r);
+                let v_w_crossing = order.cross_count_two_vertices(v, w, graph);
+                let w_v_crossing = order.cross_count_two_vertices(w, v, graph);
                 if v_w_crossing > w_v_crossing {
                     improved = true;
                     order.exchange(i, i + 1, r);
                 }
             }
         }
+        trace!(target: "reduce_crossings", "Did improve: {improved}");
     }
 }
 
@@ -380,6 +395,7 @@ fn order_layer(
     };
 
     for rank in dir {
+        trace!(target: "crossing_reduction", "Original order of vertices in rank {}: {:?}", rank, cur_order[rank]);
         new_order[rank] = cur_order[rank].clone();
         let ordering = new_order[rank]
             .iter()
@@ -391,6 +407,7 @@ fn order_layer(
         new_order[rank].iter().enumerate().for_each(|(pos, v)| {
             positions.insert(*v, pos);
         });
+        trace!(target: "crossing_reduction", "Updated order: {:?}", new_order[rank]);
     }
 
     Order::new(new_order)
