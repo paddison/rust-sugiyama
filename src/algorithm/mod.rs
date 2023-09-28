@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use log::info;
+use log::{debug, info};
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableDiGraph};
 
 use crate::{util::weakly_connected_components, Layout, Layouts};
@@ -160,6 +160,7 @@ fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
 
 fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layout {
     info!(target: "layouting", "Start building layout");
+    info!(target: "layouting", "Configuration is: {:?}", config);
     execute_phase_1(
         &mut graph,
         config.minimum_length as i32,
@@ -172,7 +173,13 @@ fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layou
         config.c_minimization,
         config.transpose,
     );
-    execute_phase_3(&mut graph, layers, config.vertex_spacing, config.dummy_size)
+    let layout = execute_phase_3(&mut graph, layers, config.vertex_spacing, config.dummy_size);
+    debug!(target: "layouting", "Coordinates: {:?}\nwidth: {}, height:{}",
+        layout.0,
+        layout.1,
+        layout.2
+    );
+    layout
 }
 
 fn execute_phase_1(

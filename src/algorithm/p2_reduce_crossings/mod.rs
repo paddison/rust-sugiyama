@@ -201,7 +201,7 @@ pub(super) fn insert_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, min
             let (mut tail, head) = graph.edge_endpoints(edge).unwrap();
             trace!(target: "crossing_reduction", 
                 "Inserting {} dummy vertices between: ({}, {})", 
-                graph[tail].rank - graph[head].rank - 1, 
+                graph[head].rank - graph[tail].rank - 1, 
                 tail.index(), 
                 head.index());
 
@@ -349,7 +349,7 @@ fn reduce_crossings_bilayer_sweep(
 }
 
 fn transpose(graph: &StableDiGraph<Vertex, Edge>, order: &mut Order, move_down: bool) {
-    debug!(target: "crossings_reduction", 
+    trace!(target: "crossings_reduction", 
         "Using transpose, try to swap vertices in each layer manually to reduce cross count");
 
     let mut improved = true;
@@ -395,7 +395,15 @@ fn order_layer(
     };
 
     for rank in dir {
-        trace!(target: "crossing_reduction", "Original order of vertices in rank {}: {:?}", rank, cur_order[rank]);
+        trace!(target: "crossing_reduction", "Updating order of vertices in rank {rank}");
+        trace!(target: "crossing_reduction", "Original order: {:?}",
+            cur_order[rank]
+                .iter()
+                .map(|v| v.index())
+                .collect::<Vec<_>>()
+                .as_slice()
+        );
+
         new_order[rank] = cur_order[rank].clone();
         let ordering = new_order[rank]
             .iter()
@@ -407,7 +415,13 @@ fn order_layer(
         new_order[rank].iter().enumerate().for_each(|(pos, v)| {
             positions.insert(*v, pos);
         });
-        trace!(target: "crossing_reduction", "Updated order: {:?}", new_order[rank]);
+        trace!(target: "crossing_reduction", "Updated order : {:?}",
+            new_order[rank]
+                .iter()
+                .map(|v| v.index())
+                .collect::<Vec<_>>()
+                .as_slice()
+        );
     }
 
     Order::new(new_order)

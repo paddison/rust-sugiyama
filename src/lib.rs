@@ -14,7 +14,7 @@ type Layout = (Vec<(usize, (isize, isize))>, usize, usize);
 type Layouts<T> = Vec<(Vec<(T, (isize, isize))>, usize, usize)>;
 type RawGraph<'a> = (&'a [u32], &'a [(u32, u32)]);
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Config {
     minimum_length: u32,
     vertex_spacing: usize,
