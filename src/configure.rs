@@ -1,5 +1,4 @@
-use core::ffi::FromBytesUntilNulError;
-use std::{env, marker::PhantomData, array::from_mut};
+use std::{env, marker::PhantomData};
 
 use log::{error, trace};
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
@@ -100,7 +99,7 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
     }
 
     #[allow(unused_parens)]
-    pub fn from_env(mut self) -> Self {
+    pub fn configure_from_env(mut self) -> Self {
         let parse_bool = |x: String| match x.as_str() {
             "y" => Ok(true),
             "n" => Ok(false),
@@ -109,7 +108,7 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
 
         read_env!(
             self.config.minimum_length,
-            (|x| u32::from_str_radix(&x, 10)),
+            (|x| x.parse::<u32>()),
             ENV_MINIMUM_LENGTH
         );
 
@@ -204,7 +203,7 @@ fn from_env_all_valid() {
     env::set_var(ENV_CROSSING_MINIMIZATION, "median");
     env::set_var(ENV_TRANSPOSE, "n");
     env::set_var(ENV_VERTEX_SPACING, "20");
-    let cfg = from_edges(&edges).from_env();
+    let cfg = from_edges(&edges).configure_from_env();
     assert_eq!(cfg.config.minimum_length, 5);
     assert_eq!(cfg.config.dummy_vertices, true);
     assert_eq!(cfg.config.dummy_size, 0.1);

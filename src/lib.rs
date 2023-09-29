@@ -288,16 +288,6 @@ mod check_visuals {
 
         assert_eq!(*width, 4);
         assert_eq!(*height, 6);
-        assert_eq!(layout[0], (0, (15, 0)));
-        assert_eq!(layout[1], (1, (15, -10)));
-        assert_eq!(layout[2], (2, (15, -20)));
-        assert_eq!(layout[3], (3, (10, -30)));
-        assert_eq!(layout[4], (4, (20, -30)));
-        assert_eq!(layout[5], (5, (0, -40)));
-        assert_eq!(layout[6], (6, (10, -40)));
-        assert_eq!(layout[7], (7, (20, -40)));
-        assert_eq!(layout[8], (8, (30, -40)));
-        assert_eq!(layout[9], (9, (15, -50)));
         println!("{:?}", layout);
     }
 

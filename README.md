@@ -86,7 +86,7 @@ for (layout, width, height) in layouts {
 ```
 
 ### configuration via envs
-It is also possible to configure the algorithm via environment variables, using the method `from_env()`. 
+It is also possible to configure the algorithm via environment variables, using the method `configure_from_env()`. 
 
 Environment variables that can be set are:
 

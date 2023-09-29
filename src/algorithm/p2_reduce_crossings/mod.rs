@@ -173,7 +173,7 @@ impl Order {
             for v in line {
                 print!("{v:>2?} ");
             }
-            println!("");
+            println!();
         }
     }
 }
@@ -439,7 +439,7 @@ fn barycenter(
         graph.neighbors_directed(vertex, Outgoing).collect()
     };
 
-    if neighbors.len() == 0 {
+    if neighbors.is_empty() {
         return *positions.get(&vertex).unwrap() as f64;
     }
 
