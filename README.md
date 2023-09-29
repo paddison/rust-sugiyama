@@ -4,11 +4,11 @@
 
 An implementation of Sugiyamas algorithm for displaying a layered graph.
 
-Currently, the implementation is complete, except for graphs which contain cycles. 
+Currently, the implementation can only handle graphs which contain no cycles. 
 
 The rank assignment algorithm is implemented according to the paper `A Technique for Drawing Directed Graphs` by Gansner et al. which can be found [here](https://ieeexplore.ieee.org/document/221135). It first assigns a node a layer and creates an optimal feasible tree for rank assignment.
 
-Crossing Reduction follows the weighted median heuristic which is also descriped in the above paper. In order to count crossings, the Bilayer Cross Count algorithm as described in the paper `Simple and Efficient Bilayer Cross Counting` by Wilhelm Barth and Petra Mutzel and Michael Juenger. It can also be found [online](http://ls11-www.cs.tu-dortmund.de/downloads/papers/BJM04.pdf).
+Crossing Reduction follows the weighted median heuristic which is also descriped in the above paper, it is also possible to use the barycenter heuristic for crossing reduction via configuration. In order to count crossings, the Bilayer Cross Count algorithm as described in the paper `Simple and Efficient Bilayer Cross Counting` by Wilhelm Barth and Petra Mutzel and Michael Juenger. It can also be found [online](http://ls11-www.cs.tu-dortmund.de/downloads/papers/BJM04.pdf).
 
 Finally, the implementation for coordinate assignment follows the algorithm provided by Brandes and Koepf, which can be found in this [paper](https://www.semanticscholar.org/paper/Fast-and-Simple-Horizontal-Coordinate-Assignment-Brandes-K%C3%B6pf/69cb129a8963b21775d6382d15b0b447b01eb1f8).
 
@@ -84,3 +84,21 @@ for (layout, width, height) in layouts {
     println!("width: {width}, height: {height}");
 }
 ```
+
+### configuration via envs
+It is also possible to configure the algorithm via environment variables, using the method `from_env()`. 
+
+Environment variables that can be set are:
+
+|ENV|values|default|description|
+|---|------|-------|-------|
+| RUST_GRAPH_MIN_LEN    | integer, > 0                | 1          | minimum edge length between layers |
+| RUST_GRAPH_V_SPACING  | integer, > 0                | 10         | minimum spacing between vertices on the same layer |
+| RUST_GRAPH_DUMMIES    | (y|n)                       | y          | if dummy vertices are included in the final layout |
+| RUST_GRAPH_R_TYPE     | (original|minimize|up|down) | minimize   | defines how vertices are places vertically |
+| RUST_GRAPH_CROSS_MIN  | (barycenter|median)         | barycenter | which heuristic to use for crossing reduction |
+| RUST_GRAPH_TRANSPOSE  | (y|n)                       | y          | if transpose function is used to further try to reduce crossings (may increase runtime significally for large graphs) |
+| RUST_GRAPH_DUMMY_SIZE | float, > 0, <= 1            | 1.0        |size of dummy vertices in final layout, if dummy vertices are included. this will squish the graph horizontally |
+
+
+
