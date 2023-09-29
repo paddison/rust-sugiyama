@@ -1,3 +1,4 @@
+use core::ffi::FromBytesUntilNulError;
 use std::{env, marker::PhantomData, array::from_mut};
 
 use log::{error, trace};
@@ -225,4 +226,12 @@ fn from_env_invalid_value() {
     let default = Config::default();
     assert_eq!(default.c_minimization, cfg.config.c_minimization);
     assert_eq!(default.vertex_spacing, cfg.config.vertex_spacing);
+}
+
+#[test]
+fn run_algo_empty_graph() {
+    use super::from_edges;
+    let edges = [];
+    let g = from_edges(&edges).build();
+    assert!(g.is_empty());
 }

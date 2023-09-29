@@ -395,4 +395,12 @@ mod check_visuals {
             .build();
         println!("{layout:?}");
     }
+
+    #[test]
+    fn run_algo_empty_graph() {
+        use super::from_edges;
+        let edges = [];
+        let g = from_edges(&edges).build();
+        assert!(g.is_empty());
+    }
 }
