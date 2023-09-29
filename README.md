@@ -14,7 +14,11 @@ Finally, the implementation for coordinate assignment follows the algorithm prov
 
 ## Usage
 
-Currently, there are two options to create a layout, both take as input a minimum edge length and a minimum spacing between the vertices.
+Currently, there are three options to create a layout: 
+1. `from_edges`, which takes a `&[(u32, u32)]`
+2. `from_vertices_and_edges`, which takes a `&[u32]` and a `&[(u32, u32)]`
+3. `from_graph`, which takes a `petgraph::StableDiGraph<V, E>`
+
 They will divide the graph into its connected components and calculate the coordinates seperately for each component.
 The API is implemented via the builder pattern, where a user may specify values like the minimum spacing between vertices etc.
 
