@@ -432,7 +432,7 @@ mod integration {
 
         let (graph, ..) = GraphBuilder::new(&edges).build();
         let mut cfg = Config::default();
-        cfg.layering_type = RankingType::Up;
+        cfg.ranking_type = RankingType::Up;
         cfg.dummy_vertices = true;
         crate::algorithm::start(graph, cfg);
     }

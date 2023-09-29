@@ -1,4 +1,4 @@
-use std::{env, marker::PhantomData};
+use std::{env, marker::PhantomData, array::from_mut};
 
 use log::{error, trace};
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
@@ -11,7 +11,7 @@ use crate::{
 static ENV_MINIMUM_LENGTH: &str = "RUST_GRAPH_MIN_LEN";
 static ENV_VERTEX_SPACING: &str = "RUST_GRAPH_V_SPACING";
 static ENV_DUMMY_VERTICES: &str = "RUST_GRAPH_DUMMIES";
-static ENV_LAYERING_TYPE: &str = "RUST_GRAPH_L_TYPE";
+static ENV_RANKING_TYPE: &str = "RUST_GRAPH_R_TYPE";
 static ENV_CROSSING_MINIMIZATION: &str = "RUST_GRAPH_CROSS_MIN";
 static ENV_TRANSPOSE: &str = "RUST_GRAPH_TRANSPOSE";
 static ENV_DUMMY_SIZE: &str = "RUST_GRAPH_DUMMY_SIZE";
@@ -73,7 +73,7 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
     pub fn layering_type(mut self, v: RankingType) -> Self {
         trace!(target: "initializing",
             "using layering type: {v:?}");
-        self.config.layering_type = v;
+        self.config.ranking_type = v;
         self
     }
 
@@ -119,9 +119,9 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         );
 
         read_env!(
-            self.config.layering_type,
+            self.config.ranking_type,
             (TryFrom::try_from),
-            ENV_LAYERING_TYPE
+            ENV_RANKING_TYPE
         );
 
         read_env!(
@@ -189,4 +189,40 @@ impl CoordinatesBuilder<(&[u32], &[(u32, u32)])> {
         } = self;
         algorithm::start(graph, config)
     }
+}
+
+#[test]
+fn from_env_all_valid() {
+    use super::from_edges;
+    use std::env;
+    let edges = [(1, 2), (2, 3)];
+    env::set_var(ENV_MINIMUM_LENGTH, "5");
+    env::set_var(ENV_DUMMY_VERTICES, "y");
+    env::set_var(ENV_DUMMY_SIZE, "0.1");
+    env::set_var(ENV_RANKING_TYPE, "up");
+    env::set_var(ENV_CROSSING_MINIMIZATION, "median");
+    env::set_var(ENV_TRANSPOSE, "n");
+    env::set_var(ENV_VERTEX_SPACING, "20");
+    let cfg = from_edges(&edges).from_env();
+    assert_eq!(cfg.config.minimum_length, 5);
+    assert_eq!(cfg.config.dummy_vertices, true);
+    assert_eq!(cfg.config.dummy_size, 0.1);
+    assert_eq!(cfg.config.ranking_type, RankingType::Up);
+    assert_eq!(cfg.config.c_minimization, CrossingMinimization::Median);
+    assert_eq!(cfg.config.transpose, false);
+    assert_eq!(cfg.config.vertex_spacing, 20);
+}
+
+#[test]
+fn from_env_invalid_value() {
+    use super::from_edges;
+    use std::env;
+
+    let edges = [(1, 2)];
+    env::set_var(ENV_CROSSING_MINIMIZATION, "flubbeldiflap");
+    env::set_var(ENV_VERTEX_SPACING, "1.5");
+    let cfg = from_edges(&edges);
+    let default = Config::default();
+    assert_eq!(default.c_minimization, cfg.config.c_minimization);
+    assert_eq!(default.vertex_spacing, cfg.config.vertex_spacing);
 }

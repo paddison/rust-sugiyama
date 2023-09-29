@@ -20,12 +20,12 @@ pub struct Config {
     vertex_spacing: usize,
     dummy_vertices: bool,
     dummy_size: f64,
-    layering_type: RankingType,
+    ranking_type: RankingType,
     c_minimization: CrossingMinimization,
     transpose: bool,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RankingType {
     Original,
     MinimizeEdgeLength,
@@ -47,7 +47,7 @@ impl TryFrom<String> for RankingType {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CrossingMinimization {
     Barycenter,
     Median,
@@ -71,7 +71,7 @@ impl Default for Config {
             minimum_length: 1,
             vertex_spacing: 10,
             dummy_vertices: true,
-            layering_type: RankingType::MinimizeEdgeLength,
+            ranking_type: RankingType::MinimizeEdgeLength,
             c_minimization: CrossingMinimization::Barycenter,
             transpose: true,
             dummy_size: 1.0,

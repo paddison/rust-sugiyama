@@ -164,7 +164,7 @@ fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layou
     execute_phase_1(
         &mut graph,
         config.minimum_length as i32,
-        config.layering_type,
+        config.ranking_type,
     );
     let layers = execute_phase_2(
         &mut graph,
