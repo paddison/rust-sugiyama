@@ -1,4 +1,4 @@
-![ci_status]
+![example worklfow]
 (https://github.com/paddison/rust-sugiyama/actions/workflows/rust_ci.yml/badge.svg)
 # Rust Sugiyama
 
