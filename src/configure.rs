@@ -34,6 +34,16 @@ macro_rules! read_env {
     };
 }
 
+/// Can be used to configure the layout of the graph, via the builder pattern.
+///
+/// # Example
+/// ```
+/// let coords = from_edges(&edges)
+///     .vertex_spacing(20) // vertices are at least 20px apart
+///     .dummy_vertices(false) // ignore dummy vertices when calculating layout
+///     .transpose(false) // don't use tranpose function during crossing minimization
+///     .build(); // build the layout
+/// ```
 pub struct CoordinatesBuilder<Input: IntoCoordinates> {
     config: Config,
     _inner: StableDiGraph<Vertex, Edge>,
@@ -49,6 +59,7 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         }
     }
 
+    /// Set the minimimum length, see [Config] for description
     pub fn minimum_length(mut self, v: u32) -> Self {
         trace!(target: "initializing",
             "Setting minimum length to: {v}");
@@ -56,6 +67,7 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         self
     }
 
+    /// Set the spacing between vertices, see [Config] for description
     pub fn vertex_spacing(mut self, v: usize) -> Self {
         trace!(target: "initializing",
             "Setting vertex spacing to: {v}");
@@ -63,6 +75,7 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         self
     }
 
+    /// Activate/deactivate dummy vertices, see [Config] for description
     pub fn dummy_vertices(mut self, v: bool) -> Self {
         trace!(target: "initializing",
             "Has dummy vertices: {v}");
@@ -70,6 +83,7 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         self
     }
 
+    /// Set the layering type, see [Config] for description
     pub fn layering_type(mut self, v: RankingType) -> Self {
         trace!(target: "initializing",
             "using layering type: {v:?}");
@@ -77,6 +91,7 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         self
     }
 
+    /// Set the crossing minimization heuristic, see [Config] for description
     pub fn crossing_minimization(mut self, v: CrossingMinimization) -> Self {
         trace!(target: "initializing",
             "Heuristic for crossing minimization: {v:?}");
@@ -84,6 +99,7 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         self
     }
 
+    /// Use transpose function during crossing minimization, see [Config]
     pub fn transpose(mut self, v: bool) -> Self {
         trace!(target: "initializing",
             "Use transpose to further reduce crossings: {v}");
@@ -91,6 +107,7 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         self
     }
 
+    /// Set the size of the dummy vertices, see [Config]
     pub fn dummy_size(mut self, v: f64) -> Self {
         trace!(target: "initializing",
             "Dummy size in regards to vertex size: {v}");
@@ -99,6 +116,18 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
     }
 
     #[allow(unused_parens)]
+    /// Read in configuration values from environment variables.
+    ///
+    /// Envs that can be set include: 
+    /// |ENV|values|default|description|
+    /// |---|------|-------|-------|
+    /// | RUST_GRAPH_MIN_LEN    | integer, > 0                | 1          | minimum edge length between layers |
+    /// | RUST_GRAPH_V_SPACING  | integer, > 0                | 10         | minimum spacing between vertices on the same layer |
+    /// | RUST_GRAPH_DUMMIES    | (y\|n)                       | y          | if dummy vertices are included in the final layout |
+    /// | RUST_GRAPH_R_TYPE     | (original\|minimize\|up\|down) | minimize   | defines how vertices are places vertically |
+    /// | RUST_GRAPH_CROSS_MIN  | (barycenter\|median)         | barycenter | which heuristic to use for crossing reduction |
+    /// | RUST_GRAPH_TRANSPOSE  | (y\|n)                       | y          | if transpose function is used to further try to reduce crossings (may increase runtime significally for large graphs) |
+    /// | RUST_GRAPH_DUMMY_SIZE | float, > 0, <= 1            | 1.0        |size of dummy vertices in final layout, if dummy vertices are included. this will squish the graph horizontally |
     pub fn configure_from_env(mut self) -> Self {
         let parse_bool = |x: String| match x.as_str() {
             "y" => Ok(true),
@@ -145,6 +174,7 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
 }
 
 impl<V, E> CoordinatesBuilder<StableDiGraph<V, E>> {
+    /// Build the layout.
     pub fn build(self) -> Layouts<NodeIndex> {
         let Self {
             config,
@@ -170,6 +200,7 @@ impl<V, E> CoordinatesBuilder<StableDiGraph<V, E>> {
 }
 
 impl CoordinatesBuilder<&[(u32, u32)]> {
+    /// Build the layout.
     pub fn build(self) -> Layouts<usize> {
         let Self {
             config,
@@ -181,6 +212,7 @@ impl CoordinatesBuilder<&[(u32, u32)]> {
 }
 
 impl CoordinatesBuilder<(&[u32], &[(u32, u32)])> {
+    /// Build the layout.
     pub fn build(self) -> Layouts<usize> {
         let Self {
             config,
