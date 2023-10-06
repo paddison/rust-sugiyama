@@ -19,6 +19,8 @@ pub(crate) fn print_ranks(graph: &StableDiGraph<Vertex, Edge>) {
     println!("\n");
 }
 
+/// Builds a feasible tree, which means a tree in which each edge has a 
+/// minimum amount of slack (edge length = minimum length)
 pub(super) fn feasible_tree(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
     info!(target: "ranking", "building feasible tree");
     let tree_root = graph.node_indices().next().unwrap();
@@ -103,7 +105,8 @@ pub(super) fn update_ranks(graph: &mut StableDiGraph<Vertex, Edge>, minimum_leng
     }
 }
 
-// TODO: verify this is correct
+/// Builds a tight tree via depth first search
+/// Returns the number of verticees contained in the tree
 fn tight_tree(
     graph: &mut StableDiGraph<Vertex, Edge>,
     vertex: NodeIndex,

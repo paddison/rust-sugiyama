@@ -1,3 +1,21 @@
+//! The implementation roughly follows sugiyamas algorithm for creating 
+//! a layered graph layout.
+//!
+//! Usually Sugiyamas algorithm consists of 4 Phases:
+//! 1. Remove Cycles
+//! 2. Assign each vertex to a rank/layer
+//! 3. Reorder vertices in each rank to reduce crossings
+//! 4. Calculate the final coordinates.
+//!
+//! Currently, phase 2 to 4 are implemented, Cycle removal might be added at 
+//! a later time.
+//!
+//! The whole algorithm roughly follows the 1993 paper "A technique for drawing 
+//! directed graphs" by Gansner et al. It can be found 
+//! [here](https://ieeexplore.ieee.org/document/221135).
+//!
+//! See the submodules for each phase for more details on the implementation
+//! and references used.
 use std::collections::HashMap;
 
 use log::{debug, info};
@@ -182,6 +200,7 @@ fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layou
     layout
 }
 
+/// Assign each vertex a rank
 fn execute_phase_1(
     graph: &mut StableDiGraph<Vertex, Edge>,
     minimum_length: i32,
@@ -191,6 +210,7 @@ fn execute_phase_1(
     p1::rank(graph, minimum_length, ranking_type);
 }
 
+/// Reorder vertices in ranks to reduce crossings
 fn execute_phase_2(
     graph: &mut StableDiGraph<Vertex, Edge>,
     minimum_length: i32,
