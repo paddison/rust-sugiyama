@@ -14,6 +14,15 @@ type Layout = (Vec<(usize, (isize, isize))>, usize, usize);
 type Layouts<T> = Vec<(Vec<(T, (isize, isize))>, usize, usize)>;
 type RawGraph<'a> = (&'a [u32], &'a [(u32, u32)]);
 
+/// Used to configure parameters of the graph layout.
+/// 
+/// Struct fields are:
+/// 1. minimum_edge:  length between layers 
+/// 2. vertex_spacing:  minimum spacing between vertices on the same layer 
+/// 3. dummy_vertices: should dummie vertices be included when calculating the layout 
+/// 4. ranking_type: defines how vertices are places vertically, see [RankingType]
+/// 5. c_minimization: which heuristic to use when minimizing edge crossings, see [CrossingMinimization]
+/// 6. transpose: try to further reduce crossings, by swaping vertices in a layer, may increase runtime significantly
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
     minimum_length: u32,
@@ -25,6 +34,13 @@ pub struct Config {
     transpose: bool,
 }
 
+/// Defines the Ranking type, i.e. how vertices are placed on each layer.
+///
+/// Possible options are:
+/// 1. Original: First moves vertices as far up as possible, and then as low as possible
+/// 2. MinimizeEdgeLength: Tries to minimize edge lengths across layers
+/// 3. Up: Move vertices as far up as possible
+/// 4. Down: Move vertices as far down as possible
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RankingType {
     Original,
@@ -47,6 +63,13 @@ impl TryFrom<String> for RankingType {
     }
 }
 
+/// Defines the heuristic used for crossing minimization.
+/// During crossing minimization, the vertices of one layer are 
+/// ordered, so they're as close to neighboring vertices as possible.
+///
+/// Possible options are:
+/// 1. Barycenter: Calculates the average of the positions of adjacent neighbors
+/// 2. Median: Calculates the weighted median of the positions of adjacent neighbors
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CrossingMinimization {
     Barycenter,
@@ -79,12 +102,20 @@ impl Default for Config {
     }
 }
 
+/// Creates a graph layout from edges, which are given as a `&[(u32, u32)]`.
+///
+/// It returns a [CoordinatesBuilder] which can be used to configure the 
+/// layout.
 pub fn from_edges(edges: &[(u32, u32)]) -> CoordinatesBuilder<&[(u32, u32)]> {
     info!(target: "initializing", "Creating new layout from edges, containing {} edges", edges.len());
     let graph = StableDiGraph::from_edges(edges);
     CoordinatesBuilder::new(graph)
 }
 
+/// Creates a graph layout from a preexisting `StableDiGraph<V, E>`.
+/// 
+/// It returns a [CoordinatesBuilder] which can be used to configure the 
+/// layout.
 pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>) -> CoordinatesBuilder<StableDiGraph<V, E>> {
     info!(target: "initializing", 
         "Creating new layout from existing graph, containing {} vertices and {} edges.", 
@@ -95,6 +126,15 @@ pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>) -> CoordinatesBuilder<Stabl
     CoordinatesBuilder::new(graph)
 }
 
+/// Creates a graph layot from `&[u32]` (vertices)
+/// and `&[(u32, u32)]` (edges).
+///
+/// It returns a [CoordinatesBuilder] which can be used to configure the 
+/// layout.
+///
+/// # Panics
+///
+/// Panics if `edges` contain vertices which are not contained in `vertices` 
 pub fn from_vertices_and_edges<'a>(
     vertices: &'a [u32],
     edges: &'a [(u32, u32)],
