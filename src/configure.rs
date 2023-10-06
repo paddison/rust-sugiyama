@@ -119,15 +119,16 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
     /// Read in configuration values from environment variables.
     ///
     /// Envs that can be set include: 
-    /// |ENV|values|default|description|
-    /// |---|------|-------|-------|
-    /// | RUST_GRAPH_MIN_LEN    | integer, > 0                | 1          | minimum edge length between layers |
-    /// | RUST_GRAPH_V_SPACING  | integer, > 0                | 10         | minimum spacing between vertices on the same layer |
-    /// | RUST_GRAPH_DUMMIES    | (y\|n)                       | y          | if dummy vertices are included in the final layout |
-    /// | RUST_GRAPH_R_TYPE     | (original\|minimize\|up\|down) | minimize   | defines how vertices are places vertically |
-    /// | RUST_GRAPH_CROSS_MIN  | (barycenter\|median)         | barycenter | which heuristic to use for crossing reduction |
-    /// | RUST_GRAPH_TRANSPOSE  | (y\|n)                       | y          | if transpose function is used to further try to reduce crossings (may increase runtime significally for large graphs) |
-    /// | RUST_GRAPH_DUMMY_SIZE | float, > 0, <= 1            | 1.0        |size of dummy vertices in final layout, if dummy vertices are included. this will squish the graph horizontally |
+    ///
+    /// | ENV | values | default | description |
+    /// | --- | ------ | ------- | ----------- |
+    /// | RUST_GRAPH_MIN_LEN    | integer, > 0         | 1          | minimum edge length between layers |
+    /// | RUST_GRAPH_V_SPACING  | integer, > 0         | 10         | minimum spacing between vertices on the same layer |
+    /// | RUST_GRAPH_DUMMIES    | y \| n               | y          | if dummy vertices are included in the final layout |
+    /// | RUST_GRAPH_R_TYPE     | original \| minimize \| up \| down | minimize   | defines how vertices are places vertically |
+    /// | RUST_GRAPH_CROSS_MIN  | barycenter \| median | barycenter | which heuristic to use for crossing reduction |
+    /// | RUST_GRAPH_TRANSPOSE  | y \| n               | y          | if transpose function is used to further try to reduce crossings (may increase runtime significally for large graphs) |
+    /// | RUST_GRAPH_DUMMY_SIZE | float, 1 >= v > 0    | 1.0        |size of dummy vertices in final layout, if dummy vertices are included. this will squish the graph horizontally |
     pub fn configure_from_env(mut self) -> Self {
         let parse_bool = |x: String| match x.as_str() {
             "y" => Ok(true),

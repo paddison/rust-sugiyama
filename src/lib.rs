@@ -7,7 +7,7 @@ use log::info;
 use petgraph::stable_graph::StableDiGraph;
 
 mod algorithm;
-mod configure;
+pub mod configure;
 mod util;
 
 type Layout = (Vec<(usize, (isize, isize))>, usize, usize);
@@ -17,8 +17,8 @@ type RawGraph<'a> = (&'a [u32], &'a [(u32, u32)]);
 /// Used to configure parameters of the graph layout.
 /// 
 /// Struct fields are:
-/// 1. minimum_edge:  length between layers 
-/// 2. vertex_spacing:  minimum spacing between vertices on the same layer 
+/// 1. minimum_edge: length between layers
+/// 2. vertex_spacing: minimum spacing between vertices on the same layer 
 /// 3. dummy_vertices: should dummie vertices be included when calculating the layout 
 /// 4. ranking_type: defines how vertices are places vertically, see [RankingType]
 /// 5. c_minimization: which heuristic to use when minimizing edge crossings, see [CrossingMinimization]
@@ -35,17 +35,15 @@ pub struct Config {
 }
 
 /// Defines the Ranking type, i.e. how vertices are placed on each layer.
-///
-/// Possible options are:
-/// 1. Original: First moves vertices as far up as possible, and then as low as possible
-/// 2. MinimizeEdgeLength: Tries to minimize edge lengths across layers
-/// 3. Up: Move vertices as far up as possible
-/// 4. Down: Move vertices as far down as possible
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum RankingType {
+    /// First moves vertices as far up as possible, and then as low as possible
     Original,
+    /// Tries to minimize edge lengths across layers
     MinimizeEdgeLength,
+    /// Move vertices as far up as possible
     Up,
+    /// Move vertices as far down as possible
     Down,
 }
 
@@ -66,13 +64,11 @@ impl TryFrom<String> for RankingType {
 /// Defines the heuristic used for crossing minimization.
 /// During crossing minimization, the vertices of one layer are 
 /// ordered, so they're as close to neighboring vertices as possible.
-///
-/// Possible options are:
-/// 1. Barycenter: Calculates the average of the positions of adjacent neighbors
-/// 2. Median: Calculates the weighted median of the positions of adjacent neighbors
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CrossingMinimization {
+    /// Calculates the average of the positions of adjacent neighbors
     Barycenter,
+    /// Calculates the weighted median of the positions of adjacent neighbors
     Median,
 }
 
