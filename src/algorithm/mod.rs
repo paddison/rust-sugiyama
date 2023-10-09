@@ -1,4 +1,4 @@
-//! The implementation roughly follows sugiyamas algorithm for creating 
+//! The implementation roughly follows sugiyamas algorithm for creating
 //! a layered graph layout.
 //!
 //! Usually Sugiyamas algorithm consists of 4 Phases:
@@ -7,11 +7,11 @@
 //! 3. Reorder vertices in each rank to reduce crossings
 //! 4. Calculate the final coordinates.
 //!
-//! Currently, phase 2 to 4 are implemented, Cycle removal might be added at 
+//! Currently, phase 2 to 4 are implemented, Cycle removal might be added at
 //! a later time.
 //!
-//! The whole algorithm roughly follows the 1993 paper "A technique for drawing 
-//! directed graphs" by Gansner et al. It can be found 
+//! The whole algorithm roughly follows the 1993 paper "A technique for drawing
+//! directed graphs" by Gansner et al. It can be found
 //! [here](https://ieeexplore.ieee.org/document/221135).
 //!
 //! See the submodules for each phase for more details on the implementation

@@ -4,7 +4,7 @@
 //! Currently three ranking algorithm are implmented:
 //!
 //! 1. Original - tries to move each vertex as close to neighbors as possible.
-//! 2. MinimizeEdgeLength - builds a feasible tight tree in order to minimize 
+//! 2. MinimizeEdgeLength - builds a feasible tight tree in order to minimize
 //! edge lengths. This is the technique describe in the paper by Gansner et al.
 //! 3. Up - Move vertices as far up as possible
 //! 4. Down - Move vertices as far down as possible.

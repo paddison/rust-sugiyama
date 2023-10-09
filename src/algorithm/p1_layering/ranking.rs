@@ -19,7 +19,7 @@ pub(crate) fn print_ranks(graph: &StableDiGraph<Vertex, Edge>) {
     println!("\n");
 }
 
-/// Builds a feasible tree, which means a tree in which each edge has a 
+/// Builds a feasible tree, which means a tree in which each edge has a
 /// minimum amount of slack (edge length = minimum length)
 pub(super) fn feasible_tree(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
     info!(target: "ranking", "building feasible tree");

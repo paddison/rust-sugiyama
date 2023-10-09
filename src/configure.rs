@@ -120,7 +120,7 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
     #[allow(unused_parens)]
     /// Read in configuration values from environment variables.
     ///
-    /// Envs that can be set include: 
+    /// Envs that can be set include:
     ///
     /// | ENV | values | default | description |
     /// | --- | ------ | ------- | ----------- |
