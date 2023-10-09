@@ -38,6 +38,8 @@ macro_rules! read_env {
 ///
 /// # Example
 /// ```
+/// use rust_sugiyama::from_edges;
+/// let edges = [(0, 1), (0, 2), (2, 3)];
 /// let coords = from_edges(&edges)
 ///     .vertex_spacing(20) // vertices are at least 20px apart
 ///     .dummy_vertices(false) // ignore dummy vertices when calculating layout
