@@ -35,13 +35,13 @@ pub static DUMMY_SIZE_DEFAULT: f64 = 1.0;
 /// 6. transpose: try to further reduce crossings, by swaping vertices in a layer, may increase runtime significantly
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
-    minimum_length: u32,
-    vertex_spacing: usize,
-    dummy_vertices: bool,
-    dummy_size: f64,
-    ranking_type: RankingType,
-    c_minimization: CrossingMinimization,
-    transpose: bool,
+    pub minimum_length: u32,
+    pub vertex_spacing: usize,
+    pub dummy_vertices: bool,
+    pub dummy_size: f64,
+    pub ranking_type: RankingType,
+    pub c_minimization: CrossingMinimization,
+    pub transpose: bool,
 }
 
 /// Defines the Ranking type, i.e. how vertices are placed on each layer.
