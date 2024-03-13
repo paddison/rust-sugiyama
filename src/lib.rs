@@ -71,6 +71,17 @@ impl TryFrom<String> for RankingType {
     }
 }
 
+impl From<RankingType> for &'static str {
+    fn from(value: RankingType) -> Self {
+        match value {
+            RankingType::Up => "up",
+            RankingType::Down => "down",
+            RankingType::Original => "original",
+            RankingType::MinimizeEdgeLength => "minimize",
+        }
+    }
+}
+
 /// Defines the heuristic used for crossing minimization.
 /// During crossing minimization, the vertices of one layer are
 /// ordered, so they're as close to neighboring vertices as possible.
@@ -94,6 +105,15 @@ impl TryFrom<String> for CrossingMinimization {
     }
 }
 
+impl From<CrossingMinimization> for &'static str {
+    fn from(value: CrossingMinimization) -> Self {
+        match value {
+            CrossingMinimization::Median => "median",
+            CrossingMinimization::Barycenter => "barycenter",
+        }
+    }
+}
+
 impl Default for Config {
     fn default() -> Self {
         Self {
@@ -107,6 +127,7 @@ impl Default for Config {
         }
     }
 }
+
 
 /// Creates a graph layout from edges, which are given as a `&[(u32, u32)]`.
 ///
