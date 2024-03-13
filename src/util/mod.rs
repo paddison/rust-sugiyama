@@ -1,70 +1,50 @@
-use std::collections::HashMap;
+use std::collections::HashSet;
 
 use log::{debug, info};
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
-/// Takes a graph and breaks it down into its weakly connected components.
-/// A weakly connected component is a list of edges which are connected with each other.
 pub fn weakly_connected_components<V: Copy, E: Copy>(
     graph: StableDiGraph<V, E>,
 ) -> Vec<StableDiGraph<V, E>> {
-    // map graph weights to options so we can take them later while building the subgraphs
     info!(target: "connected_components", "Splitting graph into its connected components");
-    let mut sub_graphs = Vec::new();
+    let mut components = Vec::new();
+    let mut visited = HashSet::new();
 
-    let (components, n_components) = find_components(&graph);
-    debug!(target: "connected_components", "Found {n_components} components");
+    for node in graph.node_indices() {
+        if visited.contains(&node) { continue; }
 
-    // build each subgraph
-    for component in 0..n_components {
-        debug!(target: "connected_components", "Creating component: {component}");
-        let sub_graph = graph.filter_map(
-            |v, w| match components.get(&v) {
-                Some(c) if *c == component => Some(*w),
-                _ => None,
-            },
-            |e, w| match graph.edge_endpoints(e) {
-                Some((t, _)) if components.get(&t) == Some(&component) => Some(*w),
-                _ => None,
-            },
+        let component_nodes = component_dfs(node, &graph);
+        let component = graph.filter_map(
+            |n, w| if component_nodes.contains(&n) { Some(*w) } else { None },
+            |_, w| Some(*w),
         );
-        sub_graphs.push(sub_graph);
-    }
 
-    sub_graphs
+        component_nodes.into_iter().for_each(|n| { visited.insert(n); } );
+        components.push(component);
+    }
+    debug!(target: "connected_components", "Found {} components", components.len());
+
+    return components;
 }
 
-fn find_components<V, E>(graph: &StableDiGraph<V, E>) -> (HashMap<NodeIndex, usize>, usize) {
-    // traverse via dfs
-    let mut components = HashMap::new();
-    let mut n_components = 0;
-
-    for v in graph.node_indices() {
-        if !components.contains_key(&v) {
-            find_component_dfs(v, graph, &mut components, n_components);
-            n_components += 1;
-        }
-    }
-
-    (components, n_components)
-}
-
-fn find_component_dfs<V, E>(
-    vertex: NodeIndex,
+fn component_dfs<V: Copy, E: Copy>(
+    start: NodeIndex,
     graph: &StableDiGraph<V, E>,
-    components: &mut HashMap<NodeIndex, usize>,
-    n_components: usize,
-) {
-    let mut queue = vec![vertex];
-    while let Some(v) = queue.pop() {
-        if components.contains_key(&v) {
-            continue;
-        }
-        components.insert(v, n_components);
-        for n in graph.neighbors_undirected(v) {
-            queue.push(n);
+) -> HashSet<NodeIndex> {
+    let mut queue = vec![start];
+    let mut visited = HashSet::new();
+
+    visited.insert(start);
+
+    while let Some(cur) = queue.pop() {
+        for neighbor in graph.neighbors_undirected(cur) {
+            if visited.contains(&neighbor) { continue; }
+            visited.insert(neighbor);
+            queue.push(neighbor);
         }
     }
+
+    return visited;
 }
 
 #[test]
