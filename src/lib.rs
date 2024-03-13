@@ -14,6 +14,16 @@ type Layout = (Vec<(usize, (isize, isize))>, usize, usize);
 type Layouts<T> = Vec<(Vec<(T, (isize, isize))>, usize, usize)>;
 type RawGraph<'a> = (&'a [u32], &'a [(u32, u32)]);
 
+// Default values for configuration
+
+pub static MINIMUM_LENGTH_DEFAULT: u32 = 1;
+pub static VERTEX_SPACING_DEFAULT: usize = 10;
+pub static DUMMY_VERTICES_DEFAULT: bool = true;
+pub static RANKING_TYPE_DEFAULT: RankingType = RankingType::MinimizeEdgeLength;
+pub static C_MINIMIZATION_DEFAULT: CrossingMinimization = CrossingMinimization::Barycenter;
+pub static TRANSPOSE_DEFAULT: bool = true;
+pub static DUMMY_SIZE_DEFAULT: f64 = 1.0;
+
 /// Used to configure parameters of the graph layout.
 ///
 /// Struct fields are:
@@ -87,13 +97,13 @@ impl TryFrom<String> for CrossingMinimization {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            minimum_length: 1,
-            vertex_spacing: 10,
-            dummy_vertices: true,
-            ranking_type: RankingType::MinimizeEdgeLength,
-            c_minimization: CrossingMinimization::Barycenter,
-            transpose: true,
-            dummy_size: 1.0,
+            minimum_length: MINIMUM_LENGTH_DEFAULT,
+            vertex_spacing: VERTEX_SPACING_DEFAULT,
+            dummy_vertices: DUMMY_VERTICES_DEFAULT,
+            ranking_type: RANKING_TYPE_DEFAULT,
+            c_minimization: C_MINIMIZATION_DEFAULT,
+            transpose: TRANSPOSE_DEFAULT,
+            dummy_size: DUMMY_SIZE_DEFAULT,
         }
     }
 }
