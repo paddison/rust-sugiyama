@@ -128,7 +128,6 @@ impl Default for Config {
     }
 }
 
-
 /// Creates a graph layout from edges, which are given as a `&[(u32, u32)]`.
 ///
 /// It returns a [CoordinatesBuilder] which can be used to configure the

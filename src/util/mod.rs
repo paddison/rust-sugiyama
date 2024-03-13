@@ -11,15 +11,25 @@ pub fn weakly_connected_components<V: Copy, E: Copy>(
     let mut visited = HashSet::new();
 
     for node in graph.node_indices() {
-        if visited.contains(&node) { continue; }
+        if visited.contains(&node) {
+            continue;
+        }
 
         let component_nodes = component_dfs(node, &graph);
         let component = graph.filter_map(
-            |n, w| if component_nodes.contains(&n) { Some(*w) } else { None },
+            |n, w| {
+                if component_nodes.contains(&n) {
+                    Some(*w)
+                } else {
+                    None
+                }
+            },
             |_, w| Some(*w),
         );
 
-        component_nodes.into_iter().for_each(|n| { visited.insert(n); } );
+        component_nodes.into_iter().for_each(|n| {
+            visited.insert(n);
+        });
         components.push(component);
     }
     debug!(target: "connected_components", "Found {} components", components.len());
@@ -38,7 +48,9 @@ fn component_dfs<V: Copy, E: Copy>(
 
     while let Some(cur) = queue.pop() {
         for neighbor in graph.neighbors_undirected(cur) {
-            if visited.contains(&neighbor) { continue; }
+            if visited.contains(&neighbor) {
+                continue;
+            }
             visited.insert(neighbor);
             queue.push(neighbor);
         }
