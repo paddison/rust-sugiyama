@@ -117,6 +117,13 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         self
     }
 
+    pub fn with_config(mut self, config: Config) -> Self {
+        trace!(target: "initializing",
+            "With config {:?}", config);
+        self.config = config;
+        self
+    }
+
     #[allow(unused_parens)]
     /// Read in configuration values from environment variables.
     ///
