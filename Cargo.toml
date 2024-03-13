@@ -2,6 +2,16 @@
 name = "rust-sugiyama"
 version = "0.1.0"
 edition = "2021"
+license = "MIT"
+authors = ["paddison"]
+
+description = "Implementation of Sugiyama's algorithm to calculate coordinates of a directed graph"
+readme = "README.md"
+
+homepage = "https://github.com/paddison/rust-sugiyama"
+repository = "https://github.com/paddison/rust-sugiyama"
+
+keywords = ["graph", "graph-display", "directed-graph"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
