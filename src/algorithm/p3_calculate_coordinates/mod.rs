@@ -100,9 +100,9 @@ pub(crate) fn calculate_relative_coords(
         // println!("{v:?}\n");
     }
     let mut sorted_layouts = HashMap::new();
-    for k in aligned_layouts.get(0).unwrap().keys() {
+    for k in aligned_layouts.first().unwrap().keys() {
         let mut vertex_coordinates = [
-            *aligned_layouts.get(0).unwrap().get(k).unwrap(),
+            *aligned_layouts.first().unwrap().get(k).unwrap(),
             *aligned_layouts.get(1).unwrap().get(k).unwrap(),
             *aligned_layouts.get(2).unwrap().get(k).unwrap(),
             *aligned_layouts.get(3).unwrap().get(k).unwrap(),

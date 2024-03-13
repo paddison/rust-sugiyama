@@ -34,7 +34,7 @@ pub fn weakly_connected_components<V: Copy, E: Copy>(
     }
     debug!(target: "connected_components", "Found {} components", components.len());
 
-    return components;
+    components
 }
 
 fn component_dfs<V: Copy, E: Copy>(
@@ -56,7 +56,7 @@ fn component_dfs<V: Copy, E: Copy>(
         }
     }
 
-    return visited;
+    visited
 }
 
 #[test]
