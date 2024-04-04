@@ -13,6 +13,8 @@ Crossing Reduction follows the weighted median heuristic which is also descriped
 
 Finally, the implementation for coordinate assignment follows the algorithm provided by Brandes and Koepf, which can be found in this [paper](https://www.semanticscholar.org/paper/Fast-and-Simple-Horizontal-Coordinate-Assignment-Brandes-K%C3%B6pf/69cb129a8963b21775d6382d15b0b447b01eb1f8).
 
+Bugs or feature requests can be either submitted via a github issue or by contacting patrickbaumann579@gmail.com.
+
 ## Usage
 
 Currently, there are three options to create a layout: 
