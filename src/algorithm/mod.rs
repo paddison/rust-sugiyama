@@ -23,12 +23,14 @@ use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableDiGraph};
 
 use crate::{util::weakly_connected_components, Layout, Layouts};
 use crate::{Config, CrossingMinimization, RankingType};
+use p0_cycle_removal as p0;
 use p1_layering as p1;
 use p2_reduce_crossings as p2;
 use p3_calculate_coordinates as p3;
 
 use self::p3_calculate_coordinates::VDir;
 
+mod p0_cycle_removal;
 mod p1_layering;
 mod p2_reduce_crossings;
 mod p3_calculate_coordinates;
@@ -179,11 +181,16 @@ fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
 fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layout {
     info!(target: "layouting", "Start building layout");
     info!(target: "layouting", "Configuration is: {:?}", config);
+    // we don't remember the edges that where reversed for now, since they are
+    // currently not needed
+    let _ = execute_phase_0(&mut graph);
+
     execute_phase_1(
         &mut graph,
         config.minimum_length as i32,
         config.ranking_type,
     );
+
     let layers = execute_phase_2(
         &mut graph,
         config.minimum_length as i32,
@@ -191,6 +198,7 @@ fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layou
         config.c_minimization,
         config.transpose,
     );
+
     let layout = execute_phase_3(&mut graph, layers, config.vertex_spacing, config.dummy_size);
     debug!(target: "layouting", "Coordinates: {:?}\nwidth: {}, height:{}",
         layout.0,
@@ -198,6 +206,11 @@ fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layou
         layout.2
     );
     layout
+}
+
+fn execute_phase_0(graph: &mut StableDiGraph<Vertex, Edge>) -> Vec<EdgeIndex> {
+    info!(target: "layouting", "Executing phase 0: Cycle Removal");
+    p0::remove_cycles(graph)
 }
 
 /// Assign each vertex a rank

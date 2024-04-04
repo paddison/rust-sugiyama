@@ -287,7 +287,9 @@ mod benchmark {
 
 #[cfg(test)]
 mod check_visuals {
-    use crate::from_vertices_and_edges;
+    use petgraph::stable_graph::StableDiGraph;
+
+    use crate::{from_vertices_and_edges, algorithm::{Vertex, Edge}};
 
     use super::from_edges;
 
@@ -458,5 +460,29 @@ mod check_visuals {
         let edges = [];
         let g = from_edges(&edges).build();
         assert!(g.is_empty());
+    }
+
+    #[test]
+    fn run_algo_with_duplicate_edges() {
+        let edges = [
+            (1, 2),
+            (2, 5),
+            (2, 6),
+            (2, 3),
+            (3, 4),
+            (4, 3),
+            (4, 8),
+            (8, 4),
+            (8, 7),
+            (3, 7),
+            (6, 7),
+            (7, 6),
+            (5, 6),
+            (5, 1),
+        ];
+       
+        let layout = from_edges(&edges).build();
+        println!("{layout:?}");
+        
     }
 }

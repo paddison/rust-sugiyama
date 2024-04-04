@@ -5,7 +5,9 @@
 
 An implementation of Sugiyamas algorithm for displaying a layered graph.
 
-Currently, the implementation can only handle graphs which contain no cycles. 
+This crate heavily uses the crate [petgraph](https://crates.io/crates/petgraph) under the hood.
+
+Cycle Removal is implemented by using the `greedy_feedback_arc_set` function of petgraph and then reversing the edges from the set.
 
 The rank assignment algorithm is implemented according to the paper `A Technique for Drawing Directed Graphs` by Gansner et al. which can be found [here](https://ieeexplore.ieee.org/document/221135). It first assigns a node a layer and creates an optimal feasible tree for rank assignment.
 
