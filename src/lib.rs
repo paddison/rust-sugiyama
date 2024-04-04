@@ -289,7 +289,10 @@ mod benchmark {
 mod check_visuals {
     use petgraph::stable_graph::StableDiGraph;
 
-    use crate::{from_vertices_and_edges, algorithm::{Vertex, Edge}};
+    use crate::{
+        algorithm::{Edge, Vertex},
+        from_vertices_and_edges,
+    };
 
     use super::from_edges;
 
@@ -480,9 +483,8 @@ mod check_visuals {
             (5, 6),
             (5, 1),
         ];
-       
+
         let layout = from_edges(&edges).build();
         println!("{layout:?}");
-        
     }
 }
