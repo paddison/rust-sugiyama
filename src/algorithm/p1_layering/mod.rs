@@ -19,7 +19,7 @@ use log::info;
 use petgraph::stable_graph::{EdgeIndex, StableDiGraph};
 use petgraph::visit::IntoNodeIdentifiers;
 
-use crate::RankingType;
+use crate::configure::RankingType;
 
 use self::cut_values::update_cutvalues;
 use self::low_lim::update_low_lim;

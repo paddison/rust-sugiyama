@@ -9,8 +9,8 @@ use petgraph::algo::toposort;
 use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 use petgraph::Direction::{Incoming, Outgoing};
 
+use crate::configure::CrossingMinimization;
 use crate::util::{iterate, radix_sort, IterDir};
-use crate::CrossingMinimization;
 
 use super::{slack, Edge, Vertex};
 

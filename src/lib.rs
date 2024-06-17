@@ -14,120 +14,6 @@ type Layout = (Vec<(usize, (isize, isize))>, usize, usize);
 type Layouts<T> = Vec<(Vec<(T, (isize, isize))>, usize, usize)>;
 type RawGraph<'a> = (&'a [u32], &'a [(u32, u32)]);
 
-// Default values for configuration
-
-pub static MINIMUM_LENGTH_DEFAULT: u32 = 1;
-pub static VERTEX_SPACING_DEFAULT: usize = 10;
-pub static DUMMY_VERTICES_DEFAULT: bool = true;
-pub static RANKING_TYPE_DEFAULT: RankingType = RankingType::MinimizeEdgeLength;
-pub static C_MINIMIZATION_DEFAULT: CrossingMinimization = CrossingMinimization::Barycenter;
-pub static TRANSPOSE_DEFAULT: bool = true;
-pub static DUMMY_SIZE_DEFAULT: f64 = 1.0;
-
-/// Used to configure parameters of the graph layout.
-///
-/// Struct fields are:
-/// 1. minimum_edge: length between layers
-/// 2. vertex_spacing: minimum spacing between vertices on the same layer
-/// 3. dummy_vertices: should dummie vertices be included when calculating the layout
-/// 4. ranking_type: defines how vertices are places vertically, see [RankingType]
-/// 5. c_minimization: which heuristic to use when minimizing edge crossings, see [CrossingMinimization]
-/// 6. transpose: try to further reduce crossings, by swaping vertices in a layer, may increase runtime significantly
-#[derive(Clone, Copy, Debug)]
-pub struct Config {
-    pub minimum_length: u32,
-    pub vertex_spacing: usize,
-    pub dummy_vertices: bool,
-    pub dummy_size: f64,
-    pub ranking_type: RankingType,
-    pub c_minimization: CrossingMinimization,
-    pub transpose: bool,
-}
-
-/// Defines the Ranking type, i.e. how vertices are placed on each layer.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum RankingType {
-    /// First moves vertices as far up as possible, and then as low as possible
-    Original,
-    /// Tries to minimize edge lengths across layers
-    MinimizeEdgeLength,
-    /// Move vertices as far up as possible
-    Up,
-    /// Move vertices as far down as possible
-    Down,
-}
-
-impl TryFrom<String> for RankingType {
-    type Error = String;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        match value.as_str() {
-            "original" => Ok(Self::Original),
-            "minimize" => Ok(Self::MinimizeEdgeLength),
-            "up" => Ok(Self::Up),
-            "down" => Ok(Self::Down),
-            s => Err(format!("invalid value for ranking type: {s}")),
-        }
-    }
-}
-
-impl From<RankingType> for &'static str {
-    fn from(value: RankingType) -> Self {
-        match value {
-            RankingType::Up => "up",
-            RankingType::Down => "down",
-            RankingType::Original => "original",
-            RankingType::MinimizeEdgeLength => "minimize",
-        }
-    }
-}
-
-/// Defines the heuristic used for crossing minimization.
-/// During crossing minimization, the vertices of one layer are
-/// ordered, so they're as close to neighboring vertices as possible.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CrossingMinimization {
-    /// Calculates the average of the positions of adjacent neighbors
-    Barycenter,
-    /// Calculates the weighted median of the positions of adjacent neighbors
-    Median,
-}
-
-impl TryFrom<String> for CrossingMinimization {
-    type Error = String;
-
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        match value.as_str() {
-            "barycenter" => Ok(Self::Barycenter),
-            "median" => Ok(Self::Median),
-            s => Err(format!("invalid value for crossing minimization: {s}")),
-        }
-    }
-}
-
-impl From<CrossingMinimization> for &'static str {
-    fn from(value: CrossingMinimization) -> Self {
-        match value {
-            CrossingMinimization::Median => "median",
-            CrossingMinimization::Barycenter => "barycenter",
-        }
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            minimum_length: MINIMUM_LENGTH_DEFAULT,
-            vertex_spacing: VERTEX_SPACING_DEFAULT,
-            dummy_vertices: DUMMY_VERTICES_DEFAULT,
-            ranking_type: RANKING_TYPE_DEFAULT,
-            c_minimization: C_MINIMIZATION_DEFAULT,
-            transpose: TRANSPOSE_DEFAULT,
-            dummy_size: DUMMY_SIZE_DEFAULT,
-        }
-    }
-}
-
 /// Creates a graph layout from edges, which are given as a `&[(u32, u32)]`.
 ///
 /// It returns a [CoordinatesBuilder] which can be used to configure the
@@ -287,12 +173,8 @@ mod benchmark {
 
 #[cfg(test)]
 mod check_visuals {
-    use petgraph::stable_graph::StableDiGraph;
 
-    use crate::{
-        algorithm::{Edge, Vertex},
-        from_vertices_and_edges,
-    };
+    use crate::from_vertices_and_edges;
 
     use super::from_edges;
 
@@ -452,7 +334,7 @@ mod check_visuals {
         .collect::<Vec<_>>();
 
         let layout = from_edges(&edges)
-            .layering_type(crate::RankingType::Up)
+            .layering_type(crate::configure::RankingType::Up)
             .build();
         println!("{layout:?}");
     }

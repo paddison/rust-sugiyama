@@ -21,8 +21,8 @@ use std::collections::HashMap;
 use log::{debug, info};
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableDiGraph};
 
+use crate::configure::{Config, CrossingMinimization, RankingType};
 use crate::{util::weakly_connected_components, Layout, Layouts};
-use crate::{Config, CrossingMinimization, RankingType};
 use p0_cycle_removal as p0;
 use p1_layering as p1;
 use p2_reduce_crossings as p2;
