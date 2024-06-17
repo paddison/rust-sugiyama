@@ -336,7 +336,7 @@ fn enter_edge_find_edge() {
 
 mod integration {
 
-    use crate::{Config, RankingType};
+    use crate::configure::{Config, RankingType};
     use petgraph::stable_graph::StableDiGraph;
 
     use crate::algorithm::p1_layering::{rank, slack, Edge, Vertex};

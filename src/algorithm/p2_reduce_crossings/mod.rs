@@ -387,10 +387,10 @@ fn order_layer(
     let mut new_order = vec![Vec::new(); cur_order.max_rank()];
     let mut positions = cur_order.positions.clone();
     let dir: Vec<usize> = if move_down {
-        new_order[0] = cur_order._inner[0].clone();
+        new_order[0].clone_from(&cur_order._inner[0]);
         (1..cur_order.max_rank()).collect()
     } else {
-        new_order[cur_order.max_rank() - 1] = cur_order._inner[cur_order.max_rank() - 1].clone();
+        new_order[cur_order.max_rank() - 1].clone_from(&cur_order._inner[cur_order.max_rank() - 1]);
         (0..cur_order.max_rank() - 1).rev().collect()
     };
 
@@ -404,7 +404,7 @@ fn order_layer(
                 .as_slice()
         );
 
-        new_order[rank] = cur_order[rank].clone();
+        new_order[rank].clone_from(&cur_order[rank]);
         let ordering = new_order[rank]
             .iter()
             .map(|n| (*n, cm_method(graph, *n, move_down, &positions)))

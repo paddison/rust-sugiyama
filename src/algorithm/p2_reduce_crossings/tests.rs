@@ -164,7 +164,7 @@ mod insert_dummy_vertices {
                 THREE_DUMMIES_RANKS,
             },
         },
-        Config,
+        configure::Config,
     };
 
     use super::{GraphBuilder, ONE_DUMMY_RANKS};
