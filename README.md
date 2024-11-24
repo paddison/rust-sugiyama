@@ -41,12 +41,12 @@ let edges = [
     (5, 7), (5, 8), (6, 7), (6, 8), 
     (7, 9), (8, 9)
 ];
-let 
+
 let layouts = from_edges(&edges)
     .vertex_spacing(20)
     .build();
 
-for (layout, width, height) in layouts {
+for (_layout, width, height) in &layouts {
     println!("Coordinates: {:?}", layouts);
     println!("width: {width}, height: {height}");
 }
@@ -57,8 +57,8 @@ Takes as input a `&StableDiGraph<V, E>` and calculates the x and y coordinates, 
 `NodeIndices` are preserved between layouts and map directly to the input graph.
 
 ```rust
-use rust_sugiuama::from_graph;
-let mut g: StableDiGraph<String, usize> = StableDiGraph::new();
+use rust_sugiyama::from_graph;
+let mut g = petgraph::stable_graph::StableDiGraph::<String, usize>::new();
 
 let rick = g.add_node("Rick".to_string());
 let morty = g.add_node("Morty".to_string());
@@ -73,12 +73,12 @@ g.add_edge(jerry, summer, 1);
 g.add_edge(beth, morty, 1);
 g.add_edge(jerry, morty, 1);
 
-let layouts = from_graph(&g).build();
+let layouts = from_graph(&g).build()
     .into_iter()
     .map(|(layout, width, height)| {
-        let mut new_layout = HashMap::new();
+        let mut new_layout = std::collections::HashMap::new();
         for (id, coords) in layout {
-            new_layout.insert(g[NodeIndex::from(id)], coords);
+            new_layout.insert(g[petgraph::stable_graph::NodeIndex::from(id)].clone(), coords);
         }
         (new_layout, width, height)
     })
