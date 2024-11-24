@@ -46,8 +46,8 @@ let layouts = from_edges(&edges)
     .vertex_spacing(20)
     .build();
 
-for (_layout, width, height) in &layouts {
-    println!("Coordinates: {:?}", layouts);
+for (layout, width, height) in &layouts {
+    println!("Coordinates: {:?}", layout);
     println!("width: {width}, height: {height}");
 }
 ```
