@@ -28,13 +28,16 @@ pub fn from_edges(edges: &[(u32, u32)]) -> CoordinatesBuilder<&[(u32, u32)]> {
 ///
 /// It returns a [CoordinatesBuilder] which can be used to configure the
 /// layout.
-pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>) -> CoordinatesBuilder<StableDiGraph<V, E>> {
+pub fn from_graph<V, E, VSizeFn>(graph: &StableDiGraph<V, E>, f: &VSizeFn) -> CoordinatesBuilder<StableDiGraph<V, E>>
+where
+    VSizeFn: Fn(&V) -> (f32, f32),
+{
     info!(target: "initializing", 
         "Creating new layout from existing graph, containing {} vertices and {} edges.", 
         graph.node_count(), 
         graph.edge_count());
 
-    let graph = graph.map(|id, _| Vertex::new(id.index()), |_, _| Edge::default());
+    let graph = graph.map(|id, w| Vertex::new_with_size(id.index(), f(w)), |_, _| Edge::default());
     CoordinatesBuilder::new(graph)
 }
 
@@ -72,6 +75,108 @@ pub fn from_vertices_and_edges<'a>(
     }
 
     CoordinatesBuilder::new(graph)
+}
+
+pub fn to_svg<WeightT: std::fmt::Display, E>(
+    graph: &StableDiGraph<WeightT, E>,
+    node_positions: &Vec<(petgraph::stable_graph::NodeIndex, (isize, isize))>,
+    vertex_size_fn: &dyn Fn(&WeightT) -> (f32, f32),
+    svg_padding: (f32, f32),
+) -> String {
+    use petgraph::visit::EdgeRef;
+    fn xml_sanitize(input: &str) -> String {
+        let mut sanitized = String::new();
+        for c in input.chars() {
+            match c {
+                '&' => sanitized.push_str("&amp;"),
+                '<' => sanitized.push_str("&lt;"),
+                '>' => sanitized.push_str("&gt;"),
+                '"' => sanitized.push_str("&quot;"),
+                '\'' => sanitized.push_str("&apos;"),
+                _ => sanitized.push(c),
+            }
+        }
+        sanitized
+    }
+    
+    let (mut output, offset) = {
+        let (mut min_x, mut min_y, mut max_x, mut max_y) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
+        for (idx, pos) in node_positions {
+            if let Some(weight) = graph.node_weight(*idx) {
+                let size = vertex_size_fn(weight);
+                min_x = min_x.min(pos.0 as f32 - size.0 / 2.0);
+                min_y = min_y.min(pos.1 as f32 - size.1 / 2.0);
+                max_x = max_x.max(pos.0 as f32 + size.0 / 2.0);
+                max_y = max_y.max(pos.1 as f32 + size.1 / 2.0);
+            }
+        }
+    
+        (
+            format!(
+                r#"<svg width="{}" height="{}" xmlns="http://www.w3.org/2000/svg">
+
+<rect width="100%" height="100%" fill="lightgray"/>{}"#,
+                max_x - min_x + 2.0 * svg_padding.0,
+                max_y - min_y + 2.0 * svg_padding.1,
+                "\n\n"
+            ),
+            (
+                svg_padding.0 - min_x,
+                svg_padding.1 - min_y,
+            )
+        )
+    };
+    
+    for (idx, pos) in node_positions {
+        if let Some(weight) = graph.node_weight(*idx) {
+            for e in graph.edges_directed(*idx, petgraph::Direction::Outgoing) {
+                let other_vertex_index = e.target();
+                if let (Some(other_vertex_weight), Some((_idx, other_vertex_pos))) = (graph.node_weight(other_vertex_index),
+                    node_positions.iter().find(|e| e.0 == other_vertex_index))
+                {
+                    output.push_str(&format!(
+                        r#"<line class="line" x1="{}" y1="{}" x2="{}" y2="{}" style="stroke:black;"/>"#,
+                        offset.0 + pos.0 as f32,
+                        offset.1 + pos.1 as f32,
+                        offset.0 + other_vertex_pos.0 as f32,
+                        offset.1 + other_vertex_pos.1 as f32,
+                        )
+                    );
+                    output.push_str(" <!-- (");
+                    output.push_str(&xml_sanitize(&format!("{}", weight)));
+                    output.push_str(", ");
+                    output.push_str(&xml_sanitize(&format!("{}", other_vertex_weight)));
+                    output.push_str(") -->\n");
+                }
+            }
+        }
+    }
+    output.push_str("\n");
+    
+    for (idx, pos) in node_positions {
+        if let Some(weight) = graph.node_weight(*idx) {
+            let size = vertex_size_fn(weight);
+            output.push_str(&format!(
+                r#"<ellipse cx="{}" cy="{}" rx="{}" ry="{}" style="fill:white;stroke:black;"/>"#,
+                offset.0 + pos.0 as f32,
+                offset.1 + pos.1 as f32,
+                size.0 / 2.0,
+                size.1 / 2.0
+            ));
+            output.push_str("\n");
+            output.push_str(&format!(
+                r#"<text class="label" x="{}" y="{}" dominant-baseline="middle" text-anchor="middle">{}</text>"#,
+                offset.0 + pos.0 as f32,
+                offset.1 + pos.1 as f32,
+                xml_sanitize(&format!("{}", weight))
+            ));
+            output.push_str("\n");
+        }
+    }
+    output.push_str("\n");
+    
+    output.push_str("</svg>\n");
+    output
 }
 
 #[cfg(test)]

@@ -313,7 +313,7 @@ impl<V, E> CoordinatesBuilder<StableDiGraph<V, E>> {
             ..
         } = self;
         algorithm::start(
-            graph.map(|_, _| Vertex::default(), |_, _| Edge::default()),
+            graph.map(|_, w| w.semiclone(), |_, _| Edge::default()),
             config,
         )
         .into_iter()

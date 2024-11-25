@@ -35,11 +35,13 @@ mod p1_layering;
 mod p2_reduce_crossings;
 mod p3_calculate_coordinates;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) struct Vertex {
     id: usize,
     rank: i32,
     pos: usize,
+    size_x: f32,
+    size_y: f32,
     low: u32,
     lim: u32,
     parent: Option<NodeIndex>,
@@ -58,48 +60,53 @@ impl Vertex {
             ..Default::default()
         }
     }
+    pub(super) fn semiclone(&self) -> Self {
+        Self {
+            size_x: self.size_x,
+            size_y: self.size_y,
+            ..Default::default()
+        }
+    }
+    
+    pub(super) fn new_with_size(id: usize, size: (f32, f32)) -> Self {
+        Self {
+            id,
+            size_x: size.0,
+            size_y: size.1,
+            ..Default::default()
+        }
+    }
 
     #[cfg(test)]
     fn new_test_p1(low: u32, lim: u32, parent: Option<NodeIndex>, is_tree_vertex: bool) -> Self {
         Self {
-            id: 0,
-            rank: 0,
-            pos: 0,
             low,
             lim,
             parent,
             is_tree_vertex,
-            is_dummy: false,
-            root: 0.into(),
-            align: 0.into(),
-            shift: isize::MAX,
-            sink: 0.into(),
+            ..Default::default()
         }
     }
 
     #[cfg(test)]
     pub fn new_test_p3(align_root_sink: NodeIndex, rank: i32, pos: usize, is_dummy: bool) -> Self {
         Self {
-            id: 0,
             rank,
             pos,
-            low: 0,
-            lim: 0,
-            parent: None,
-            is_tree_vertex: false,
             is_dummy,
             root: align_root_sink,
             align: align_root_sink,
-            shift: isize::MAX,
             sink: align_root_sink,
+            ..Default::default()
         }
     }
 
     #[cfg(test)]
     pub fn new_with_rank(rank: i32) -> Self {
-        let mut v = Self::default();
-        v.rank = rank;
-        v
+        Self {
+            rank,
+            ..Default::default()
+        }
     }
 }
 
@@ -109,6 +116,8 @@ impl Default for Vertex {
             id: 0,
             rank: 0,
             pos: 0,
+            size_x: 0.0,
+            size_y: 0.0,
             low: 0,
             lim: 0,
             parent: None,
@@ -160,7 +169,7 @@ pub(super) fn start(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> L
     init_graph(&mut graph);
     weakly_connected_components(graph)
         .into_iter()
-        .map(|g| build_layout(g, config))
+        .map(|g| build_layout(g, &config))
         .collect()
 }
 
@@ -178,7 +187,7 @@ fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
     }
 }
 
-fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layout {
+fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: &Config) -> Layout {
     info!(target: "layouting", "Start building layout");
     info!(target: "layouting", "Configuration is: {:?}", config);
     // we don't remember the edges that where reversed for now, since they are
@@ -268,12 +277,56 @@ fn execute_phase_3(
     p3::align_to_smallest_width_layout(&mut layouts);
     let mut x_coordinates = p3::calculate_relative_coords(layouts);
     // determine the smallest x-coordinate
-    let min = x_coordinates.iter().min_by(|a, b| a.1.cmp(&b.1)).unwrap().1;
+    let min_x = x_coordinates.iter().min_by(|a, b| a.1.cmp(&b.1)).unwrap().1;
 
     // shift all coordinates so the minimum coordinate is 0
     for (_, c) in &mut x_coordinates {
-        *c -= min;
+        *c -= min_x;
     }
+    
+    // find max y size in each rank
+    let rank_max_y_sizes = {
+        let mut rank_max_y_sizes = HashMap::<i32, f32>::new();
+        for nw in graph.node_weights() {
+            let max = rank_max_y_sizes.entry(nw.rank).or_default();
+            *max = max.max(nw.size_y);
+        }
+        rank_max_y_sizes
+    };
+    
+    let rank_y_offsets = if !rank_max_y_sizes.is_empty() {
+        // accumulate y offsets of ranks
+        let (min, max) = (*rank_max_y_sizes.keys().min().unwrap(), *rank_max_y_sizes.keys().max().unwrap());
+        let mut rank_y_offsets = HashMap::<i32, f32>::new();
+        let mut previous = rank_max_y_sizes.get(&min).unwrap() / 2.0;
+        rank_y_offsets.insert(min, previous);
+        for ii in min+1..=max {
+            previous += rank_max_y_sizes.get(&(ii-1)).unwrap() / 2.0 + vertex_spacing as f32 + rank_max_y_sizes.get(&ii).unwrap();
+            rank_y_offsets.insert(ii, previous);
+        }
+        
+        // for each rank shift x of nodes
+        for rank in min..=max {
+            let mut rank_x: Vec<_> = x_coordinates.iter_mut()
+                .map(|e| {
+                    let w = graph.node_weight(e.0);
+                    (e, w)
+                })
+                .filter(|(_e, w)| w.is_some_and(|w| w.rank == rank))
+                .map(|(e, w)| (e, w.unwrap()))
+                .collect();
+            rank_x.sort_by(|a, b| a.0.1.cmp(&b.0.1));
+            
+            let mut cumulative_offset: f32 = 0.0;
+            for e in rank_x {
+                cumulative_offset += e.1.size_x / 2.0;
+                e.0.1 = e.0.1 + cumulative_offset as isize;
+                cumulative_offset += e.1.size_x / 2.0;
+            }
+        }
+        
+        rank_y_offsets
+    } else { HashMap::new() };
 
     let mut v = x_coordinates.iter().collect::<Vec<_>>();
     v.sort_by(|a, b| a.0.index().cmp(&b.0.index()));
@@ -286,7 +339,7 @@ fn execute_phase_3(
             .map(|(v, x)| {
                 (
                     graph[v].id,
-                    (x, -(graph[v].rank as isize * vertex_spacing as isize)),
+                    (x, *rank_y_offsets.get(&graph[v].rank).unwrap() as isize),
                 )
             })
             .collect::<Vec<_>>(),
