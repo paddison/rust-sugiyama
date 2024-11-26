@@ -16,10 +16,11 @@ fn main() {
     g.add_edge(beth, morty, 1);
     g.add_edge(jerry, morty, 1);
 
-    let vertex_size_fn = |n: &String| (n.len() as f32 * 15.0, 25.0);
+    let vertex_size_fn = |idx: petgraph::stable_graph::NodeIndex| (g.node_weight(idx).unwrap().len() as f32 * 15.0, 25.0);
 
-    let layouts = from_graph(&g, &vertex_size_fn)
+    let layouts = from_graph(&g)
         .vertex_spacing(40)
+        .vertex_sizing_fn(&vertex_size_fn)
         .build()
         .into_iter()
         .map(|(layout, width, height)| {

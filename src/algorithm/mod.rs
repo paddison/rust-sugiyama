@@ -60,13 +60,6 @@ impl Vertex {
             ..Default::default()
         }
     }
-    pub(super) fn semiclone(&self) -> Self {
-        Self {
-            size_x: self.size_x,
-            size_y: self.size_y,
-            ..Default::default()
-        }
-    }
     
     pub(super) fn new_with_size(id: usize, size: (f32, f32)) -> Self {
         Self {

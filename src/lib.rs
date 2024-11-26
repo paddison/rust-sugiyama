@@ -28,16 +28,13 @@ pub fn from_edges(edges: &[(u32, u32)]) -> CoordinatesBuilder<&[(u32, u32)]> {
 ///
 /// It returns a [CoordinatesBuilder] which can be used to configure the
 /// layout.
-pub fn from_graph<V, E, VSizeFn>(graph: &StableDiGraph<V, E>, f: &VSizeFn) -> CoordinatesBuilder<StableDiGraph<V, E>>
-where
-    VSizeFn: Fn(&V) -> (f32, f32),
-{
+pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>) -> CoordinatesBuilder<StableDiGraph<V, E>> {
     info!(target: "initializing", 
         "Creating new layout from existing graph, containing {} vertices and {} edges.", 
         graph.node_count(), 
         graph.edge_count());
 
-    let graph = graph.map(|id, w| Vertex::new_with_size(id.index(), f(w)), |_, _| Edge::default());
+    let graph = graph.map(|id, _w| Vertex::new(id.index()), |_, _| Edge::default());
     CoordinatesBuilder::new(graph)
 }
 
@@ -53,7 +50,7 @@ where
 pub fn from_vertices_and_edges<'a>(
     vertices: &'a [u32],
     edges: &'a [(u32, u32)],
-) -> CoordinatesBuilder<RawGraph<'a>> {
+) -> CoordinatesBuilder<'a, RawGraph<'a>> {
     info!(target: "initializing", 
         "Creating new layout from existing graph, containing {} vertices and {} edges.", 
         vertices.len(), 
@@ -80,7 +77,7 @@ pub fn from_vertices_and_edges<'a>(
 pub fn to_svg<WeightT: std::fmt::Display, E>(
     graph: &StableDiGraph<WeightT, E>,
     node_positions: &Vec<(petgraph::stable_graph::NodeIndex, (isize, isize))>,
-    vertex_size_fn: &dyn Fn(&WeightT) -> (f32, f32),
+    vertex_size_fn: &dyn Fn(petgraph::stable_graph::NodeIndex) -> (f32, f32),
     svg_padding: (f32, f32),
 ) -> String {
     use petgraph::visit::EdgeRef;
@@ -102,13 +99,11 @@ pub fn to_svg<WeightT: std::fmt::Display, E>(
     let (mut output, offset) = {
         let (mut min_x, mut min_y, mut max_x, mut max_y) = (f32::MAX, f32::MAX, f32::MIN, f32::MIN);
         for (idx, pos) in node_positions {
-            if let Some(weight) = graph.node_weight(*idx) {
-                let size = vertex_size_fn(weight);
-                min_x = min_x.min(pos.0 as f32 - size.0 / 2.0);
-                min_y = min_y.min(pos.1 as f32 - size.1 / 2.0);
-                max_x = max_x.max(pos.0 as f32 + size.0 / 2.0);
-                max_y = max_y.max(pos.1 as f32 + size.1 / 2.0);
-            }
+            let size = vertex_size_fn(*idx);
+            min_x = min_x.min(pos.0 as f32 - size.0 / 2.0);
+            min_y = min_y.min(pos.1 as f32 - size.1 / 2.0);
+            max_x = max_x.max(pos.0 as f32 + size.0 / 2.0);
+            max_y = max_y.max(pos.1 as f32 + size.1 / 2.0);
         }
     
         (
@@ -154,24 +149,22 @@ pub fn to_svg<WeightT: std::fmt::Display, E>(
     output.push_str("\n");
     
     for (idx, pos) in node_positions {
-        if let Some(weight) = graph.node_weight(*idx) {
-            let size = vertex_size_fn(weight);
-            output.push_str(&format!(
-                r#"<ellipse cx="{}" cy="{}" rx="{}" ry="{}" style="fill:white;stroke:black;"/>"#,
-                offset.0 + pos.0 as f32,
-                offset.1 + pos.1 as f32,
-                size.0 / 2.0,
-                size.1 / 2.0
-            ));
-            output.push_str("\n");
-            output.push_str(&format!(
-                r#"<text class="label" x="{}" y="{}" dominant-baseline="middle" text-anchor="middle">{}</text>"#,
-                offset.0 + pos.0 as f32,
-                offset.1 + pos.1 as f32,
-                xml_sanitize(&format!("{}", weight))
-            ));
-            output.push_str("\n");
-        }
+        let size = vertex_size_fn(*idx);
+        output.push_str(&format!(
+            r#"<ellipse cx="{}" cy="{}" rx="{}" ry="{}" style="fill:white;stroke:black;"/>"#,
+            offset.0 + pos.0 as f32,
+            offset.1 + pos.1 as f32,
+            size.0 / 2.0,
+            size.1 / 2.0
+        ));
+        output.push_str("\n");
+        output.push_str(&format!(
+            r#"<text class="label" x="{}" y="{}" dominant-baseline="middle" text-anchor="middle">{}</text>"#,
+            offset.0 + pos.0 as f32,
+            offset.1 + pos.1 as f32,
+            xml_sanitize(&format!("{}", graph.node_weight(*idx).unwrap()))
+        ));
+        output.push_str("\n");
     }
     output.push_str("\n");
     

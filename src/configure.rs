@@ -49,14 +49,16 @@ macro_rules! read_env {
 /// Struct fields are:
 /// 1. minimum_edge: length between layers
 /// 2. vertex_spacing: minimum spacing between vertices on the same layer
-/// 3. dummy_vertices: should dummie vertices be included when calculating the layout
-/// 4. ranking_type: defines how vertices are places vertically, see [RankingType]
-/// 5. c_minimization: which heuristic to use when minimizing edge crossings, see [CrossingMinimization]
-/// 6. transpose: try to further reduce crossings, by swaping vertices in a layer, may increase runtime significantly
-#[derive(Clone, Copy, Debug)]
-pub struct Config {
+/// 3. vertex_sizing_fn
+/// 4. dummy_vertices: should dummie vertices be included when calculating the layout
+/// 5. ranking_type: defines how vertices are places vertically, see [RankingType]
+/// 6. c_minimization: which heuristic to use when minimizing edge crossings, see [CrossingMinimization]
+/// 7. transpose: try to further reduce crossings, by swaping vertices in a layer, may increase runtime significantly
+#[derive(Clone, Copy)]
+pub struct Config<'a> {
     pub minimum_length: u32,
     pub vertex_spacing: usize,
+    pub vertex_sizing_fn: &'a dyn Fn(petgraph::stable_graph::NodeIndex) -> (f32, f32),
     pub dummy_vertices: bool,
     pub dummy_size: f64,
     pub ranking_type: RankingType,
@@ -64,7 +66,7 @@ pub struct Config {
     pub transpose: bool,
 }
 
-impl Config {
+impl<'a> Config<'a> {
     /// Create a new config by reading in environment variables.
     /// See [CoordinatesBuilder::configure_from_env] for a detailed description of environment variables.
     pub fn new_from_env() -> Self {
@@ -111,17 +113,37 @@ impl Config {
     }
 }
 
-impl Default for Config {
+fn zero_sized(_idx: petgraph::stable_graph::NodeIndex) -> (f32, f32) {
+    (0.0, 0.0)
+}
+
+impl Default for Config<'_> {
     fn default() -> Self {
         Self {
             minimum_length: MINIMUM_LENGTH_DEFAULT,
             vertex_spacing: VERTEX_SPACING_DEFAULT,
+            vertex_sizing_fn: &zero_sized,
             dummy_vertices: DUMMY_VERTICES_DEFAULT,
             ranking_type: RANKING_TYPE_DEFAULT,
             c_minimization: C_MINIMIZATION_DEFAULT,
             transpose: TRANSPOSE_DEFAULT,
             dummy_size: DUMMY_SIZE_DEFAULT,
         }
+    }
+}
+
+impl std::fmt::Debug for Config<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("Config")
+            .field("minimum_length", &self.minimum_length)
+            .field("vertex_spacing", &self.vertex_spacing)
+            .field("vertex_sizing_fn", &"&dyn Fn(petgraph::stable_graph::NodeIndex) -> (f32, f32)")
+            .field("dummy_vertices", &self.dummy_vertices)
+            .field("dummy_size", &self.dummy_size)
+            .field("ranking_type", &self.ranking_type)
+            .field("c_minimization", &self.c_minimization)
+            .field("transpose", &self.transpose)
+            .finish()
     }
 }
 
@@ -207,13 +229,13 @@ impl From<CrossingMinimization> for &'static str {
 ///     .transpose(false) // don't use tranpose function during crossing minimization
 ///     .build(); // build the layout
 /// ```
-pub struct CoordinatesBuilder<Input: IntoCoordinates> {
-    config: Config,
+pub struct CoordinatesBuilder<'a, Input: IntoCoordinates> {
+    config: Config<'a>,
     _inner: StableDiGraph<Vertex, Edge>,
     pd: PhantomData<Input>,
 }
 
-impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
+impl<'a, Input: IntoCoordinates> CoordinatesBuilder<'a, Input> {
     pub(super) fn new(graph: StableDiGraph<Vertex, Edge>) -> Self {
         Self {
             config: Config::default(),
@@ -235,6 +257,14 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         trace!(target: "initializing",
             "Setting vertex spacing to: {v}");
         self.config.vertex_spacing = v;
+        self
+    }
+    
+    /// Set the vertex sizing function, see [Config] for description
+    pub fn vertex_sizing_fn(mut self, f: &'a dyn Fn(petgraph::stable_graph::NodeIndex) -> (f32, f32)) -> Self {
+        trace!(target: "initializing",
+            "Setting vertex sizing fn");
+        self.config.vertex_sizing_fn = f;
         self
     }
 
@@ -278,7 +308,7 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
         self
     }
 
-    pub fn with_config(mut self, config: Config) -> Self {
+    pub fn with_config(mut self, config: Config<'a>) -> Self {
         trace!(target: "initializing",
             "With config {:?}", config);
         self.config = config;
@@ -304,7 +334,7 @@ impl<Input: IntoCoordinates> CoordinatesBuilder<Input> {
     }
 }
 
-impl<V, E> CoordinatesBuilder<StableDiGraph<V, E>> {
+impl<'a, V, E> CoordinatesBuilder<'a, StableDiGraph<V, E>> {
     /// Build the layout.
     pub fn build(self) -> Layouts<NodeIndex> {
         let Self {
@@ -313,7 +343,7 @@ impl<V, E> CoordinatesBuilder<StableDiGraph<V, E>> {
             ..
         } = self;
         algorithm::start(
-            graph.map(|_, w| w.semiclone(), |_, _| Edge::default()),
+            graph.map(|idx, _| Vertex::new_with_size(0, (config.vertex_sizing_fn)(idx)), |_, _| Edge::default()),
             config,
         )
         .into_iter()
@@ -330,7 +360,7 @@ impl<V, E> CoordinatesBuilder<StableDiGraph<V, E>> {
     }
 }
 
-impl CoordinatesBuilder<&[(u32, u32)]> {
+impl<'a> CoordinatesBuilder<'a, &[(u32, u32)]> {
     /// Build the layout.
     pub fn build(self) -> Layouts<usize> {
         let Self {
@@ -342,7 +372,7 @@ impl CoordinatesBuilder<&[(u32, u32)]> {
     }
 }
 
-impl CoordinatesBuilder<(&[u32], &[(u32, u32)])> {
+impl<'a> CoordinatesBuilder<'a, (&[u32], &[(u32, u32)])> {
     /// Build the layout.
     pub fn build(self) -> Layouts<usize> {
         let Self {
