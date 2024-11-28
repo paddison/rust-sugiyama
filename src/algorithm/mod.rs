@@ -265,7 +265,8 @@ fn execute_phase_3(
     }
     let width = layers.iter().map(|l| l.len()).max().unwrap_or(0);
     let height = layers.len();
-    let mut layouts = p3::create_layouts(graph, &mut layers, vertex_spacing, dummy_size);
+    
+    let mut layouts = p3::create_layouts(graph, &mut layers, vertex_spacing + graph.node_weights().fold(0.0 as f32, |a, b| a.max(b.size_x)) as usize, dummy_size);
 
     p3::align_to_smallest_width_layout(&mut layouts);
     let mut x_coordinates = p3::calculate_relative_coords(layouts);
@@ -296,26 +297,6 @@ fn execute_phase_3(
         for ii in min+1..=max {
             previous += rank_max_y_sizes.get(&(ii-1)).unwrap() / 2.0 + vertex_spacing as f32 + rank_max_y_sizes.get(&ii).unwrap();
             rank_y_offsets.insert(ii, previous);
-        }
-        
-        // for each rank shift x of nodes
-        for rank in min..=max {
-            let mut rank_x: Vec<_> = x_coordinates.iter_mut()
-                .map(|e| {
-                    let w = graph.node_weight(e.0);
-                    (e, w)
-                })
-                .filter(|(_e, w)| w.is_some_and(|w| w.rank == rank))
-                .map(|(e, w)| (e, w.unwrap()))
-                .collect();
-            rank_x.sort_by(|a, b| a.0.1.cmp(&b.0.1));
-            
-            let mut cumulative_offset: f32 = 0.0;
-            for e in rank_x {
-                cumulative_offset += e.1.size_x / 2.0;
-                e.0.1 = e.0.1 + cumulative_offset as isize;
-                cumulative_offset += e.1.size_x / 2.0;
-            }
         }
         
         rank_y_offsets
