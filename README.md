@@ -31,7 +31,7 @@ The API is implemented via the builder pattern, where a user may specify values 
 This takes a `&[u32, u32]` slice and calculates the x and y coordinates, the height of the graph, and the width.
 
 ```rust
-use rust_sugiyama::from_edges;
+use rust_sugiyama::{configure::Config, from_edges};
 
 let edges = [
     (0, 1),
@@ -59,7 +59,13 @@ let edges = [
     (8, 9),
 ];
 
-let layouts = from_edges(&edges).vertex_spacing(20).build();
+let layouts = from_edges(
+    &edges,
+    &Config {
+        vertex_spacing: 20,
+        ..Default::default()
+    },
+);
 
 for (layout, width, height) in layouts {
     println!("Coordinates: {:?}", layout);
@@ -72,7 +78,8 @@ Takes as input a `&StableDiGraph<V, E>` and calculates the x and y coordinates, 
 `NodeIndices` are preserved between layouts and map directly to the input graph.
 
 ```rust
-use rust_sugiyama::from_graph;
+use rust_sugiyama::{configure::Config, from_graph};
+
 let mut g: StableDiGraph<String, usize> = StableDiGraph::new();
 
 let rick = g.add_node("Rick".to_string());
@@ -88,17 +95,22 @@ g.add_edge(jerry, summer, 1);
 g.add_edge(beth, morty, 1);
 g.add_edge(jerry, morty, 1);
 
-let layouts = from_graph(&g)
-    .build()
-    .into_iter()
-    .map(|(layout, width, height)| {
-        let mut new_layout = HashMap::new();
-        for (id, coords) in layout {
-            new_layout.insert(g[NodeIndex::from(id)].clone(), coords);
-        }
-        (new_layout, width, height)
-    })
-    .collect::<Vec<_>>();
+let layouts = from_graph(
+    &g,
+    &Config {
+        vertex_spacing: 100,
+        ..Default::default()
+    },
+)
+.into_iter()
+.map(|(layout, width, height)| {
+    let mut new_layout = HashMap::new();
+    for (id, coords) in layout {
+        new_layout.insert(g[NodeIndex::from(id)].clone(), coords);
+    }
+    (new_layout, width, height)
+})
+.collect::<Vec<_>>();
 
 for (layout, width, height) in layouts {
     println!("Coordinates: {:?}", layout);

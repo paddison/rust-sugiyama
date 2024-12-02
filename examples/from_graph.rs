@@ -3,7 +3,7 @@ use petgraph::{
     visit::EdgeRef,
     Direction,
 };
-use rust_sugiyama::from_graph;
+use rust_sugiyama::{configure::Config, from_graph};
 use std::collections::HashMap;
 use svg::{
     node::{
@@ -29,20 +29,24 @@ fn main() {
     g.add_edge(beth, morty, 1);
     g.add_edge(jerry, morty, 1);
 
-    let layouts = from_graph(&g)
-        .vertex_spacing(100)
-        .build()
-        .into_iter()
-        .map(|(layout, width, height)| {
-            println!("{}", create_svg(&g, &layout, 15.0, 25.0, (10.0, 10.0)));
+    let layouts = from_graph(
+        &g,
+        &Config {
+            vertex_spacing: 100,
+            ..Default::default()
+        },
+    )
+    .into_iter()
+    .map(|(layout, width, height)| {
+        println!("{}", create_svg(&g, &layout, 15.0, 25.0, (10.0, 10.0)));
 
-            let mut new_layout = HashMap::new();
-            for (id, coords) in layout {
-                new_layout.insert(g[NodeIndex::from(id)].clone(), coords);
-            }
-            (new_layout, width, height)
-        })
-        .collect::<Vec<_>>();
+        let mut new_layout = HashMap::new();
+        for (id, coords) in layout {
+            new_layout.insert(g[NodeIndex::from(id)].clone(), coords);
+        }
+        (new_layout, width, height)
+    })
+    .collect::<Vec<_>>();
 
     for (layout, width, height) in layouts {
         println!("Coordinates: {:?}", layout);

@@ -1,4 +1,4 @@
-use rust_sugiyama::from_edges;
+use rust_sugiyama::{configure::Config, from_edges};
 
 fn main() {
     let edges = [
@@ -27,7 +27,13 @@ fn main() {
         (8, 9),
     ];
 
-    let layouts = from_edges(&edges).vertex_spacing(20).build();
+    let layouts = from_edges(
+        &edges,
+        &Config {
+            vertex_spacing: 20,
+            ..Default::default()
+        },
+    );
 
     for (layout, width, height) in layouts {
         println!("Coordinates: {:?}", layout);
