@@ -16,7 +16,7 @@
 //!
 //! See the submodules for each phase for more details on the implementation
 //! and references used.
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use log::{debug, info};
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableDiGraph};
@@ -151,7 +151,7 @@ fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: &Config) -> Layo
         config.transpose,
     );
 
-    let layout = execute_phase_3(&mut graph, layers, config.vertex_spacing);
+    let layout = execute_phase_3(&mut graph, layers);
     debug!(target: "layouting", "Coordinates: {:?}\nwidth: {}, height:{}",
         layout.0,
         layout.1,
@@ -204,7 +204,6 @@ fn execute_phase_2(
 fn execute_phase_3(
     graph: &mut StableDiGraph<Vertex, Edge>,
     mut layers: Vec<Vec<NodeIndex>>,
-    vertex_spacing: usize,
 ) -> Layout {
     info!(target: "layouting", "Executing phase 3: Coordinate Calculation");
     for n in graph.node_indices().collect::<Vec<_>>() {
@@ -226,6 +225,26 @@ fn execute_phase_3(
         *c -= min;
     }
 
+    // Find max y size in each rank. Use a BTreeMap so iteration through the map
+    // is ordered.
+    let mut rank_to_max_height = BTreeMap::<i32, f64>::new();
+    for vertex in graph.node_weights() {
+        let max = rank_to_max_height.entry(vertex.rank).or_default();
+        *max = max.max(vertex.size.1);
+    }
+
+    // Stack up each rank to assign it an offset. The gap between each rank and the next is half the
+    // height of the current rank, plus half the height of the next rank.
+    let mut rank_to_y_offset = HashMap::new();
+    let mut current_rank_top_offset = *rank_to_max_height.iter().next().unwrap().1 * -0.5;
+    for (rank, max_height) in rank_to_max_height {
+        // The center of the rank is the middle of the max height plus the top of the rank.
+        rank_to_y_offset.insert(rank, current_rank_top_offset + max_height * 0.5);
+        // Shift by the height of the rank. The height of a rank already includes the vertex
+        // spacing.
+        current_rank_top_offset += max_height;
+    }
+
     let mut v = x_coordinates.iter().collect::<Vec<_>>();
     v.sort_by(|a, b| a.0.index().cmp(&b.0.index()));
     // format to NodeIndex: (x, y), width, height
@@ -237,7 +256,7 @@ fn execute_phase_3(
             .map(|(v, x)| {
                 (
                     graph[v].id,
-                    (x, -(graph[v].rank as isize * vertex_spacing as isize)),
+                    (x, *rank_to_y_offset.get(&graph[v].rank).unwrap() as isize),
                 )
             })
             .collect::<Vec<_>>(),
