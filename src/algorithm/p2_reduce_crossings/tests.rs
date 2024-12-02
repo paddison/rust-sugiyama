@@ -174,7 +174,7 @@ mod insert_dummy_vertices {
         let (mut graph, minimum_length) =
             GraphBuilder::new_from_edges_with_ranking(&ONE_DUMMY, &ONE_DUMMY_RANKS).build();
         let n_vertices = graph.node_count();
-        insert_dummy_vertices(&mut graph, minimum_length);
+        insert_dummy_vertices(&mut graph, minimum_length, 0.0);
         // one dummy vertex
         assert_eq!(graph.node_weights().filter(|w| w.is_dummy).count(), 1);
         // one more vertex
@@ -186,7 +186,7 @@ mod insert_dummy_vertices {
         let (mut graph, minimum_length) =
             GraphBuilder::new_from_edges_with_ranking(&THREE_DUMMIES, &THREE_DUMMIES_RANKS).build();
         let n_vertices = graph.node_count();
-        insert_dummy_vertices(&mut graph, minimum_length);
+        insert_dummy_vertices(&mut graph, minimum_length, 0.0);
         // one dummy vertex
         assert_eq!(graph.node_weights().filter(|w| w.is_dummy).count(), 3);
         // one more vertex
@@ -199,7 +199,7 @@ mod insert_dummy_vertices {
             GraphBuilder::new_from_edges_with_ranking(&COMPLEX_EXAMPLE, &COMPLEX_EXAMPLE_RANKS)
                 .build();
         let n_vertices = graph.node_count();
-        insert_dummy_vertices(&mut graph, minimum_length);
+        insert_dummy_vertices(&mut graph, minimum_length, 0.0);
         // one dummy vertex
         assert_eq!(graph.node_weights().filter(|w| w.is_dummy).count(), 7);
         // one more vertex
@@ -276,7 +276,7 @@ mod init_order {
     fn all_neighbors_must_be_at_adjacent_level_one_dummy() {
         let (mut graph, minimum_length) =
             GraphBuilder::new_from_edges_with_ranking(&ONE_DUMMY, &ONE_DUMMY_RANKS).build();
-        insert_dummy_vertices(&mut graph, minimum_length);
+        insert_dummy_vertices(&mut graph, minimum_length, 0.0);
         for v in graph.node_indices() {
             let rank = graph[v].rank;
             for n in graph.neighbors_undirected(v) {
@@ -289,7 +289,7 @@ mod init_order {
     fn all_neighbors_must_be_at_adjacent_level_three_dummies() {
         let (mut graph, minimum_length) =
             GraphBuilder::new_from_edges_with_ranking(&THREE_DUMMIES, &THREE_DUMMIES_RANKS).build();
-        insert_dummy_vertices(&mut graph, minimum_length);
+        insert_dummy_vertices(&mut graph, minimum_length, 0.0);
         for v in graph.node_indices() {
             let rank = graph[v].rank;
             for n in graph.neighbors_undirected(v) {
@@ -304,7 +304,7 @@ mod init_order {
             GraphBuilder::new_from_edges_with_ranking(&COMPLEX_EXAMPLE, &COMPLEX_EXAMPLE_RANKS)
                 .build();
 
-        insert_dummy_vertices(&mut graph, minimum_length);
+        insert_dummy_vertices(&mut graph, minimum_length, 0.0);
         for v in graph.node_indices() {
             let rank = graph[v].rank;
             for n in graph.neighbors_undirected(v) {

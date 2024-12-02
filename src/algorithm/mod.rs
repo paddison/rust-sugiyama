@@ -122,6 +122,15 @@ fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
 fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: &Config) -> Layout {
     info!(target: "layouting", "Start building layout");
     info!(target: "layouting", "Configuration is: {:?}", config);
+
+    // Treat the vertex spacing as just additional padding in each node. Each node will then take
+    // 50% of the "responsibility" of the vertex spacing. This does however mean that dummy vertices
+    // will have a gap of 50% of the vertex spacing between them and the next and previous vertex.
+    for vertex in graph.node_weights_mut() {
+        vertex.size.0 += config.vertex_spacing as f64;
+        vertex.size.1 += config.vertex_spacing as f64;
+    }
+
     // we don't remember the edges that where reversed for now, since they are
     // currently not needed
     let _ = execute_phase_0(&mut graph);
@@ -135,7 +144,7 @@ fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: &Config) -> Layo
     let layers = execute_phase_2(
         &mut graph,
         config.minimum_length as i32,
-        config.dummy_vertices,
+        config.dummy_vertices.then_some(config.dummy_size),
         config.c_minimization,
         config.transpose,
     );
@@ -164,25 +173,26 @@ fn execute_phase_1(
     p1::rank(graph, minimum_length, ranking_type);
 }
 
-/// Reorder vertices in ranks to reduce crossings
+/// Reorder vertices in ranks to reduce crossings. If `dummy_size` is [Some],
+/// dummies will be passed along to the next phase.
 fn execute_phase_2(
     graph: &mut StableDiGraph<Vertex, Edge>,
     minimum_length: i32,
-    dummy_vertices: bool,
+    dummy_size: Option<f64>,
     crossing_minimization: CrossingMinimization,
     transpose: bool,
 ) -> Vec<Vec<NodeIndex>> {
     info!(target: "layouting", "Executing phase 2: Crossing Reduction");
     info!(target: "layouting",
-        "Has dummy vertices: {}, heuristic for crossing minimization: {:?}, using transpose: {}",
-        dummy_vertices,
+        "dummy vertex size: {:?}, heuristic for crossing minimization: {:?}, using transpose: {}",
+        dummy_size,
         crossing_minimization,
         transpose
     );
 
-    p2::insert_dummy_vertices(graph, minimum_length);
+    p2::insert_dummy_vertices(graph, minimum_length, dummy_size.unwrap_or(0.0));
     let mut order = p2::ordering(graph, crossing_minimization, transpose);
-    if !dummy_vertices {
+    if dummy_size.is_none() {
         p2::remove_dummy_vertices(graph, &mut order);
     }
     order
