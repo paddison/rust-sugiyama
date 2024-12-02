@@ -141,7 +141,7 @@ impl Default for Edge {
     }
 }
 
-pub(super) fn start(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layouts<usize> {
+pub(super) fn start(mut graph: StableDiGraph<Vertex, Edge>, config: &Config) -> Layouts<usize> {
     init_graph(&mut graph);
     weakly_connected_components(graph)
         .into_iter()
@@ -159,7 +159,7 @@ fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
     }
 }
 
-fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layout {
+fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: &Config) -> Layout {
     info!(target: "layouting", "Start building layout");
     info!(target: "layouting", "Configuration is: {:?}", config);
     // we don't remember the edges that where reversed for now, since they are

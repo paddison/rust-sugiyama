@@ -434,6 +434,6 @@ mod integration {
         let mut cfg = Config::default();
         cfg.ranking_type = RankingType::Up;
         cfg.dummy_vertices = true;
-        crate::algorithm::start(graph, cfg);
+        crate::algorithm::start(graph, &cfg);
     }
 }

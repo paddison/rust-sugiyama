@@ -314,7 +314,7 @@ impl<V, E> CoordinatesBuilder<StableDiGraph<V, E>> {
         } = self;
         algorithm::start(
             graph.map(|_, _| Vertex::default(), |_, _| Edge::default()),
-            config,
+            &config,
         )
         .into_iter()
         .map(|(l, w, h)| {
@@ -338,7 +338,7 @@ impl CoordinatesBuilder<&[(u32, u32)]> {
             _inner: graph,
             ..
         } = self;
-        algorithm::start(graph, config)
+        algorithm::start(graph, &config)
     }
 }
 
@@ -350,7 +350,7 @@ impl CoordinatesBuilder<(&[u32], &[(u32, u32)])> {
             _inner: graph,
             ..
         } = self;
-        algorithm::start(graph, config)
+        algorithm::start(graph, &config)
     }
 }
 
