@@ -60,16 +60,22 @@ pub struct Config {
 }
 
 impl Config {
-    /// Create a new config by reading in environment variables.
-    /// See [CoordinatesBuilder::configure_from_env] for a detailed description of environment variables.
+    /// Read in configuration values from environment variables.
+    ///
+    /// Envs that can be set include:
+    ///
+    /// | ENV | values | default | description |
+    /// | --- | ------ | ------- | ----------- |
+    /// | RUST_GRAPH_MIN_LEN    | integer, > 0         | 1          | minimum edge length between layers |
+    /// | RUST_GRAPH_V_SPACING  | integer, > 0         | 10         | minimum spacing between vertices on the same layer |
+    /// | RUST_GRAPH_DUMMIES    | y \| n               | y          | if dummy vertices are included in the final layout |
+    /// | RUST_GRAPH_R_TYPE     | original \| minimize \| up \| down | minimize   | defines how vertices are places vertically |
+    /// | RUST_GRAPH_CROSS_MIN  | barycenter \| median | barycenter | which heuristic to use for crossing reduction |
+    /// | RUST_GRAPH_TRANSPOSE  | y \| n               | y          | if transpose function is used to further try to reduce crossings (may increase runtime significally for large graphs) |
+    /// | RUST_GRAPH_DUMMY_SIZE | float, 1 >= v > 0    | 1.0        |size of dummy vertices in final layout, if dummy vertices are included. this will squish the graph horizontally |
     pub fn new_from_env() -> Self {
-        let config = Self::default();
-        config.read_env()
-    }
+        let mut config = Self::default();
 
-    /// Updates the config by reading in environment variables.
-    /// See [CoordinatesBuilder::configure_from_env] for a detailed description of environment variables.
-    pub fn read_env(mut self) -> Self {
         let parse_bool = |x: String| match x.as_str() {
             "y" => Ok(true),
             "n" => Ok(false),
@@ -77,32 +83,32 @@ impl Config {
         };
 
         read_env!(
-            self.minimum_length,
+            config.minimum_length,
             (|x| x.parse::<u32>()),
             ENV_MINIMUM_LENGTH
         );
 
         read_env!(
-            self.c_minimization,
+            config.c_minimization,
             (TryFrom::try_from),
             ENV_CROSSING_MINIMIZATION
         );
 
-        read_env!(self.ranking_type, (TryFrom::try_from), ENV_RANKING_TYPE);
+        read_env!(config.ranking_type, (TryFrom::try_from), ENV_RANKING_TYPE);
 
         read_env!(
-            self.vertex_spacing,
+            config.vertex_spacing,
             (|x| x.parse::<usize>()),
             ENV_VERTEX_SPACING
         );
 
-        read_env!(self.dummy_vertices, parse_bool, ENV_DUMMY_VERTICES);
+        read_env!(config.dummy_vertices, parse_bool, ENV_DUMMY_VERTICES);
 
-        read_env!(self.dummy_size, (|x| x.parse::<f64>()), ENV_DUMMY_SIZE);
+        read_env!(config.dummy_size, (|x| x.parse::<f64>()), ENV_DUMMY_SIZE);
 
-        read_env!(self.transpose, parse_bool, ENV_TRANSPOSE);
+        read_env!(config.transpose, parse_bool, ENV_TRANSPOSE);
 
-        self
+        config
     }
 }
 
