@@ -1,10 +1,10 @@
 use std::collections::HashMap;
 
 use algorithm::{Edge, Vertex};
-use configure::CoordinatesBuilder;
 
+use configure::Config;
 use log::info;
-use petgraph::stable_graph::StableDiGraph;
+use petgraph::{graph::NodeIndex, stable_graph::StableDiGraph};
 
 mod algorithm;
 pub mod configure;
@@ -12,37 +12,51 @@ mod util;
 
 type Layout = (Vec<(usize, (isize, isize))>, usize, usize);
 type Layouts<T> = Vec<(Vec<(T, (isize, isize))>, usize, usize)>;
-type RawGraph<'a> = (&'a [u32], &'a [(u32, u32)]);
 
 /// Creates a graph layout from edges, which are given as a `&[(u32, u32)]`.
 ///
-/// It returns a [CoordinatesBuilder] which can be used to configure the
-/// layout.
-pub fn from_edges(edges: &[(u32, u32)]) -> CoordinatesBuilder<&[(u32, u32)]> {
+/// The layouts are returned as a list of disjoint subgraphs containing the
+/// subgraph layout, the width, and the height. The layout of a subgraph is a
+/// list of the vertex number (as specified in the edges) and its x and y
+/// position respectively.
+pub fn from_edges(edges: &[(u32, u32)], config: &Config) -> Layouts<usize> {
     info!(target: "initializing", "Creating new layout from edges, containing {} edges", edges.len());
     let graph = StableDiGraph::from_edges(edges);
-    CoordinatesBuilder::new(graph)
+    algorithm::start(graph, config)
 }
 
-/// Creates a graph layout from a preexisting `StableDiGraph<V, E>`.
+/// Creates a graph layout from a preexisting [StableDiGraph<V, E>].
 ///
-/// It returns a [CoordinatesBuilder] which can be used to configure the
-/// layout.
-pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>) -> CoordinatesBuilder<StableDiGraph<V, E>> {
+/// The layouts are returned as a list of disjoint subgraphs containing the
+/// subgraph layout, the width, and the height. The layout of a subgraph is a
+/// list of the [NodeIndex] and its x and y position respectively.
+pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>, config: &Config) -> Layouts<NodeIndex> {
     info!(target: "initializing", 
         "Creating new layout from existing graph, containing {} vertices and {} edges.", 
         graph.node_count(), 
         graph.edge_count());
 
     let graph = graph.map(|id, _| Vertex::new(id.index()), |_, _| Edge::default());
-    CoordinatesBuilder::new(graph)
+    algorithm::start(graph, config)
+        .into_iter()
+        .map(|(l, w, h)| {
+            (
+                l.into_iter()
+                    .map(|(id, coords)| (NodeIndex::from(id as u32), coords))
+                    .collect(),
+                w,
+                h,
+            )
+        })
+        .collect()
 }
 
 /// Creates a graph layot from `&[u32]` (vertices)
 /// and `&[(u32, u32)]` (edges).
 ///
-/// It returns a [CoordinatesBuilder] which can be used to configure the
-/// layout.
+/// The layouts are returned as a list of disjoint subgraphs containing the
+/// subgraph layout, the width, and the height. The layout of a subgraph is a
+/// list of the vertex number and its x and y position respectively.
 ///
 /// # Panics
 ///
@@ -50,7 +64,8 @@ pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>) -> CoordinatesBuilder<Stabl
 pub fn from_vertices_and_edges<'a>(
     vertices: &'a [u32],
     edges: &'a [(u32, u32)],
-) -> CoordinatesBuilder<RawGraph<'a>> {
+    config: &Config,
+) -> Layouts<usize> {
     info!(target: "initializing", 
         "Creating new layout from existing graph, containing {} vertices and {} edges.", 
         vertices.len(), 
@@ -71,11 +86,20 @@ pub fn from_vertices_and_edges<'a>(
         );
     }
 
-    CoordinatesBuilder::new(graph)
+    algorithm::start(graph, config)
+}
+
+#[test]
+fn run_algo_empty_graph() {
+    let edges = [];
+    let g = from_edges(&edges, &Config::default());
+    assert!(g.is_empty());
 }
 
 #[cfg(test)]
 mod benchmark {
+    use crate::configure::Config;
+
     use super::from_edges;
 
     #[test]
@@ -86,7 +110,7 @@ mod benchmark {
             .map(|(r, l)| (r as u32, l as u32))
             .collect::<Vec<(u32, u32)>>();
         let start = std::time::Instant::now();
-        let _ = from_edges(&edges).build();
+        let _ = from_edges(&edges, &Config::default());
         println!("Random 100 edges: {}ms", start.elapsed().as_millis());
     }
 
@@ -98,7 +122,7 @@ mod benchmark {
             .map(|(r, l)| (r as u32, l as u32))
             .collect::<Vec<(u32, u32)>>();
         let start = std::time::Instant::now();
-        let _ = from_edges(&edges).build();
+        let _ = from_edges(&edges, &Config::default());
         println!("Random 1000 edges: {}ms", start.elapsed().as_millis());
     }
 
@@ -106,7 +130,7 @@ mod benchmark {
     fn r_2000() {
         let edges = graph_generator::RandomLayout::new(2000).build_edges();
         let start = std::time::Instant::now();
-        let _ = from_edges(&edges).build();
+        let _ = from_edges(&edges, &Config::default());
         println!("Random 2000 edges: {}ms", start.elapsed().as_millis());
     }
 
@@ -114,7 +138,7 @@ mod benchmark {
     fn r_4000() {
         let edges = graph_generator::RandomLayout::new(4000).build_edges();
         let start = std::time::Instant::now();
-        let _ = from_edges(&edges).build();
+        let _ = from_edges(&edges, &Config::default());
         println!("Random 4000 edges: {}ms", start.elapsed().as_millis());
     }
 
@@ -124,7 +148,7 @@ mod benchmark {
         let e = 2;
         let edges = graph_generator::GraphLayout::new_from_num_nodes(n, e).build_edges();
         let start = std::time::Instant::now();
-        let _ = from_edges(&edges).build();
+        let _ = from_edges(&edges, &Config::default());
         println!(
             "{n} nodes, {e} edges per node: {}ms",
             start.elapsed().as_millis()
@@ -137,7 +161,7 @@ mod benchmark {
         let e = 2;
         let edges = graph_generator::GraphLayout::new_from_num_nodes(n, e).build_edges();
         let start = std::time::Instant::now();
-        let _ = from_edges(&edges).build();
+        let _ = from_edges(&edges, &Config::default());
         println!(
             "{n} nodes, {e} edges per node: {}ms",
             start.elapsed().as_millis()
@@ -150,7 +174,7 @@ mod benchmark {
         let e = 2;
         let edges = graph_generator::GraphLayout::new_from_num_nodes(n, e).build_edges();
         let start = std::time::Instant::now();
-        let _ = from_edges(&edges).build();
+        let _ = from_edges(&edges, &Config::default());
         println!(
             "{n} nodes, {e} edges per node: {}ms",
             start.elapsed().as_millis()
@@ -163,7 +187,7 @@ mod benchmark {
         let e = 2;
         let edges = graph_generator::GraphLayout::new_from_num_nodes(n, e).build_edges();
         let start = std::time::Instant::now();
-        let _ = from_edges(&edges).build();
+        let _ = from_edges(&edges, &Config::default());
         println!(
             "{n} nodes, {e} edges per node: {}ms",
             start.elapsed().as_millis()
@@ -174,7 +198,10 @@ mod benchmark {
 #[cfg(test)]
 mod check_visuals {
 
-    use crate::from_vertices_and_edges;
+    use crate::{
+        configure::{Config, RankingType},
+        from_vertices_and_edges,
+    };
 
     use super::from_edges;
 
@@ -211,9 +238,14 @@ mod check_visuals {
             (15, 19),
             (15, 13),
         ];
-        let _ = from_vertices_and_edges(&vertices, &edges)
-            .dummy_vertices(true)
-            .build();
+        let _ = from_vertices_and_edges(
+            &vertices,
+            &edges,
+            &Config {
+                dummy_vertices: true,
+                ..Default::default()
+            },
+        );
     }
     #[test]
     fn verify_looks_good() {
@@ -236,7 +268,7 @@ mod check_visuals {
             (7, 9),
             (8, 9),
         ];
-        let (layout, width, height) = &mut from_edges(&edges).build()[0];
+        let (layout, width, height) = &mut from_edges(&edges, &Config::default())[0];
         layout.sort_by(|a, b| a.0.cmp(&b.0));
 
         assert_eq!(*width, 4);
@@ -247,7 +279,7 @@ mod check_visuals {
     #[test]
     fn root_vertices_on_top_disabled() {
         let edges = [(1, 0), (2, 1), (3, 0), (4, 0)];
-        let layout = from_edges(&edges).build();
+        let layout = from_edges(&edges, &Config::default());
         for (id, (_, y)) in layout[0].0.clone() {
             if id == 2 {
                 assert_eq!(y, 0);
@@ -274,7 +306,7 @@ mod check_visuals {
             (3, 8),
             (3, 9),
         ];
-        let layout = from_edges(&edges).build();
+        let layout = from_edges(&edges, &Config::default());
         println!("{:?}", layout);
     }
 
@@ -333,9 +365,13 @@ mod check_visuals {
         .map(|(t, h)| (t - 1, h - 1))
         .collect::<Vec<_>>();
 
-        let layout = from_edges(&edges)
-            .layering_type(crate::configure::RankingType::Up)
-            .build();
+        let layout = from_edges(
+            &edges,
+            &Config {
+                ranking_type: RankingType::Up,
+                ..Default::default()
+            },
+        );
         println!("{layout:?}");
     }
 
@@ -343,7 +379,7 @@ mod check_visuals {
     fn run_algo_empty_graph() {
         use super::from_edges;
         let edges = [];
-        let g = from_edges(&edges).build();
+        let g = from_edges(&edges, &Config::default());
         assert!(g.is_empty());
     }
 
@@ -366,7 +402,7 @@ mod check_visuals {
             (5, 1),
         ];
 
-        let layout = from_edges(&edges).build();
+        let layout = from_edges(&edges, &Config::default());
         println!("{layout:?}");
     }
 }
