@@ -50,6 +50,7 @@ pub(super) struct Vertex {
     align: NodeIndex,
     shift: isize,
     sink: NodeIndex,
+    block_max_vertex_width: f64,
 }
 
 impl Vertex {
@@ -78,6 +79,7 @@ impl Default for Vertex {
             align: 0.into(),
             shift: isize::MAX,
             sink: 0.into(),
+            block_max_vertex_width: 0.0,
         }
     }
 }
@@ -149,7 +151,7 @@ fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: &Config) -> Layo
         config.transpose,
     );
 
-    let layout = execute_phase_3(&mut graph, layers, config.vertex_spacing, config.dummy_size);
+    let layout = execute_phase_3(&mut graph, layers, config.vertex_spacing);
     debug!(target: "layouting", "Coordinates: {:?}\nwidth: {}, height:{}",
         layout.0,
         layout.1,
@@ -203,10 +205,8 @@ fn execute_phase_3(
     graph: &mut StableDiGraph<Vertex, Edge>,
     mut layers: Vec<Vec<NodeIndex>>,
     vertex_spacing: usize,
-    dummy_size: f64,
 ) -> Layout {
     info!(target: "layouting", "Executing phase 3: Coordinate Calculation");
-    info!(target: "layouting", "Dummy vertices size (if enabled): {dummy_size}");
     for n in graph.node_indices().collect::<Vec<_>>() {
         if graph[n].is_dummy {
             graph[n].id = n.index();
@@ -214,7 +214,7 @@ fn execute_phase_3(
     }
     let width = layers.iter().map(|l| l.len()).max().unwrap_or(0);
     let height = layers.len();
-    let mut layouts = p3::create_layouts(graph, &mut layers, vertex_spacing, dummy_size);
+    let mut layouts = p3::create_layouts(graph, &mut layers);
 
     p3::align_to_smallest_width_layout(&mut layouts);
     let mut x_coordinates = p3::calculate_relative_coords(layouts);
