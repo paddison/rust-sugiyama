@@ -83,6 +83,21 @@ mod tests {
         GraphBuilder, EXAMPLE_GRAPH, EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE, LOW_LIM_GRAPH,
     };
 
+    fn phase_1_vertex(
+        low: u32,
+        lim: u32,
+        parent: Option<NodeIndex>,
+        is_tree_vertex: bool,
+    ) -> Vertex {
+        Vertex {
+            low,
+            lim,
+            parent,
+            is_tree_vertex,
+            ..Default::default()
+        }
+    }
+
     #[test]
     fn init_low_lim_low_lim_graph() {
         let (mut graph, ..) = GraphBuilder::new(&LOW_LIM_GRAPH)
@@ -101,15 +116,15 @@ mod tests {
         let v7 = graph[NodeIndex::from(7)];
         let v8 = graph[NodeIndex::from(8)];
 
-        assert_eq!(v0, Vertex::new_test_p1(1, 9, None, true));
-        assert_eq!(v1, Vertex::new_test_p1(1, 3, Some(0.into()), true));
-        assert_eq!(v2, Vertex::new_test_p1(1, 1, Some(1.into()), true));
-        assert_eq!(v3, Vertex::new_test_p1(2, 2, Some(1.into()), true));
-        assert_eq!(v4, Vertex::new_test_p1(4, 8, Some(0.into()), true));
-        assert_eq!(v5, Vertex::new_test_p1(4, 5, Some(4.into()), true));
-        assert_eq!(v6, Vertex::new_test_p1(4, 4, Some(5.into()), true));
-        assert_eq!(v7, Vertex::new_test_p1(6, 6, Some(4.into()), true));
-        assert_eq!(v8, Vertex::new_test_p1(7, 7, Some(4.into()), true));
+        assert_eq!(v0, phase_1_vertex(1, 9, None, true));
+        assert_eq!(v1, phase_1_vertex(1, 3, Some(0.into()), true));
+        assert_eq!(v2, phase_1_vertex(1, 1, Some(1.into()), true));
+        assert_eq!(v3, phase_1_vertex(2, 2, Some(1.into()), true));
+        assert_eq!(v4, phase_1_vertex(4, 8, Some(0.into()), true));
+        assert_eq!(v5, phase_1_vertex(4, 5, Some(4.into()), true));
+        assert_eq!(v6, phase_1_vertex(4, 4, Some(5.into()), true));
+        assert_eq!(v7, phase_1_vertex(6, 6, Some(4.into()), true));
+        assert_eq!(v8, phase_1_vertex(7, 7, Some(4.into()), true));
     }
 
     #[test]
@@ -160,11 +175,11 @@ mod tests {
         let v6 = graph[NodeIndex::from(6)];
         let v7 = graph[NodeIndex::from(7)];
         let v8 = graph[NodeIndex::from(8)];
-        assert_eq!(v4, Vertex::new_test_p1(4, 8, Some(0.into()), true));
-        assert_eq!(v5, Vertex::new_test_p1(4, 4, Some(6.into()), true));
-        assert_eq!(v6, Vertex::new_test_p1(4, 5, Some(7.into()), true));
-        assert_eq!(v7, Vertex::new_test_p1(4, 6, Some(4.into()), true));
-        assert_eq!(v8, Vertex::new_test_p1(7, 7, Some(4.into()), true));
+        assert_eq!(v4, phase_1_vertex(4, 8, Some(0.into()), true));
+        assert_eq!(v5, phase_1_vertex(4, 4, Some(6.into()), true));
+        assert_eq!(v6, phase_1_vertex(4, 5, Some(7.into()), true));
+        assert_eq!(v7, phase_1_vertex(4, 6, Some(4.into()), true));
+        assert_eq!(v8, phase_1_vertex(7, 7, Some(4.into()), true));
     }
 
     #[test]
@@ -184,13 +199,13 @@ mod tests {
         let v5 = graph[NodeIndex::from(5)];
         let v6 = graph[NodeIndex::from(6)];
         let v7 = graph[NodeIndex::from(7)];
-        assert_eq!(v0, Vertex::new_test_p1(1, 8, None, true));
-        assert_eq!(v1, Vertex::new_test_p1(1, 4, Some(0.into()), true));
-        assert_eq!(v2, Vertex::new_test_p1(1, 3, Some(1.into()), true));
-        assert_eq!(v3, Vertex::new_test_p1(1, 2, Some(2.into()), true));
-        assert_eq!(v4, Vertex::new_test_p1(5, 7, Some(0.into()), true));
-        assert_eq!(v5, Vertex::new_test_p1(5, 5, Some(6.into()), true));
-        assert_eq!(v6, Vertex::new_test_p1(5, 6, Some(4.into()), true));
-        assert_eq!(v7, Vertex::new_test_p1(1, 1, Some(3.into()), true));
+        assert_eq!(v0, phase_1_vertex(1, 8, None, true));
+        assert_eq!(v1, phase_1_vertex(1, 4, Some(0.into()), true));
+        assert_eq!(v2, phase_1_vertex(1, 3, Some(1.into()), true));
+        assert_eq!(v3, phase_1_vertex(1, 2, Some(2.into()), true));
+        assert_eq!(v4, phase_1_vertex(5, 7, Some(0.into()), true));
+        assert_eq!(v5, phase_1_vertex(5, 5, Some(6.into()), true));
+        assert_eq!(v6, phase_1_vertex(5, 6, Some(4.into()), true));
+        assert_eq!(v7, phase_1_vertex(1, 1, Some(3.into()), true));
     }
 }

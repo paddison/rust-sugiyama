@@ -58,38 +58,6 @@ impl Vertex {
             ..Default::default()
         }
     }
-
-    #[cfg(test)]
-    fn new_test_p1(low: u32, lim: u32, parent: Option<NodeIndex>, is_tree_vertex: bool) -> Self {
-        Self {
-            low,
-            lim,
-            parent,
-            is_tree_vertex,
-            ..Default::default()
-        }
-    }
-
-    #[cfg(test)]
-    pub fn new_test_p3(align_root_sink: NodeIndex, rank: i32, pos: usize, is_dummy: bool) -> Self {
-        Self {
-            rank,
-            pos,
-            is_dummy,
-            root: align_root_sink,
-            align: align_root_sink,
-            sink: align_root_sink,
-            ..Default::default()
-        }
-    }
-
-    #[cfg(test)]
-    pub fn new_with_rank(rank: i32) -> Self {
-        Self {
-            rank,
-            ..Default::default()
-        }
-    }
 }
 
 impl Default for Vertex {

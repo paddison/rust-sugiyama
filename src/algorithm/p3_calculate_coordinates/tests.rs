@@ -55,11 +55,15 @@ fn create_test_layout() -> (StableDiGraph<Vertex, Edge>, Vec<Vec<NodeIndex>>) {
     for (rank, row) in layers.iter().enumerate() {
         for (pos, v) in row.iter().enumerate() {
             let weight = &mut graph[*v];
-            if v.index() < 16 {
-                *weight = Vertex::new_test_p3(*v, rank as i32, pos, false);
-            } else {
-                *weight = Vertex::new_test_p3(*v, rank as i32, pos, true);
-            }
+            *weight = Vertex {
+                rank: rank as _,
+                pos,
+                root: *v,
+                align: *v,
+                sink: *v,
+                is_dummy: v.index() >= 16,
+                ..Default::default()
+            };
         }
     }
 
