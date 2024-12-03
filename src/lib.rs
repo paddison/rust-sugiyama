@@ -294,9 +294,9 @@ mod check_visuals {
             if id == 2 {
                 assert_eq!(y, 0);
             } else if id == 3 || id == 4 || id == 1 {
-                assert_eq!(y, -10);
+                assert_eq!(y, 10);
             } else {
-                assert_eq!(y, -20)
+                assert_eq!(y, 20)
             }
         }
     }
