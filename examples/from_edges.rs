@@ -30,7 +30,7 @@ fn main() {
     let layouts = from_edges(
         &edges,
         &Config {
-            vertex_spacing: 20,
+            vertex_spacing: 20.0,
             ..Default::default()
         },
     );

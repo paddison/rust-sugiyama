@@ -129,8 +129,8 @@ fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: &Config) -> Layo
     // 50% of the "responsibility" of the vertex spacing. This does however mean that dummy vertices
     // will have a gap of 50% of the vertex spacing between them and the next and previous vertex.
     for vertex in graph.node_weights_mut() {
-        vertex.size.0 += config.vertex_spacing as f64;
-        vertex.size.1 += config.vertex_spacing as f64;
+        vertex.size.0 += config.vertex_spacing;
+        vertex.size.1 += config.vertex_spacing;
     }
 
     // we don't remember the edges that where reversed for now, since they are

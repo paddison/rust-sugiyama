@@ -35,7 +35,7 @@ fn main() {
         &g,
         &vertex_size,
         &Config {
-            vertex_spacing: 10,
+            vertex_spacing: 10.0,
             ..Default::default()
         },
     )
