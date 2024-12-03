@@ -35,9 +35,10 @@ mod p1_layering;
 mod p2_reduce_crossings;
 mod p3_calculate_coordinates;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) struct Vertex {
     id: usize,
+    size: (f64, f64),
     rank: i32,
     pos: usize,
     low: u32,
@@ -52,9 +53,10 @@ pub(super) struct Vertex {
 }
 
 impl Vertex {
-    pub(super) fn new(id: usize) -> Self {
+    pub(super) fn new(id: usize, size: (f64, f64)) -> Self {
         Self {
             id,
+            size,
             ..Default::default()
         }
     }
@@ -64,6 +66,7 @@ impl Default for Vertex {
     fn default() -> Self {
         Self {
             id: 0,
+            size: (0.0, 0.0),
             rank: 0,
             pos: 0,
             low: 0,

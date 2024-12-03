@@ -30,13 +30,20 @@ pub fn from_edges(edges: &[(u32, u32)], config: &Config) -> Layouts<usize> {
 /// The layouts are returned as a list of disjoint subgraphs containing the
 /// subgraph layout, the width, and the height. The layout of a subgraph is a
 /// list of the [NodeIndex] and its x and y position respectively.
-pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>, config: &Config) -> Layouts<NodeIndex> {
+pub fn from_graph<V, E>(
+    graph: &StableDiGraph<V, E>,
+    vertex_size: &impl Fn(NodeIndex, &V) -> (f64, f64),
+    config: &Config,
+) -> Layouts<NodeIndex> {
     info!(target: "initializing", 
         "Creating new layout from existing graph, containing {} vertices and {} edges.", 
         graph.node_count(), 
         graph.edge_count());
 
-    let graph = graph.map(|id, _| Vertex::new(id.index()), |_, _| Edge::default());
+    let graph = graph.map(
+        |id, v| Vertex::new(id.index(), vertex_size(id, v)),
+        |_, _| Edge::default(),
+    );
     algorithm::start(graph, config)
         .into_iter()
         .map(|(l, w, h)| {
@@ -51,8 +58,8 @@ pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>, config: &Config) -> Layouts
         .collect()
 }
 
-/// Creates a graph layot from `&[u32]` (vertices)
-/// and `&[(u32, u32)]` (edges).
+/// Creates a graph layout from `&[(u32, (f64, f64))]` (vertices as vertex id
+/// and vertex size) and `&[(u32, u32)]` (edges).
 ///
 /// The layouts are returned as a list of disjoint subgraphs containing the
 /// subgraph layout, the width, and the height. The layout of a subgraph is a
@@ -62,7 +69,7 @@ pub fn from_graph<V, E>(graph: &StableDiGraph<V, E>, config: &Config) -> Layouts
 ///
 /// Panics if `edges` contain vertices which are not contained in `vertices`
 pub fn from_vertices_and_edges<'a>(
-    vertices: &'a [u32],
+    vertices: &'a [(u32, (f64, f64))],
     edges: &'a [(u32, u32)],
     config: &Config,
 ) -> Layouts<usize> {
@@ -73,9 +80,9 @@ pub fn from_vertices_and_edges<'a>(
 
     let mut graph = StableDiGraph::new();
     let mut id_map = HashMap::new();
-    for v in vertices {
-        let id = graph.add_node(Vertex::new(*v as usize));
-        id_map.insert(*v, id);
+    for &(v, size) in vertices {
+        let id = graph.add_node(Vertex::new(v as usize, size));
+        id_map.insert(v, id);
     }
 
     for (tail, head) in edges {
@@ -239,7 +246,10 @@ mod check_visuals {
             (15, 13),
         ];
         let _ = from_vertices_and_edges(
-            &vertices,
+            &vertices
+                .into_iter()
+                .map(|v| (v, (0.0, 0.0)))
+                .collect::<Vec<_>>(),
             &edges,
             &Config {
                 dummy_vertices: true,

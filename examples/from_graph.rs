@@ -29,10 +29,13 @@ fn main() {
     g.add_edge(beth, morty, 1);
     g.add_edge(jerry, morty, 1);
 
+    let vertex_size = |_, text: &String| (text.len() as f64 * 15.0, 25.0);
+
     let layouts = from_graph(
         &g,
+        &vertex_size,
         &Config {
-            vertex_spacing: 100,
+            vertex_spacing: 10,
             ..Default::default()
         },
     )
