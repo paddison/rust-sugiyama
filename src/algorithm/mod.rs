@@ -48,7 +48,7 @@ pub(super) struct Vertex {
     is_dummy: bool,
     root: NodeIndex,
     align: NodeIndex,
-    shift: isize,
+    shift: f64,
     sink: NodeIndex,
     block_max_vertex_width: f64,
 }
@@ -77,7 +77,7 @@ impl Default for Vertex {
             is_dummy: false,
             root: 0.into(),
             align: 0.into(),
-            shift: isize::MAX,
+            shift: f64::INFINITY,
             sink: 0.into(),
             block_max_vertex_width: 0.0,
         }
@@ -211,14 +211,18 @@ fn execute_phase_3(
             graph[n].id = n.index();
         }
     }
-    let width = layers.iter().map(|l| l.len()).max().unwrap_or(0);
-    let height = layers.len();
+    let width = layers.iter().map(|l| l.len()).max().unwrap_or(0) as f64;
+    let height = layers.len() as f64;
     let mut layouts = p3::create_layouts(graph, &mut layers);
 
     p3::align_to_smallest_width_layout(&mut layouts);
     let mut x_coordinates = p3::calculate_relative_coords(layouts);
     // determine the smallest x-coordinate
-    let min = x_coordinates.iter().min_by(|a, b| a.1.cmp(&b.1)).unwrap().1;
+    let min = x_coordinates
+        .iter()
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .unwrap()
+        .1;
 
     // shift all coordinates so the minimum coordinate is 0
     for (_, c) in &mut x_coordinates {
@@ -256,7 +260,7 @@ fn execute_phase_3(
             .map(|(v, x)| {
                 (
                     graph[v].id,
-                    (x, *rank_to_y_offset.get(&graph[v].rank).unwrap() as isize),
+                    (x, *rank_to_y_offset.get(&graph[v].rank).unwrap()),
                 )
             })
             .collect::<Vec<_>>(),
