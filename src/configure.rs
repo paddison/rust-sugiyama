@@ -45,22 +45,24 @@ macro_rules! read_env {
 }
 
 /// Used to configure parameters of the graph layout.
-///
-/// Struct fields are:
-/// 1. minimum_edge: length between layers
-/// 2. vertex_spacing: minimum spacing between vertices on the same layer
-/// 3. dummy_vertices: should dummie vertices be included when calculating the layout
-/// 4. ranking_type: defines how vertices are places vertically, see [RankingType]
-/// 5. c_minimization: which heuristic to use when minimizing edge crossings, see [CrossingMinimization]
-/// 6. transpose: try to further reduce crossings, by swaping vertices in a layer, may increase runtime significantly
 #[derive(Clone, Copy, Debug)]
 pub struct Config {
+    /// Length between layers.
     pub minimum_length: u32,
+    /// The minimum spacing between vertices on the same layer and between
+    /// layers.
     pub vertex_spacing: usize,
+    /// Whether to include dummy vertices when calculating the layout.
     pub dummy_vertices: bool,
+    /// How much space a dummy should take up, as a multiplier of the
+    /// [`Self::vertex_spacing`].
     pub dummy_size: f64,
+    /// Defines how vertices are placed vertically.
     pub ranking_type: RankingType,
+    /// Which heuristic to use when minimizing edge crossings.
     pub c_minimization: CrossingMinimization,
+    /// Whether to attempt to further reduce crossings by swapping vertices in a
+    /// layer. This may increase runtime significantly.
     pub transpose: bool,
 }
 
