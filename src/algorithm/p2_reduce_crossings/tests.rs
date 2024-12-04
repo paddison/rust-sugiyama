@@ -320,14 +320,22 @@ mod order {
     use crate::algorithm::{p2::order_layer, p2_reduce_crossings::Order, Edge, Vertex};
     use petgraph::stable_graph::StableDiGraph;
 
+    /// Shorthand for creating a default vertex with a specified rank.
+    fn vertex_with_rank(rank: i32) -> Vertex {
+        Vertex {
+            rank,
+            ..Default::default()
+        }
+    }
+
     #[test]
     fn two_crossings() {
         let mut graph = StableDiGraph::new();
-        let n0 = graph.add_node(Vertex::new_with_rank(0));
-        let n1 = graph.add_node(Vertex::new_with_rank(0));
-        let n2 = graph.add_node(Vertex::new_with_rank(0));
-        let s0 = graph.add_node(Vertex::new_with_rank(1));
-        let s1 = graph.add_node(Vertex::new_with_rank(1));
+        let n0 = graph.add_node(vertex_with_rank(0));
+        let n1 = graph.add_node(vertex_with_rank(0));
+        let n2 = graph.add_node(vertex_with_rank(0));
+        let s0 = graph.add_node(vertex_with_rank(1));
+        let s1 = graph.add_node(vertex_with_rank(1));
 
         graph.add_edge(n0, s1, Edge::default());
         graph.add_edge(n1, s0, Edge::default());
@@ -340,14 +348,14 @@ mod order {
     #[test]
     fn four_crossings() {
         let mut graph = StableDiGraph::new();
-        let n0 = graph.add_node(Vertex::new_with_rank(0));
-        let n1 = graph.add_node(Vertex::new_with_rank(0));
-        let n2 = graph.add_node(Vertex::new_with_rank(0));
-        let n3 = graph.add_node(Vertex::new_with_rank(0));
-        let s0 = graph.add_node(Vertex::new_with_rank(1));
-        let s1 = graph.add_node(Vertex::new_with_rank(1));
-        let s2 = graph.add_node(Vertex::new_with_rank(1));
-        let s3 = graph.add_node(Vertex::new_with_rank(1));
+        let n0 = graph.add_node(vertex_with_rank(0));
+        let n1 = graph.add_node(vertex_with_rank(0));
+        let n2 = graph.add_node(vertex_with_rank(0));
+        let n3 = graph.add_node(vertex_with_rank(0));
+        let s0 = graph.add_node(vertex_with_rank(1));
+        let s1 = graph.add_node(vertex_with_rank(1));
+        let s2 = graph.add_node(vertex_with_rank(1));
+        let s3 = graph.add_node(vertex_with_rank(1));
 
         graph.add_edge(n0, s3, Edge::default());
         graph.add_edge(n1, s2, Edge::default());
@@ -362,17 +370,17 @@ mod order {
     #[test]
     fn twelve_crossings() {
         let mut g = StableDiGraph::<Vertex, Edge>::new();
-        let n0 = g.add_node(Vertex::new_with_rank(0));
-        let n1 = g.add_node(Vertex::new_with_rank(0));
-        let n2 = g.add_node(Vertex::new_with_rank(0));
-        let n3 = g.add_node(Vertex::new_with_rank(0));
-        let n4 = g.add_node(Vertex::new_with_rank(0));
-        let n5 = g.add_node(Vertex::new_with_rank(0));
-        let s0 = g.add_node(Vertex::new_with_rank(1));
-        let s1 = g.add_node(Vertex::new_with_rank(1));
-        let s2 = g.add_node(Vertex::new_with_rank(1));
-        let s3 = g.add_node(Vertex::new_with_rank(1));
-        let s4 = g.add_node(Vertex::new_with_rank(1));
+        let n0 = g.add_node(vertex_with_rank(0));
+        let n1 = g.add_node(vertex_with_rank(0));
+        let n2 = g.add_node(vertex_with_rank(0));
+        let n3 = g.add_node(vertex_with_rank(0));
+        let n4 = g.add_node(vertex_with_rank(0));
+        let n5 = g.add_node(vertex_with_rank(0));
+        let s0 = g.add_node(vertex_with_rank(1));
+        let s1 = g.add_node(vertex_with_rank(1));
+        let s2 = g.add_node(vertex_with_rank(1));
+        let s3 = g.add_node(vertex_with_rank(1));
+        let s4 = g.add_node(vertex_with_rank(1));
 
         g.add_edge(n0, s0, Edge::default());
         g.add_edge(n1, s1, Edge::default());
@@ -393,19 +401,19 @@ mod order {
     #[test]
     fn test_barycenter() {
         let mut graph = StableDiGraph::new();
-        let n0 = graph.add_node(Vertex::new_with_rank(0)); // 33
-        let n1 = graph.add_node(Vertex::new_with_rank(0)); // 28
-        let n2 = graph.add_node(Vertex::new_with_rank(0)); // 6
-        let n3 = graph.add_node(Vertex::new_with_rank(0)); // 42
-        let n4 = graph.add_node(Vertex::new_with_rank(0)); // 31
-        let n5 = graph.add_node(Vertex::new_with_rank(0)); // 25
-        let n6 = graph.add_node(Vertex::new_with_rank(0)); // 38
-        let n7 = graph.add_node(Vertex::new_with_rank(0)); // 34
-        let s0 = graph.add_node(Vertex::new_with_rank(1)); // 9
-        let s1 = graph.add_node(Vertex::new_with_rank(1)); // 43
-        let s2 = graph.add_node(Vertex::new_with_rank(1)); // 8
-        let s3 = graph.add_node(Vertex::new_with_rank(1)); // 39
-        let s4 = graph.add_node(Vertex::new_with_rank(1)); // 35
+        let n0 = graph.add_node(vertex_with_rank(0)); // 33
+        let n1 = graph.add_node(vertex_with_rank(0)); // 28
+        let n2 = graph.add_node(vertex_with_rank(0)); // 6
+        let n3 = graph.add_node(vertex_with_rank(0)); // 42
+        let n4 = graph.add_node(vertex_with_rank(0)); // 31
+        let n5 = graph.add_node(vertex_with_rank(0)); // 25
+        let n6 = graph.add_node(vertex_with_rank(0)); // 38
+        let n7 = graph.add_node(vertex_with_rank(0)); // 34
+        let s0 = graph.add_node(vertex_with_rank(1)); // 9
+        let s1 = graph.add_node(vertex_with_rank(1)); // 43
+        let s2 = graph.add_node(vertex_with_rank(1)); // 8
+        let s3 = graph.add_node(vertex_with_rank(1)); // 39
+        let s4 = graph.add_node(vertex_with_rank(1)); // 35
 
         graph.add_edge(n0, s0, Edge::default());
         graph.add_edge(n1, s0, Edge::default());
