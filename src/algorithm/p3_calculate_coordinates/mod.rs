@@ -375,7 +375,7 @@ fn pred(vertex: Vertex, layers: &[Vec<NodeIndex>]) -> NodeIndex {
 ///
 /// It is used to determine classes of a block, calculate the x-coordinates of a block
 /// in regard to its class and shift classes together as close as possible.
-
+///
 /// Represents the horizontal direction in which the algorithm is run
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub(crate) enum HDir {
