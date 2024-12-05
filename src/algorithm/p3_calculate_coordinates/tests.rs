@@ -62,6 +62,11 @@ fn create_test_layout() -> (StableDiGraph<Vertex, Edge>, Vec<Vec<NodeIndex>>) {
                 align: *v,
                 sink: *v,
                 is_dummy: v.index() >= 16,
+                size: if v.index() >= 16 {
+                    (1.0, 1.0)
+                } else {
+                    (10.0, 10.0)
+                },
                 ..Default::default()
             };
         }
@@ -329,7 +334,7 @@ fn place_blocks() {
         .map(|v| v.into())
         .collect();
 
-    let x_coordinates = super::place_blocks(&mut g, &l, 10, 1.);
+    let x_coordinates = super::place_blocks(&mut g, &l);
 
     assert_eq!(x_coordinates.len(), 26);
     for v in block_1 {

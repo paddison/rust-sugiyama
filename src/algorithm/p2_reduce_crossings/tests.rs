@@ -2,7 +2,7 @@ use petgraph::stable_graph::{NodeIndex, StableDiGraph};
 
 use super::{Edge, Vertex};
 
-static ONE_DUMMY: [(u32, u32); 9] = [
+const ONE_DUMMY: [(u32, u32); 9] = [
     (0, 1),
     (1, 2),
     (2, 3),
@@ -13,7 +13,7 @@ static ONE_DUMMY: [(u32, u32); 9] = [
     (0, 4),
     (0, 5),
 ];
-static ONE_DUMMY_RANKS: [(u32, u32); 8] = [
+const ONE_DUMMY_RANKS: [(u32, u32); 8] = [
     (0, 0),
     (1, 1),
     (2, 2),
@@ -24,7 +24,7 @@ static ONE_DUMMY_RANKS: [(u32, u32); 8] = [
     (7, 4),
 ];
 
-static THREE_DUMMIES: [(u32, u32); 10] = [
+const THREE_DUMMIES: [(u32, u32); 10] = [
     (0, 1),
     (0, 2),
     (1, 4),
@@ -36,7 +36,7 @@ static THREE_DUMMIES: [(u32, u32); 10] = [
     (6, 7),
     (7, 8),
 ];
-static THREE_DUMMIES_RANKS: [(u32, u32); 9] = [
+const THREE_DUMMIES_RANKS: [(u32, u32); 9] = [
     (0, 0),
     (1, 1),
     (2, 1),
@@ -48,7 +48,7 @@ static THREE_DUMMIES_RANKS: [(u32, u32); 9] = [
     (8, 5),
 ];
 
-static COMPLEX_EXAMPLE: [(u32, u32); 21] = [
+const COMPLEX_EXAMPLE: [(u32, u32); 21] = [
     (0, 1),
     (0, 2),
     (0, 3),
@@ -71,7 +71,7 @@ static COMPLEX_EXAMPLE: [(u32, u32); 21] = [
     (12, 15),
     (12, 13),
 ];
-static COMPLEX_EXAMPLE_RANKS: [(u32, u32); 16] = [
+const COMPLEX_EXAMPLE_RANKS: [(u32, u32); 16] = [
     (0, 0),
     (1, 1),
     (2, 1),
@@ -89,7 +89,7 @@ static COMPLEX_EXAMPLE_RANKS: [(u32, u32); 16] = [
     (15, 5),
     (13, 5),
 ];
-static _TYPE_2_CONFLICT_2_COLS: [(u32, u32); 8] = [
+const _TYPE_2_CONFLICT_2_COLS: [(u32, u32); 8] = [
     (0, 3),
     (1, 2),
     (2, 5),
@@ -100,7 +100,7 @@ static _TYPE_2_CONFLICT_2_COLS: [(u32, u32); 8] = [
     (7, 8),
 ];
 
-static _TYPE_2_CONFLICT_2_COLS_RANKS: [(u32, u32); 9] = [
+const _TYPE_2_CONFLICT_2_COLS_RANKS: [(u32, u32); 9] = [
     (0, 0),
     (1, 0),
     (2, 1),
@@ -112,7 +112,7 @@ static _TYPE_2_CONFLICT_2_COLS_RANKS: [(u32, u32); 9] = [
     (8, 4),
 ];
 
-static _TYPE_2_CONFLICT_2_COLS_DUMMIES: [u32; 4] = [2, 3, 4, 5];
+const _TYPE_2_CONFLICT_2_COLS_DUMMIES: [u32; 4] = [2, 3, 4, 5];
 
 struct GraphBuilder {
     graph: StableDiGraph<Vertex, Edge>,
@@ -174,7 +174,7 @@ mod insert_dummy_vertices {
         let (mut graph, minimum_length) =
             GraphBuilder::new_from_edges_with_ranking(&ONE_DUMMY, &ONE_DUMMY_RANKS).build();
         let n_vertices = graph.node_count();
-        insert_dummy_vertices(&mut graph, minimum_length);
+        insert_dummy_vertices(&mut graph, minimum_length, 0.0);
         // one dummy vertex
         assert_eq!(graph.node_weights().filter(|w| w.is_dummy).count(), 1);
         // one more vertex
@@ -186,7 +186,7 @@ mod insert_dummy_vertices {
         let (mut graph, minimum_length) =
             GraphBuilder::new_from_edges_with_ranking(&THREE_DUMMIES, &THREE_DUMMIES_RANKS).build();
         let n_vertices = graph.node_count();
-        insert_dummy_vertices(&mut graph, minimum_length);
+        insert_dummy_vertices(&mut graph, minimum_length, 0.0);
         // one dummy vertex
         assert_eq!(graph.node_weights().filter(|w| w.is_dummy).count(), 3);
         // one more vertex
@@ -199,7 +199,7 @@ mod insert_dummy_vertices {
             GraphBuilder::new_from_edges_with_ranking(&COMPLEX_EXAMPLE, &COMPLEX_EXAMPLE_RANKS)
                 .build();
         let n_vertices = graph.node_count();
-        insert_dummy_vertices(&mut graph, minimum_length);
+        insert_dummy_vertices(&mut graph, minimum_length, 0.0);
         // one dummy vertex
         assert_eq!(graph.node_weights().filter(|w| w.is_dummy).count(), 7);
         // one more vertex
@@ -260,7 +260,7 @@ mod insert_dummy_vertices {
         }
         let g = StableDiGraph::from_edges(&edges);
         let c = Config::default();
-        crate::algorithm::start(g, c);
+        crate::algorithm::start(g, &c);
     }
 }
 
@@ -276,7 +276,7 @@ mod init_order {
     fn all_neighbors_must_be_at_adjacent_level_one_dummy() {
         let (mut graph, minimum_length) =
             GraphBuilder::new_from_edges_with_ranking(&ONE_DUMMY, &ONE_DUMMY_RANKS).build();
-        insert_dummy_vertices(&mut graph, minimum_length);
+        insert_dummy_vertices(&mut graph, minimum_length, 0.0);
         for v in graph.node_indices() {
             let rank = graph[v].rank;
             for n in graph.neighbors_undirected(v) {
@@ -289,7 +289,7 @@ mod init_order {
     fn all_neighbors_must_be_at_adjacent_level_three_dummies() {
         let (mut graph, minimum_length) =
             GraphBuilder::new_from_edges_with_ranking(&THREE_DUMMIES, &THREE_DUMMIES_RANKS).build();
-        insert_dummy_vertices(&mut graph, minimum_length);
+        insert_dummy_vertices(&mut graph, minimum_length, 0.0);
         for v in graph.node_indices() {
             let rank = graph[v].rank;
             for n in graph.neighbors_undirected(v) {
@@ -304,7 +304,7 @@ mod init_order {
             GraphBuilder::new_from_edges_with_ranking(&COMPLEX_EXAMPLE, &COMPLEX_EXAMPLE_RANKS)
                 .build();
 
-        insert_dummy_vertices(&mut graph, minimum_length);
+        insert_dummy_vertices(&mut graph, minimum_length, 0.0);
         for v in graph.node_indices() {
             let rank = graph[v].rank;
             for n in graph.neighbors_undirected(v) {

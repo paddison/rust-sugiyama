@@ -16,7 +16,7 @@
 //!
 //! See the submodules for each phase for more details on the implementation
 //! and references used.
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use log::{debug, info};
 use petgraph::stable_graph::{EdgeIndex, NodeIndex, StableDiGraph};
@@ -35,9 +35,10 @@ mod p1_layering;
 mod p2_reduce_crossings;
 mod p3_calculate_coordinates;
 
-#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) struct Vertex {
     id: usize,
+    size: (f64, f64),
     rank: i32,
     pos: usize,
     low: u32,
@@ -49,12 +50,14 @@ pub(super) struct Vertex {
     align: NodeIndex,
     shift: isize,
     sink: NodeIndex,
+    block_max_vertex_width: f64,
 }
 
 impl Vertex {
-    pub(super) fn new(id: usize) -> Self {
+    pub(super) fn new(id: usize, size: (f64, f64)) -> Self {
         Self {
             id,
+            size,
             ..Default::default()
         }
     }
@@ -64,6 +67,7 @@ impl Default for Vertex {
     fn default() -> Self {
         Self {
             id: 0,
+            size: (0.0, 0.0),
             rank: 0,
             pos: 0,
             low: 0,
@@ -75,6 +79,7 @@ impl Default for Vertex {
             align: 0.into(),
             shift: isize::MAX,
             sink: 0.into(),
+            block_max_vertex_width: 0.0,
         }
     }
 }
@@ -98,31 +103,12 @@ impl Default for Edge {
     }
 }
 
-pub(super) fn _build_layout_from_edges(edges: &[(u32, u32)], config: Config) -> Layouts<usize> {
-    let graph = StableDiGraph::<Vertex, Edge>::from_edges(edges);
-    // initialize vertex ids to NodeIndex
-    start(graph, config)
-}
-
-pub(super) fn _build_layout_from_graph<T, E>(
-    graph: &StableDiGraph<T, E>,
-    config: Config,
-) -> Layouts<usize> {
-    // does this guarantee that ids will match?
-    let algo_graph = graph.map(|_, _| Vertex::default(), |_, _| Edge::default());
-    start(algo_graph, config)
-}
-
-pub(super) fn start(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layouts<usize> {
+pub(super) fn start(mut graph: StableDiGraph<Vertex, Edge>, config: &Config) -> Layouts<usize> {
     init_graph(&mut graph);
     weakly_connected_components(graph)
         .into_iter()
         .map(|g| build_layout(g, config))
         .collect()
-}
-
-pub(super) fn _map_input_graph<V, E>(graph: &StableDiGraph<V, E>) -> StableDiGraph<Vertex, Edge> {
-    graph.map(|_, _| Vertex::default(), |_, _| Edge::default())
 }
 
 fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
@@ -135,9 +121,18 @@ fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
     }
 }
 
-fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layout {
+fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: &Config) -> Layout {
     info!(target: "layouting", "Start building layout");
     info!(target: "layouting", "Configuration is: {:?}", config);
+
+    // Treat the vertex spacing as just additional padding in each node. Each node will then take
+    // 50% of the "responsibility" of the vertex spacing. This does however mean that dummy vertices
+    // will have a gap of 50% of the vertex spacing between them and the next and previous vertex.
+    for vertex in graph.node_weights_mut() {
+        vertex.size.0 += config.vertex_spacing as f64;
+        vertex.size.1 += config.vertex_spacing as f64;
+    }
+
     // we don't remember the edges that where reversed for now, since they are
     // currently not needed
     let _ = execute_phase_0(&mut graph);
@@ -151,12 +146,12 @@ fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layou
     let layers = execute_phase_2(
         &mut graph,
         config.minimum_length as i32,
-        config.dummy_vertices,
+        config.dummy_vertices.then_some(config.dummy_size),
         config.c_minimization,
         config.transpose,
     );
 
-    let layout = execute_phase_3(&mut graph, layers, config.vertex_spacing, config.dummy_size);
+    let layout = execute_phase_3(&mut graph, layers);
     debug!(target: "layouting", "Coordinates: {:?}\nwidth: {}, height:{}",
         layout.0,
         layout.1,
@@ -180,25 +175,26 @@ fn execute_phase_1(
     p1::rank(graph, minimum_length, ranking_type);
 }
 
-/// Reorder vertices in ranks to reduce crossings
+/// Reorder vertices in ranks to reduce crossings. If `dummy_size` is [Some],
+/// dummies will be passed along to the next phase.
 fn execute_phase_2(
     graph: &mut StableDiGraph<Vertex, Edge>,
     minimum_length: i32,
-    dummy_vertices: bool,
+    dummy_size: Option<f64>,
     crossing_minimization: CrossingMinimization,
     transpose: bool,
 ) -> Vec<Vec<NodeIndex>> {
     info!(target: "layouting", "Executing phase 2: Crossing Reduction");
     info!(target: "layouting",
-        "Has dummy vertices: {}, heuristic for crossing minimization: {:?}, using transpose: {}",
-        dummy_vertices,
+        "dummy vertex size: {:?}, heuristic for crossing minimization: {:?}, using transpose: {}",
+        dummy_size,
         crossing_minimization,
         transpose
     );
 
-    p2::insert_dummy_vertices(graph, minimum_length);
+    p2::insert_dummy_vertices(graph, minimum_length, dummy_size.unwrap_or(0.0));
     let mut order = p2::ordering(graph, crossing_minimization, transpose);
-    if !dummy_vertices {
+    if dummy_size.is_none() {
         p2::remove_dummy_vertices(graph, &mut order);
     }
     order
@@ -208,11 +204,8 @@ fn execute_phase_2(
 fn execute_phase_3(
     graph: &mut StableDiGraph<Vertex, Edge>,
     mut layers: Vec<Vec<NodeIndex>>,
-    vertex_spacing: usize,
-    dummy_size: f64,
 ) -> Layout {
     info!(target: "layouting", "Executing phase 3: Coordinate Calculation");
-    info!(target: "layouting", "Dummy vertices size (if enabled): {dummy_size}");
     for n in graph.node_indices().collect::<Vec<_>>() {
         if graph[n].is_dummy {
             graph[n].id = n.index();
@@ -220,7 +213,7 @@ fn execute_phase_3(
     }
     let width = layers.iter().map(|l| l.len()).max().unwrap_or(0);
     let height = layers.len();
-    let mut layouts = p3::create_layouts(graph, &mut layers, vertex_spacing, dummy_size);
+    let mut layouts = p3::create_layouts(graph, &mut layers);
 
     p3::align_to_smallest_width_layout(&mut layouts);
     let mut x_coordinates = p3::calculate_relative_coords(layouts);
@@ -230,6 +223,26 @@ fn execute_phase_3(
     // shift all coordinates so the minimum coordinate is 0
     for (_, c) in &mut x_coordinates {
         *c -= min;
+    }
+
+    // Find max y size in each rank. Use a BTreeMap so iteration through the map
+    // is ordered.
+    let mut rank_to_max_height = BTreeMap::<i32, f64>::new();
+    for vertex in graph.node_weights() {
+        let max = rank_to_max_height.entry(vertex.rank).or_default();
+        *max = max.max(vertex.size.1);
+    }
+
+    // Stack up each rank to assign it an offset. The gap between each rank and the next is half the
+    // height of the current rank, plus half the height of the next rank.
+    let mut rank_to_y_offset = HashMap::new();
+    let mut current_rank_top_offset = *rank_to_max_height.iter().next().unwrap().1 * -0.5;
+    for (rank, max_height) in rank_to_max_height {
+        // The center of the rank is the middle of the max height plus the top of the rank.
+        rank_to_y_offset.insert(rank, current_rank_top_offset + max_height * 0.5);
+        // Shift by the height of the rank. The height of a rank already includes the vertex
+        // spacing.
+        current_rank_top_offset += max_height;
     }
 
     let mut v = x_coordinates.iter().collect::<Vec<_>>();
@@ -243,7 +256,7 @@ fn execute_phase_3(
             .map(|(v, x)| {
                 (
                     graph[v].id,
-                    (x, -(graph[v].rank as isize * vertex_spacing as isize)),
+                    (x, *rank_to_y_offset.get(&graph[v].rank).unwrap() as isize),
                 )
             })
             .collect::<Vec<_>>(),

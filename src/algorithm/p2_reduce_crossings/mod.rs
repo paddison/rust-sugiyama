@@ -192,7 +192,11 @@ impl DerefMut for Order {
     }
 }
 
-pub(super) fn insert_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, minimum_length: i32) {
+pub(super) fn insert_dummy_vertices(
+    graph: &mut StableDiGraph<Vertex, Edge>,
+    minimum_length: i32,
+    dummy_size: f64,
+) {
     // find all edges that have slack of greater than 0.
     // and insert dummy vertices
     info!(target: "crossing_reduction", "Inserting dummy vertices for edges spanning more than {minimum_length} ranks");
@@ -211,6 +215,7 @@ pub(super) fn insert_dummy_vertices(graph: &mut StableDiGraph<Vertex, Edge>, min
                 // usize usize::MAX id as reserved value for a dummy vertex
                 let d = Vertex {
                     is_dummy: true,
+                    size: (dummy_size, 0.0),
                     ..Default::default()
                 };
                 let new = graph.add_node(d);
