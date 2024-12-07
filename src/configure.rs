@@ -5,7 +5,7 @@ use petgraph::stable_graph::StableDiGraph;
 
 // Default values for configuration
 pub const MINIMUM_LENGTH_DEFAULT: u32 = 1;
-pub const VERTEX_SPACING_DEFAULT: usize = 10;
+pub const VERTEX_SPACING_DEFAULT: f64 = 10.0;
 pub const DUMMY_VERTICES_DEFAULT: bool = true;
 pub const RANKING_TYPE_DEFAULT: RankingType = RankingType::MinimizeEdgeLength;
 pub const C_MINIMIZATION_DEFAULT: CrossingMinimization = CrossingMinimization::Barycenter;
@@ -46,7 +46,7 @@ pub struct Config {
     pub minimum_length: u32,
     /// The minimum spacing between vertices on the same layer and between
     /// layers.
-    pub vertex_spacing: usize,
+    pub vertex_spacing: f64,
     /// Whether to include dummy vertices when calculating the layout.
     pub dummy_vertices: bool,
     /// How much space a dummy should take up, as a multiplier of the
@@ -100,7 +100,7 @@ impl Config {
 
         read_env!(
             config.vertex_spacing,
-            (|x| x.parse::<usize>()),
+            (|x| x.parse::<f64>()),
             ENV_VERTEX_SPACING
         );
 
@@ -215,7 +215,7 @@ fn from_env_all_valid() {
     assert_eq!(cfg.ranking_type, RankingType::Up);
     assert_eq!(cfg.c_minimization, CrossingMinimization::Median);
     assert_eq!(cfg.transpose, false);
-    assert_eq!(cfg.vertex_spacing, 20);
+    assert_eq!(cfg.vertex_spacing, 20.0);
 }
 
 #[test]
@@ -223,7 +223,7 @@ fn from_env_invalid_value() {
     use std::env;
 
     env::set_var(ENV_CROSSING_MINIMIZATION, "flubbeldiflap");
-    env::set_var(ENV_VERTEX_SPACING, "1.5");
+    env::set_var(ENV_VERTEX_SPACING, "1bleh0");
     let cfg = Config::new_from_env();
     let default = Config::default();
     assert_eq!(default.c_minimization, cfg.c_minimization);

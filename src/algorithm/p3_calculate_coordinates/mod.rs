@@ -13,7 +13,7 @@ use super::{slack, Edge, Vertex};
 pub(super) fn create_layouts(
     graph: &mut StableDiGraph<Vertex, Edge>,
     layers: &mut [Vec<NodeIndex>],
-) -> Vec<HashMap<NodeIndex, isize>> {
+) -> Vec<HashMap<NodeIndex, f64>> {
     info!(target: "coordinate_calculation", "Creating individual layouts for coordinate calculation");
     let mut layouts = Vec::new();
     mark_type_1_conflicts(graph, layers);
@@ -50,14 +50,14 @@ pub(super) fn create_layouts(
     layouts
 }
 
-pub(crate) fn align_to_smallest_width_layout(aligned_layouts: &mut [HashMap<NodeIndex, isize>]) {
+pub(crate) fn align_to_smallest_width_layout(aligned_layouts: &mut [HashMap<NodeIndex, f64>]) {
     info!(target: "coordinate_calculation", "Aligning all layouts to the one with the smallest width");
     // determine minimum and maximum coordinate of each layout, plus the width
-    let min_max: Vec<(isize, isize, isize)> = aligned_layouts
+    let min_max: Vec<(f64, f64, f64)> = aligned_layouts
         .iter()
         .map(|c| {
-            let min = *c.values().min().unwrap();
-            let max = *c.values().max().unwrap();
+            let min = *c.values().min_by(|a, b| a.total_cmp(b)).unwrap();
+            let max = *c.values().max_by(|a, b| a.total_cmp(b)).unwrap();
             (min, max, max - min)
         })
         .collect();
@@ -66,7 +66,7 @@ pub(crate) fn align_to_smallest_width_layout(aligned_layouts: &mut [HashMap<Node
     let min_width = min_max
         .iter()
         .enumerate()
-        .min_by(|a, b| a.1 .2.cmp(&b.1 .2))
+        .min_by(|a, b| a.1 .2.total_cmp(&b.1 .2))
         .unwrap()
         .0;
 
@@ -86,8 +86,8 @@ pub(crate) fn align_to_smallest_width_layout(aligned_layouts: &mut [HashMap<Node
 }
 
 pub(crate) fn calculate_relative_coords(
-    aligned_layouts: Vec<HashMap<NodeIndex, isize>>,
-) -> Vec<(NodeIndex, isize)> {
+    aligned_layouts: Vec<HashMap<NodeIndex, f64>>,
+) -> Vec<(NodeIndex, f64)> {
     info!(target: "coordinate_calculation", 
         "Calculate relative coordinates, by taking average between two medians of absolute x-coordinates for each layout direction");
     // sort all 4 coordinates per vertex in ascending order
@@ -105,7 +105,7 @@ pub(crate) fn calculate_relative_coords(
             *aligned_layouts.get(2).unwrap().get(k).unwrap(),
             *aligned_layouts.get(3).unwrap().get(k).unwrap(),
         ];
-        vertex_coordinates.sort();
+        vertex_coordinates.sort_by(|a, b| a.total_cmp(b));
         sorted_layouts.insert(k, vertex_coordinates);
     }
 
@@ -113,7 +113,7 @@ pub(crate) fn calculate_relative_coords(
     // try to use something like mean
     sorted_layouts
         .into_iter()
-        .map(|(k, v)| (*k, (v[0] + v[1] + v[2] + v[3]) / 4))
+        .map(|(k, v)| (*k, (v[0] + v[1] + v[2] + v[3]) / 4.0))
         .collect::<Vec<_>>()
 }
 
@@ -181,7 +181,7 @@ pub(super) fn reset_alignment(graph: &mut StableDiGraph<Vertex, Edge>, layers: &
             let weight: &mut Vertex = &mut graph[*v];
             weight.rank = rank as i32;
             weight.pos = pos;
-            weight.shift = isize::MAX;
+            weight.shift = f64::INFINITY;
             weight.align = *v;
             weight.root = *v;
             weight.sink = *v;
@@ -238,7 +238,7 @@ fn create_vertical_alignments(
 fn do_horizontal_compaction(
     graph: &mut StableDiGraph<Vertex, Edge>,
     layers: &[Vec<NodeIndex>],
-) -> HashMap<NodeIndex, isize> {
+) -> HashMap<NodeIndex, f64> {
     info!(target: "coordinate_calculation", "calculating coordinates for layout.");
     compute_block_max_vertex_widths(graph);
 
@@ -248,9 +248,9 @@ fn do_horizontal_compaction(
     for i in 0..layers.len() {
         let mut v = layers[i][0];
         if graph[v].sink == v {
-            if graph[graph[v].sink].shift == isize::MAX {
+            if graph[graph[v].sink].shift == f64::INFINITY {
                 let v_sink = graph[v].sink;
-                graph[v_sink].shift = 0;
+                graph[v_sink].shift = 0.0;
             }
             let mut j = i; // level index
             let mut k = 0; // vertex in level index
@@ -268,7 +268,7 @@ fn do_horizontal_compaction(
                             + graph[u].block_max_vertex_width)
                             * 0.5;
                         let distance_v_u = *x_coordinates.get(&v).unwrap()
-                            - (*x_coordinates.get(&u).unwrap() + gap as isize);
+                            - (*x_coordinates.get(&u).unwrap() + gap);
                         let u_sink = graph[u].sink;
                         graph[u_sink].shift = graph[u_sink]
                             .shift
@@ -328,7 +328,7 @@ fn compute_block_max_vertex_widths(graph: &mut StableDiGraph<Vertex, Edge>) {
 fn place_blocks(
     graph: &mut StableDiGraph<Vertex, Edge>,
     layers: &[Vec<NodeIndex>],
-) -> HashMap<NodeIndex, isize> {
+) -> HashMap<NodeIndex, f64> {
     info!(target: "coordinate_calculation", "Placing vertices in blocks.");
     let mut x_coordinates = HashMap::new();
     // place blocks
@@ -345,12 +345,12 @@ fn place_block(
     graph: &mut StableDiGraph<Vertex, Edge>,
     layers: &[Vec<NodeIndex>],
     root: NodeIndex,
-    x_coordinates: &mut HashMap<NodeIndex, isize>,
+    x_coordinates: &mut HashMap<NodeIndex, f64>,
 ) {
     if x_coordinates.get(&root).is_some() {
         return;
     }
-    x_coordinates.insert(root, 0);
+    x_coordinates.insert(root, 0.0);
     let mut w = root;
     loop {
         if graph[w].pos > 0 {
@@ -365,10 +365,10 @@ fn place_block(
                     (graph[root].block_max_vertex_width + graph[u].block_max_vertex_width) * 0.5;
                 x_coordinates.insert(
                     root,
-                    *x_coordinates
+                    x_coordinates
                         .get(&root)
                         .unwrap()
-                        .max(&(x_coordinates.get(&u).unwrap() + gap as isize)),
+                        .max(x_coordinates.get(&u).unwrap() + gap),
                 );
             }
         }

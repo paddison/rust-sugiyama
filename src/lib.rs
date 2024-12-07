@@ -10,8 +10,8 @@ mod algorithm;
 pub mod configure;
 mod util;
 
-type Layout = (Vec<(usize, (isize, isize))>, usize, usize);
-type Layouts<T> = Vec<(Vec<(T, (isize, isize))>, usize, usize)>;
+type Layout = (Vec<(usize, (f64, f64))>, f64, f64);
+type Layouts<T> = Vec<(Vec<(T, (f64, f64))>, f64, f64)>;
 
 /// Creates a graph layout from edges, which are given as a `&[(u32, u32)]`.
 ///
@@ -282,8 +282,8 @@ mod check_visuals {
         let (layout, width, height) = &mut from_edges(&edges, &Config::default())[0];
         layout.sort_by(|a, b| a.0.cmp(&b.0));
 
-        assert_eq!(*width, 4);
-        assert_eq!(*height, 6);
+        assert_eq!(*width, 4.0);
+        assert_eq!(*height, 6.0);
         println!("{:?}", layout);
     }
 
@@ -293,11 +293,11 @@ mod check_visuals {
         let layout = from_edges(&edges, &Config::default());
         for (id, (_, y)) in layout[0].0.clone() {
             if id == 2 {
-                assert_eq!(y, 0);
+                assert_eq!(y, 0.0);
             } else if id == 3 || id == 4 || id == 1 {
-                assert_eq!(y, 10);
+                assert_eq!(y, 10.0);
             } else {
-                assert_eq!(y, 20)
+                assert_eq!(y, 20.0)
             }
         }
     }
