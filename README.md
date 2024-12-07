@@ -34,19 +34,34 @@ This takes a `&[u32, u32]` slice and calculates the x and y coordinates, the hei
 use rust_sugiyama::from_edges;
 
 let edges = [
-    (0, 1), 
-    (1, 2), 
-    (1, 3), (1, 4), (1, 5), (1, 6), 
-    (3, 7), (3, 8), (4, 7), (4, 8), 
-    (5, 7), (5, 8), (6, 7), (6, 8), 
-    (7, 9), (8, 9)
+    (0, 1),
+    //
+    (1, 2),
+    (1, 3),
+    (1, 4),
+    (1, 5),
+    (1, 6),
+    //
+    (3, 7),
+    (3, 8),
+    //
+    (4, 7),
+    (4, 8),
+    //
+    (5, 7),
+    (5, 8),
+    //
+    (6, 7),
+    (6, 8),
+    //
+    (7, 9),
+    //
+    (8, 9),
 ];
 
-let layouts = from_edges(&edges)
-    .vertex_spacing(20)
-    .build();
+let layouts = from_edges(&edges).vertex_spacing(20).build();
 
-for (layout, width, height) in &layouts {
+for (layout, width, height) in layouts {
     println!("Coordinates: {:?}", layout);
     println!("width: {width}, height: {height}");
 }
@@ -58,7 +73,7 @@ Takes as input a `&StableDiGraph<V, E>` and calculates the x and y coordinates, 
 
 ```rust
 use rust_sugiyama::from_graph;
-let mut g = petgraph::stable_graph::StableDiGraph::<String, usize>::new();
+let mut g: StableDiGraph<String, usize> = StableDiGraph::new();
 
 let rick = g.add_node("Rick".to_string());
 let morty = g.add_node("Morty".to_string());
@@ -73,16 +88,17 @@ g.add_edge(jerry, summer, 1);
 g.add_edge(beth, morty, 1);
 g.add_edge(jerry, morty, 1);
 
-let layouts = from_graph(&g).build()
+let layouts = from_graph(&g)
+    .build()
     .into_iter()
     .map(|(layout, width, height)| {
         let mut new_layout = std::collections::HashMap::new();
         for (id, coords) in layout {
-            new_layout.insert(g[petgraph::stable_graph::NodeIndex::from(id)].clone(), coords);
+            new_layout.insert(g[NodeIndex::from(id)].clone(), coords);
         }
         (new_layout, width, height)
     })
-    .collect::<Vec<_>>(); 
+    .collect::<Vec<_>>();
 
 for (layout, width, height) in layouts {
     println!("Coordinates: {:?}", layout);
