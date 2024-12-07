@@ -98,31 +98,12 @@ impl Default for Edge {
     }
 }
 
-pub(super) fn _build_layout_from_edges(edges: &[(u32, u32)], config: Config) -> Layouts<usize> {
-    let graph = StableDiGraph::<Vertex, Edge>::from_edges(edges);
-    // initialize vertex ids to NodeIndex
-    start(graph, config)
-}
-
-pub(super) fn _build_layout_from_graph<T, E>(
-    graph: &StableDiGraph<T, E>,
-    config: Config,
-) -> Layouts<usize> {
-    // does this guarantee that ids will match?
-    let algo_graph = graph.map(|_, _| Vertex::default(), |_, _| Edge::default());
-    start(algo_graph, config)
-}
-
-pub(super) fn start(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layouts<usize> {
+pub(super) fn start(mut graph: StableDiGraph<Vertex, Edge>, config: &Config) -> Layouts<usize> {
     init_graph(&mut graph);
     weakly_connected_components(graph)
         .into_iter()
         .map(|g| build_layout(g, config))
         .collect()
-}
-
-pub(super) fn _map_input_graph<V, E>(graph: &StableDiGraph<V, E>) -> StableDiGraph<Vertex, Edge> {
-    graph.map(|_, _| Vertex::default(), |_, _| Edge::default())
 }
 
 fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
@@ -135,7 +116,7 @@ fn init_graph(graph: &mut StableDiGraph<Vertex, Edge>) {
     }
 }
 
-fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: Config) -> Layout {
+fn build_layout(mut graph: StableDiGraph<Vertex, Edge>, config: &Config) -> Layout {
     info!(target: "layouting", "Start building layout");
     info!(target: "layouting", "Configuration is: {:?}", config);
     // we don't remember the edges that where reversed for now, since they are

@@ -260,7 +260,7 @@ mod insert_dummy_vertices {
         }
         let g = StableDiGraph::from_edges(&edges);
         let c = Config::default();
-        crate::algorithm::start(g, c);
+        crate::algorithm::start(g, &c);
     }
 }
 
