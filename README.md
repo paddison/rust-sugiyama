@@ -112,6 +112,7 @@ let layouts = from_graph(
 })
 .collect::<Vec<_>>();
 
+
 for (layout, width, height) in layouts {
     println!("Coordinates: {:?}", layout);
     println!("width: {width}, height: {height}");
