@@ -6,7 +6,7 @@ use crate::algorithm::p1_layering::{
 
 use super::{Edge, Vertex};
 
-pub(crate) static EXAMPLE_GRAPH: [(u32, u32); 9] = [
+pub(crate) const EXAMPLE_GRAPH: [(u32, u32); 9] = [
     (0, 1),
     (1, 2),
     (2, 3),
@@ -17,13 +17,13 @@ pub(crate) static EXAMPLE_GRAPH: [(u32, u32); 9] = [
     (0, 4),
     (0, 5),
 ];
-pub(crate) static EXAMPLE_GRAPH_NON_TIGHT_INITIAL_RANKING: [(u32, u32); 7] =
+pub(crate) const EXAMPLE_GRAPH_NON_TIGHT_INITIAL_RANKING: [(u32, u32); 7] =
     [(0, 1), (1, 2), (2, 3), (3, 7), (4, 6), (5, 6), (6, 7)];
-pub(crate) static EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE: [(u32, u32); 7] =
+pub(crate) const EXAMPLE_GRAPH_FEASIBLE_TREE_NEG_CUT_VALUE: [(u32, u32); 7] =
     [(0, 1), (1, 2), (2, 3), (3, 7), (4, 6), (5, 6), (6, 7)];
-pub(crate) static EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE: [(u32, u32); 7] =
+pub(crate) const EXAMPLE_GRAPH_FEASIBLE_TREE_POS_CUT_VALUE: [(u32, u32); 7] =
     [(0, 1), (0, 4), (1, 2), (2, 3), (3, 7), (4, 6), (5, 6)];
-pub(crate) static LOW_LIM_GRAPH: [(u32, u32); 8] = [
+pub(crate) const LOW_LIM_GRAPH: [(u32, u32); 8] = [
     (0, 1),
     (1, 2),
     (1, 3),
@@ -33,7 +33,7 @@ pub(crate) static LOW_LIM_GRAPH: [(u32, u32); 8] = [
     (4, 7),
     (4, 8),
 ];
-pub(crate) static LOW_LIM_GRAPH_AFTER_UPDATE: [(u32, u32); 8] = [
+pub(crate) const LOW_LIM_GRAPH_AFTER_UPDATE: [(u32, u32); 8] = [
     (0, 1),
     (1, 2),
     (1, 3),
@@ -43,7 +43,7 @@ pub(crate) static LOW_LIM_GRAPH_AFTER_UPDATE: [(u32, u32); 8] = [
     (4, 8),
     (6, 7),
 ];
-pub(crate) static LOW_LIM_GRAPH_LOW_LIM_VALUES: [(u32, u32, u32, Option<u32>); 9] = [
+pub(crate) const LOW_LIM_GRAPH_LOW_LIM_VALUES: [(u32, u32, u32, Option<u32>); 9] = [
     (0, 1, 9, None),
     (1, 1, 3, Some(0)),
     (2, 1, 1, Some(1)),
@@ -54,7 +54,7 @@ pub(crate) static LOW_LIM_GRAPH_LOW_LIM_VALUES: [(u32, u32, u32, Option<u32>); 9
     (7, 6, 6, Some(4)),
     (8, 7, 7, Some(4)),
 ];
-pub(crate) static EXAMPLE_GRAPH_LOW_LIM_VALUES_NEG_CUT_VALUE: [(u32, u32, u32, Option<u32>); 8] = [
+pub(crate) const EXAMPLE_GRAPH_LOW_LIM_VALUES_NEG_CUT_VALUE: [(u32, u32, u32, Option<u32>); 8] = [
     (0, 1, 8, None),
     (1, 1, 7, Some(0)),
     (2, 1, 6, Some(1)),
@@ -65,7 +65,7 @@ pub(crate) static EXAMPLE_GRAPH_LOW_LIM_VALUES_NEG_CUT_VALUE: [(u32, u32, u32, O
     (7, 1, 4, Some(3)),
 ];
 
-pub(crate) static CUT_VALUES_EXAMPLE_GRAPH_NEG_CUT_VALUE: [(u32, u32, i32); 7] = [
+pub(crate) const CUT_VALUES_EXAMPLE_GRAPH_NEG_CUT_VALUE: [(u32, u32, i32); 7] = [
     (0, 1, 3),
     (1, 2, 3),
     (2, 3, 3),

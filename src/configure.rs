@@ -9,21 +9,21 @@ use crate::{
 };
 
 // Default values for configuration
-pub static MINIMUM_LENGTH_DEFAULT: u32 = 1;
-pub static VERTEX_SPACING_DEFAULT: usize = 10;
-pub static DUMMY_VERTICES_DEFAULT: bool = true;
-pub static RANKING_TYPE_DEFAULT: RankingType = RankingType::MinimizeEdgeLength;
-pub static C_MINIMIZATION_DEFAULT: CrossingMinimization = CrossingMinimization::Barycenter;
-pub static TRANSPOSE_DEFAULT: bool = true;
-pub static DUMMY_SIZE_DEFAULT: f64 = 1.0;
+pub const MINIMUM_LENGTH_DEFAULT: u32 = 1;
+pub const VERTEX_SPACING_DEFAULT: usize = 10;
+pub const DUMMY_VERTICES_DEFAULT: bool = true;
+pub const RANKING_TYPE_DEFAULT: RankingType = RankingType::MinimizeEdgeLength;
+pub const C_MINIMIZATION_DEFAULT: CrossingMinimization = CrossingMinimization::Barycenter;
+pub const TRANSPOSE_DEFAULT: bool = true;
+pub const DUMMY_SIZE_DEFAULT: f64 = 1.0;
 
-static ENV_MINIMUM_LENGTH: &str = "RUST_GRAPH_MIN_LEN";
-static ENV_VERTEX_SPACING: &str = "RUST_GRAPH_V_SPACING";
-static ENV_DUMMY_VERTICES: &str = "RUST_GRAPH_DUMMIES";
-static ENV_RANKING_TYPE: &str = "RUST_GRAPH_R_TYPE";
-static ENV_CROSSING_MINIMIZATION: &str = "RUST_GRAPH_CROSS_MIN";
-static ENV_TRANSPOSE: &str = "RUST_GRAPH_TRANSPOSE";
-static ENV_DUMMY_SIZE: &str = "RUST_GRAPH_DUMMY_SIZE";
+const ENV_MINIMUM_LENGTH: &str = "RUST_GRAPH_MIN_LEN";
+const ENV_VERTEX_SPACING: &str = "RUST_GRAPH_V_SPACING";
+const ENV_DUMMY_VERTICES: &str = "RUST_GRAPH_DUMMIES";
+const ENV_RANKING_TYPE: &str = "RUST_GRAPH_R_TYPE";
+const ENV_CROSSING_MINIMIZATION: &str = "RUST_GRAPH_CROSS_MIN";
+const ENV_TRANSPOSE: &str = "RUST_GRAPH_TRANSPOSE";
+const ENV_DUMMY_SIZE: &str = "RUST_GRAPH_DUMMY_SIZE";
 
 pub trait IntoCoordinates {}
 
