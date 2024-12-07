@@ -3,6 +3,15 @@ use std::env;
 use log::error;
 use petgraph::stable_graph::StableDiGraph;
 
+// Default values for configuration
+pub const MINIMUM_LENGTH_DEFAULT: u32 = 1;
+pub const VERTEX_SPACING_DEFAULT: f64 = 10.0;
+pub const DUMMY_VERTICES_DEFAULT: bool = true;
+pub const RANKING_TYPE_DEFAULT: RankingType = RankingType::MinimizeEdgeLength;
+pub const C_MINIMIZATION_DEFAULT: CrossingMinimization = CrossingMinimization::Barycenter;
+pub const TRANSPOSE_DEFAULT: bool = true;
+pub const DUMMY_SIZE_DEFAULT: f64 = 1.0;
+
 const ENV_MINIMUM_LENGTH: &str = "RUST_GRAPH_MIN_LEN";
 const ENV_VERTEX_SPACING: &str = "RUST_GRAPH_V_SPACING";
 const ENV_DUMMY_VERTICES: &str = "RUST_GRAPH_DUMMIES";
@@ -108,13 +117,13 @@ impl Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            minimum_length: 1,
-            vertex_spacing: 10.0,
-            dummy_vertices: true,
-            ranking_type: RankingType::MinimizeEdgeLength,
-            c_minimization: CrossingMinimization::Barycenter,
-            transpose: true,
-            dummy_size: 1.0,
+            minimum_length: MINIMUM_LENGTH_DEFAULT,
+            vertex_spacing: VERTEX_SPACING_DEFAULT,
+            dummy_vertices: DUMMY_VERTICES_DEFAULT,
+            ranking_type: RANKING_TYPE_DEFAULT,
+            c_minimization: C_MINIMIZATION_DEFAULT,
+            transpose: TRANSPOSE_DEFAULT,
+            dummy_size: DUMMY_SIZE_DEFAULT,
         }
     }
 }

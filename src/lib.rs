@@ -44,6 +44,7 @@ pub fn from_graph<V, E>(
         |id, v| Vertex::new(id.index(), vertex_size(id, v)),
         |_, _| Edge::default(),
     );
+
     algorithm::start(graph, config)
         .into_iter()
         .map(|(l, w, h)| {
