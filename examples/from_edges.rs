@@ -31,7 +31,7 @@ fn main() {
         &edges,
         &Config {
             vertex_spacing: 20,
-            ..Config::default()
+            ..Default::default()
         },
     );
 
