@@ -37,7 +37,6 @@ fn main() {
         &Config {
             vertex_spacing: 10,
             ..Default::default()
-
         },
     )
     .into_iter()

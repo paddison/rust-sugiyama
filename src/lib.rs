@@ -35,7 +35,6 @@ pub fn from_graph<V, E>(
     vertex_size: &impl Fn(NodeIndex, &V) -> (f64, f64),
     config: &Config,
 ) -> Layouts<NodeIndex> {
-
     info!(target: "initializing", 
         "Creating new layout from existing graph, containing {} vertices and {} edges.", 
         graph.node_count(), 
@@ -252,7 +251,6 @@ mod check_visuals {
                 .into_iter()
                 .map(|v| (v, (0.0, 0.0)))
                 .collect::<Vec<_>>(),
-
             &edges,
             &Config {
                 dummy_vertices: true,
