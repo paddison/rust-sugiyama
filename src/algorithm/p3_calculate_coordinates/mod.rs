@@ -113,7 +113,8 @@ pub(crate) fn calculate_relative_coords(
     // try to use something like mean
     sorted_layouts
         .into_iter()
-        .map(|(k, v)| (*k, (v[0] + v[1] + v[2] + v[3]) / 4.0))
+        // "the average median is both order and separation preserving" [Brandes & Kopf, 2001]
+        .map(|(k, v)| (*k, (v[1] + v[2]) / 2.0))
         .collect::<Vec<_>>()
 }
 
@@ -262,7 +263,7 @@ fn do_horizontal_compaction(
                     v = graph[v].align;
                     j += 1;
 
-                    if graph[v].pos > 1 {
+                    if graph[v].pos > 0 {
                         let u = pred(graph[v], layers);
                         let gap = (graph[v].block_max_vertex_width
                             + graph[u].block_max_vertex_width)
