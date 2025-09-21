@@ -152,7 +152,7 @@ dependencies = [
 
 [[package]]
 name = "rust-sugiyama"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "graph_generator",
  "log",
