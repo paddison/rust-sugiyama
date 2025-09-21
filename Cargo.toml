@@ -17,7 +17,7 @@ keywords = ["graph", "graph-display", "directed-graph"]
 
 [dependencies]
 log = "0.4.20"
-petgraph = "0.6.4"
+petgraph = "0.8.1"
 
 [dev-dependencies]
 graph_generator = { git = "https://github.com/paddison/graph_generator.git" }
